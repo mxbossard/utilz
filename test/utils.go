@@ -32,7 +32,6 @@ func BuildRandTempPath() (filePath string, err error) {
 		return
 	}
 
-	//assert.NoFileExists(t, filePath, "rand temp path should not exists")
 	return
 }
 
