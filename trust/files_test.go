@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"mby.fr/utils/test"
 )
@@ -26,7 +27,8 @@ func assertSignatureDiffer(t *testing.T, expected, actual string, err error, msg
 }
 
 func TestHashEmptyDir(t *testing.T) {
-	path := test.MkRandTempDir()
+	path, err := test.MkRandTempDir()
+	require.NoError(t, err, "should not error")
 	defer os.RemoveAll(path)
 	assert.DirExists(t, path, "Temp dir should exists")
 
@@ -42,7 +44,8 @@ func TestHashEmptyDir(t *testing.T) {
 }
 
 func TestHashDir(t *testing.T) {
-	path := test.MkRandTempDir()
+	path, err := test.MkRandTempDir()
+	require.NoError(t, err, "should not error")
 	defer os.RemoveAll(path)
 	assert.DirExists(t, path, "Temp dir should exists")
 
