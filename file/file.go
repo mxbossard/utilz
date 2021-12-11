@@ -49,3 +49,14 @@ func Chdir(path string) (err error) {
 	err = os.Chdir(path)
 	return
 }
+
+// Create a file with a string content only if file does not exists yet.
+func SoftInitFile(filepath, content string) (path string, err error) {
+	_, err = os.Stat(filepath); 
+	if os.IsNotExist(err) {
+		// Do not overwrite file if it already exists
+		err = os.WriteFile(filepath, []byte(content), 0644)
+	}
+	return
+}
+
