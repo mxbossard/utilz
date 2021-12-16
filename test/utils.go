@@ -1,7 +1,7 @@
 package test
 
 import (
-	"fmt"
+	//"fmt"
 	"os"
 	"path/filepath"
 	//"github.com/stretchr/testify/assert"
@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	fmt.Println("Rand seed initialization ...")
+	//fmt.Println("Rand seed initialization ...")
 	rand.Seed(time.Now().UnixNano())
 }
 
