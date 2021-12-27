@@ -1,4 +1,4 @@
-package error
+package errorz
 
 import (
 	//"fmt"
@@ -9,8 +9,22 @@ type Aggregated struct {
 	errors []error
 }
 
+func (a Aggregated) GotError() bool {
+	return len(a.errors) > 0
+}
+
 func (a *Aggregated) Add(e error) {
 	a.errors = append(a.errors, e)
+}
+
+func (a *Aggregated) AddAll(errs ...error) {
+	for _, e := range errs {
+		a.Add(e)
+	}
+}
+
+func (a *Aggregated) Concat(agg Aggregated) {
+	a.AddAll(agg.errors...)
 }
 
 func (a Aggregated) Error() string {
