@@ -36,6 +36,10 @@ func (a Aggregated) Error() string {
 	return builder.String()
 }
 
+func (a Aggregated) Errors() []error {
+	return a.errors
+}
+
 func (a Aggregated) Is(target error) bool {
 	for _, e := range a.errors {
 		if e == target {
