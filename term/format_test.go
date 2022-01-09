@@ -72,7 +72,7 @@ func TestLineFormatter(t *testing.T) {
 	prefix := "prefix"
 	suffix := "suffix"
 	formatter := LineFormatter{func(line string) string {
-
+		return prefix + line + suffix
 	}}
 	var buffer strings.Builder
 	writer := NewFormattingWriter(&buffer, formatter)
@@ -81,12 +81,12 @@ func TestLineFormatter(t *testing.T) {
 		in, want string
 		err error
 	}{
-		{"", "          ", nil},
-		{"\n", "          \n", nil},
-		{"foo", "       foo", nil},
-		{"foo\n", "       foo\n", nil},
-		{"foo\nbar", "       foo\n       bar", nil},
-		{"foo\nbar\n", "       foo\n       bar\n", nil},
+		{"", prefix + suffix, nil},
+		{"\n", prefix + suffix + "\n", nil},
+		{"foo", prefix + "foo" + suffix, nil},
+		{"foo\n", prefix + "foo" + suffix + "\n", nil},
+		{"foo\nbar", prefix + "foo" + suffix + "\n" + prefix + "bar" + suffix, nil},
+		{"foo\nbar\n", prefix + "foo" + suffix + "\n" + prefix + "bar" + suffix + "\n", nil},
 	}
 	for i, c := range cases {
 		got := formatter.Format(c.in)
