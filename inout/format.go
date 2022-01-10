@@ -57,6 +57,7 @@ type AnsiFormatter struct {
 
 func (f AnsiFormatter) Format(in string) string {
 	var olf OneLineFormatter = func (line string) string {
+		line = strings.ReplaceAll(line, ansi.Reset, ansi.Reset + f.AnsiFormat)
 		return f.AnsiFormat + line + ansi.Reset
 	}
 	return formatLines(in, olf, false)

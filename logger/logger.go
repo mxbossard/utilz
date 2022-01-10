@@ -17,7 +17,6 @@ const (
 	warnAnsiColor = "\033[0;31;43m"
 	errorAnsiColor = "\033[0;97;41m"
 	fatalAnsiColor = "\033[0;97;45m"
-
 )
 
 type Logger interface {
