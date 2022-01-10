@@ -1,4 +1,4 @@
-package term
+package inout
 
 import (
 	"strings"
@@ -29,6 +29,35 @@ func TestAnsiFormatter(t *testing.T) {
 		{"foo\n", expectedAnsiFormat("foo") + "\n", nil},
 		{"foo\nbar", expectedAnsiFormat("foo") + "\n" + expectedAnsiFormat("bar"), nil},
 		{"foo\nbar\n", expectedAnsiFormat("foo") + "\n" + expectedAnsiFormat("bar") + "\n", nil},
+	}
+	for i, c := range cases {
+		got := formatter.Format(c.in)
+		assert.Equal(t, c.want, got, "Bad Formatter value for case #%d", i)
+
+		buffer.Reset()
+		_, err := writer.Write([]byte(c.in))
+		assert.ErrorIs(t, err, c.err, "Bad error returned for case #%d", i)
+		assert.Equal(t, c.want, buffer.String(), "Bad data written for  case #%d", i)
+	}
+}
+
+func TestPrefixFormatter(t *testing.T) {
+	prefix := "foo"
+	leftPad := len(prefix) + 2
+	formatter := PrefixFormatter{Prefix: prefix, LeftPad: leftPad}
+	var buffer strings.Builder
+	writer := NewFormattingWriter(&buffer, formatter)
+
+	cases := []struct {
+		in, want string
+		err error
+	}{
+		{"", "  foo", nil},
+		{"\n", "  foo\n", nil},
+		{"foo", "  foofoo", nil},
+		{"foo\n", "  foofoo\n", nil},
+		{"foo\nbar", "  foofoo\n  foobar", nil},
+		{"foo\nbar\n", "  foofoo\n  foobar\n", nil},
 	}
 	for i, c := range cases {
 		got := formatter.Format(c.in)

@@ -1,14 +1,14 @@
-package term
+package inout
 
 import (
 	"io"
 	//"fmt"
 	"strings"
+
+	"mby.fr/utils/ansi"
 )
 
 // FIXME: For now this package only works for UTF-8
-
-const ansiClear = "\033[0m"
 
 type Formatter interface {
 	Format(string) string
@@ -44,35 +44,66 @@ func formatLines(in string, formatter OneLineFormatter, formatEmptyLines bool) (
 }
 
 type LineFormatter struct {
-	olf OneLineFormatter
+	Olf OneLineFormatter
 }
 
 func (f LineFormatter) Format(in string) string {
-	return formatLines(in, f.olf, true)
+	return formatLines(in, f.Olf, true)
 }
 
 type AnsiFormatter struct {
-        format string
+        AnsiFormat string
 }
 
 func (f AnsiFormatter) Format(in string) string {
 	var olf OneLineFormatter = func (line string) string {
-		return f.format + line + ansiClear
+		return f.AnsiFormat + line + ansi.Reset
 	}
 	return formatLines(in, olf, false)
 }
 
 type LeftPadFormatter struct {
-        pad int
+        Pad int
 }
 
 func (f LeftPadFormatter) Format(in string) string {
         var olf OneLineFormatter = func (line string) (out string) {
-		spaceCount := f.pad - len(line)
+		spaceCount := f.Pad - len(line)
 		if spaceCount > 0 {
 			out += strings.Repeat(" ", spaceCount)
 		}
 		out += line
+		return
+        }
+        return formatLines(in, olf, true)
+}
+
+type PrefixFormatter struct {
+	Prefix string
+        LeftPad int
+        RightPad int
+}
+
+func (f PrefixFormatter) Format(in string) string {
+        var olf OneLineFormatter = func (line string) (out string) {
+		if f.LeftPad > 0 {
+			spaceCount := f.LeftPad - len(f.Prefix)
+			if spaceCount > 0 {
+				out += strings.Repeat(" ", spaceCount)
+			}
+		}
+
+		out += f.Prefix
+
+		if f.RightPad > 0 {
+			spaceCount := f.RightPad - len(out)
+			if spaceCount > 0 {
+				out += strings.Repeat(" ", spaceCount)
+			}
+		}
+
+		out += line
+
 		return
         }
         return formatLines(in, olf, true)

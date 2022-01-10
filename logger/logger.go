@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 	"fmt"
+	"strings"
 	"log"
 )
 
@@ -28,58 +29,64 @@ type Logger interface {
 	Fatal(string, ...interface{})
 }
 
-type BasicLogger struct {
+type Basic struct {
 	out io.Writer
 	name string
 	colored, timed bool
 }
 
-func (l BasicLogger) log(kind, color, format string, a ...interface{}) {
+func (l Basic) log(kind, color, format string, a ...interface{}) {
+	format = strings.TrimSpace(format) + "\n"
 	var prefix string
 	if l.timed {
-		prefix += time.Now().Format(time.RFC3339Nano)
+		time := time.Now().Format(time.RFC3339Nano)
+		prefix += fmt.Sprintf("%-30s ", time)
 	}
-	if l.colored {
-		prefix += fmt.Sprintf("%s%6s%s ", color, kind, ansiClear)
-	} else {
-		prefix += fmt.Sprintf("%6s ", kind)
-	}
+
 	if l.name != "" {
-		prefix += fmt.Sprintf("[%s] ", l.name)
+		prefix += fmt.Sprintf("[ %-25s ] ", l.name)
 	}
+
+	if l.colored {
+		level := fmt.Sprintf("%s %s %s", color, kind, ansiClear)
+		prefix += fmt.Sprintf("%-21s ", level)
+	} else {
+		prefix += fmt.Sprintf("%-6s ", kind)
+	}
+
 	_, err := fmt.Fprintf(l.out, prefix + format, a...)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (l BasicLogger) Trace(format string, a ...interface{}) {
+func (l Basic) Trace(format string, a ...interface{}) {
 	l.log("TRACE", traceAnsiColor, format, a...)
 }
 
-func (l BasicLogger) Debug(format string, a ...interface{}) {
+func (l Basic) Debug(format string, a ...interface{}) {
 	l.log("DEBUG", debugAnsiColor, format, a...)
 }
 
-func (l BasicLogger) Info(format string, a ...interface{}) {
+func (l Basic) Info(format string, a ...interface{}) {
 	l.log("INFO", infoAnsiColor, format, a...)
 }
 
-func (l BasicLogger) Warn(format string, a ...interface{}) {
+func (l Basic) Warn(format string, a ...interface{}) {
 	l.log("WARN", warnAnsiColor, format, a...)
 }
 
-func (l BasicLogger) Error(format string, a ...interface{}) {
+func (l Basic) Error(format string, a ...interface{}) {
 	l.log("ERROR", errorAnsiColor, format, a...)
 }
 
-func (l BasicLogger) Fatal(format string, a ...interface{}) {
+func (l Basic) Fatal(format string, a ...interface{}) {
 	l.log("Fatal", fatalAnsiColor, format, a...)
 	os.Exit(1)
 }
 
 func New(out io.Writer, name string, colored, timed bool) Logger {
-	return BasicLogger{
+	return Basic{
 		out: out, 
 		name: name,
 		colored: colored,
