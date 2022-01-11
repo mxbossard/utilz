@@ -3,6 +3,8 @@ package inout
 import (
 	"sync"
 	"bytes"
+	"io"
+	"time"
 	//"fmt"
 )
 
@@ -45,5 +47,16 @@ func (w CallbackLineWriter) Write(p []byte) (n int, err error) {
                 }
         }
         return
+}
+
+type ActivityWriter struct {
+	Nested io.Writer
+	Activity time.Time
+}
+
+func (w *ActivityWriter) Write(b []byte) (int, error) {
+	t := time.Now()
+	w.Activity = t
+	return w.Nested.Write(b)
 }
 
