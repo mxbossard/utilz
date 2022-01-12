@@ -6,6 +6,9 @@ import (
 )
 
 func Min(times ...time.Time) time.Time {
+	if len(times) == 0 {
+		panic("datetime: no time supplied")
+	}
 	sort.Slice(times, func(i, j int) bool {
 		return times[i].Before(times[j])
 	})
@@ -13,6 +16,9 @@ func Min(times ...time.Time) time.Time {
 }
 
 func Max(times ...time.Time) time.Time {
+	if len(times) == 0 {
+		panic("datetime: no time supplied")
+	}
 	sort.Slice(times, func(i, j int) bool {
 		return times[i].After(times[j])
 	})

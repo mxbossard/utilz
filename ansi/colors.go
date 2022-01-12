@@ -49,13 +49,22 @@ const (
 	BoldWhite	= "\033[1;37m"
 
 	BoldHiBlack	= "\033[1;90m"
-	BoldHiRed		= "\033[1;91m"
+	BoldHiRed	= "\033[1;91m"
 	BoldHiGreen	= "\033[1;92m"
 	BoldHiYellow	= "\033[1;93m"
 	BoldHiBlue	= "\033[1;94m"
 	BoldHiPurple	= "\033[1;95m"
 	BoldHiCyan	= "\033[1;96m"
 	BoldHiWhite	= "\033[1;97m"
+
+	HilightBlack	= "\033[0;97;40m"
+	HilightRed	= "\033[0;97;41m"
+	HilightGreen	= "\033[0;97;42m"
+	HilightYellow	= "\033[0;31;43m"
+	HilightBlue	= "\033[0;97;44m"
+	HilightPurple	= "\033[0;97;45m"
+	HilightCyan	= "\033[0;97;46m"
+	HilightWhite	= "\033[0;90;47m"
 
 )
 

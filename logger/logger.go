@@ -7,16 +7,12 @@ import (
 	"fmt"
 	"strings"
 	"log"
+
+	"mby.fr/utils/ansi"
+	"mby.fr/utils/format"
 )
 
 const (
-	ansiClear = "\033[0m"
-	traceAnsiColor = "\033[0;97;46m"
-	debugAnsiColor = "\033[0;97;44m"
-	infoAnsiColor = "\033[0;97;42m"
-	warnAnsiColor = "\033[0;31;43m"
-	errorAnsiColor = "\033[0;97;41m"
-	fatalAnsiColor = "\033[0;97;45m"
 )
 
 type Logger interface {
@@ -32,10 +28,11 @@ type Basic struct {
 	out io.Writer
 	name string
 	colored, timed bool
+	namePadding int
 }
 
-func (l Basic) log(kind, color, format string, a ...interface{}) {
-	format = strings.TrimSpace(format) + "\n"
+func (l Basic) log(kind, color, f string, a ...interface{}) {
+	f = strings.TrimSpace(f) + "\n"
 	var prefix string
 	if l.timed {
 		time := time.Now().Format(time.RFC3339Nano)
@@ -43,56 +40,58 @@ func (l Basic) log(kind, color, format string, a ...interface{}) {
 	}
 
 	if l.name != "" {
-		prefix += fmt.Sprintf("[ %-25s ] ", l.name)
+		paddedName := format.PadRight(l.name, l.namePadding)
+		prefix += fmt.Sprintf("[%-25s] ", paddedName)
 	}
 
 	if l.colored {
-		level := fmt.Sprintf("%s %s %s", color, kind, ansiClear)
+		level := fmt.Sprintf("%s %s %s", color, kind, ansi.Reset)
 		prefix += fmt.Sprintf("%-21s ", level)
 	} else {
 		prefix += fmt.Sprintf("%-6s ", kind)
 	}
 
-	_, err := fmt.Fprintf(l.out, prefix + format, a...)
+	_, err := fmt.Fprintf(l.out, prefix + f, a...)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
 func (l Basic) Trace(format string, a ...interface{}) {
-	l.log("TRACE", traceAnsiColor, format, a...)
+	l.log("TRACE", ansi.HilightCyan, format, a...)
 }
 
 func (l Basic) Debug(format string, a ...interface{}) {
-	l.log("DEBUG", debugAnsiColor, format, a...)
+	l.log("DEBUG", ansi.HilightGreen, format, a...)
 }
 
 func (l Basic) Info(format string, a ...interface{}) {
-	l.log("INFO", infoAnsiColor, format, a...)
+	l.log("INFO", ansi.HilightBlue, format, a...)
 }
 
 func (l Basic) Warn(format string, a ...interface{}) {
-	l.log("WARN", warnAnsiColor, format, a...)
+	l.log("WARN", ansi.HilightYellow, format, a...)
 }
 
 func (l Basic) Error(format string, a ...interface{}) {
-	l.log("ERROR", errorAnsiColor, format, a...)
+	l.log("ERROR", ansi.HilightRed, format, a...)
 }
 
 func (l Basic) Fatal(format string, a ...interface{}) {
-	l.log("Fatal", fatalAnsiColor, format, a...)
+	l.log("Fatal", ansi.HilightPurple, format, a...)
 	os.Exit(1)
 }
 
-func New(out io.Writer, name string, colored, timed bool) Logger {
+func New(out io.Writer, name string, namePadding int, colored, timed bool) Logger {
 	return Basic{
 		out: out, 
 		name: name,
+		namePadding: namePadding,
 		colored: colored,
 		timed: timed,
 	}
 }
 
-func Default(name string) Logger {
-	return New(os.Stdout, name, true, true)
+func Default(name string, padding int) Logger {
+	return New(os.Stdout, name, padding, true, true)
 }
