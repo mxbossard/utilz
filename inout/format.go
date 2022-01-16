@@ -118,7 +118,15 @@ type FormattingWriter struct {
 func (w FormattingWriter) Write(in []byte) (n int, err error) {
 	s := string(in)
 	formatted := w.formatter.Format(s)
-	return w.out.Write([]byte(formatted))
+
+	out := []byte(formatted)
+	n, err = w.out.Write(out)
+	if n == len(out) {
+		n = len(in)
+	} else {
+		// FIXME: What n to return ?
+	}
+	return
 }
 
 func NewFormattingWriter(out io.Writer, f Formatter) FormattingWriter {
