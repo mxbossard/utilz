@@ -1,4 +1,4 @@
-package logger
+package logz
 
 import (
 	"io"
