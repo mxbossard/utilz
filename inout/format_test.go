@@ -25,9 +25,11 @@ func TestAnsiFormatter(t *testing.T) {
 	}{
 		{"", "", nil},
 		{"\n", "\n", nil},
+		{"\n\n", "\n\n", nil},
 		{"foo", expectedAnsiFormat("foo"), nil},
 		{"foo\n", expectedAnsiFormat("foo") + "\n", nil},
 		{"foo\nbar", expectedAnsiFormat("foo") + "\n" + expectedAnsiFormat("bar"), nil},
+		{"foo\n\nbar", expectedAnsiFormat("foo") + "\n\n" + expectedAnsiFormat("bar"), nil},
 		{"foo\nbar\n", expectedAnsiFormat("foo") + "\n" + expectedAnsiFormat("bar") + "\n", nil},
 	}
 	for i, c := range cases {
@@ -52,11 +54,13 @@ func TestPrefixFormatter(t *testing.T) {
 		in, want string
 		err error
 	}{
-		{"", "  foo", nil},
-		{"\n", "  foo\n", nil},
+		{"", "", nil},
+		{"\n", "\n", nil},
+		{"\n\n", "\n\n", nil},
 		{"foo", "  foofoo", nil},
 		{"foo\n", "  foofoo\n", nil},
 		{"foo\nbar", "  foofoo\n  foobar", nil},
+		{"foo\n\nbar", "  foofoo\n\n  foobar", nil},
 		{"foo\nbar\n", "  foofoo\n  foobar\n", nil},
 	}
 	for i, c := range cases {
@@ -79,11 +83,13 @@ func TestLeftPadFormatter(t *testing.T) {
 		in, want string
 		err error
 	}{
-		{"", "          ", nil},
-		{"\n", "          \n", nil},
+		{"", "", nil},
+		{"\n", "\n", nil},
+		{"\n\n", "\n\n", nil},
 		{"foo", "       foo", nil},
 		{"foo\n", "       foo\n", nil},
 		{"foo\nbar", "       foo\n       bar", nil},
+		{"foo\n\nbar", "       foo\n\n       bar", nil},
 		{"foo\nbar\n", "       foo\n       bar\n", nil},
 	}
 	for i, c := range cases {
@@ -110,11 +116,13 @@ func TestLineFormatter(t *testing.T) {
 		in, want string
 		err error
 	}{
-		{"", prefix + suffix, nil},
-		{"\n", prefix + suffix + "\n", nil},
+		{"", "", nil},
+		{"\n", "\n", nil},
+		{"\n\n", "\n\n", nil},
 		{"foo", prefix + "foo" + suffix, nil},
 		{"foo\n", prefix + "foo" + suffix + "\n", nil},
 		{"foo\nbar", prefix + "foo" + suffix + "\n" + prefix + "bar" + suffix, nil},
+		{"foo\n\nbar", prefix + "foo" + suffix + "\n\n" + prefix + "bar" + suffix, nil},
 		{"foo\nbar\n", prefix + "foo" + suffix + "\n" + prefix + "bar" + suffix + "\n", nil},
 	}
 	for i, c := range cases {

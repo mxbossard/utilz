@@ -48,7 +48,7 @@ type LineFormatter struct {
 }
 
 func (f LineFormatter) Format(in string) string {
-	return formatLines(in, f.Olf, true)
+	return formatLines(in, f.Olf, false)
 }
 
 type AnsiFormatter struct {
@@ -76,7 +76,7 @@ func (f LeftPadFormatter) Format(in string) string {
 		out += line
 		return
         }
-        return formatLines(in, olf, true)
+        return formatLines(in, olf, false)
 }
 
 type PrefixFormatter struct {
@@ -107,7 +107,7 @@ func (f PrefixFormatter) Format(in string) string {
 
 		return
         }
-        return formatLines(in, olf, true)
+        return formatLines(in, olf, false)
 }
 
 type FormattingWriter struct {
