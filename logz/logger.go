@@ -66,11 +66,11 @@ func (l Basic) Debug(format string, a ...interface{}) {
 }
 
 func (l Basic) Info(format string, a ...interface{}) {
-	l.log("INFO", ansi.HilightBlue, format, a...)
+	l.log("INFO ", ansi.HilightBlue, format, a...)
 }
 
 func (l Basic) Warn(format string, a ...interface{}) {
-	l.log("WARN", ansi.HilightYellow, format, a...)
+	l.log("WARN ", ansi.HilightYellow, format, a...)
 }
 
 func (l Basic) Error(format string, a ...interface{}) {
@@ -78,7 +78,7 @@ func (l Basic) Error(format string, a ...interface{}) {
 }
 
 func (l Basic) Fatal(format string, a ...interface{}) {
-	l.log("Fatal", ansi.HilightPurple, format, a...)
+	l.log("FATAL", ansi.HilightPurple, format, a...)
 	os.Exit(1)
 }
 
