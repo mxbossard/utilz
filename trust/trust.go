@@ -2,20 +2,45 @@ package trust
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
-	"reflect"
 
 	"golang.org/x/mod/sumdb/dirhash"
 )
 
-func SignFileContent(path string) (sign string, err error) {
-	return SignFilesContent([]string{path})
+func signString(s string) (sign string, err error) {
+	var hash = sha256.New()
+	_, err = hash.Write([]byte(s))
+	if err != nil {
+		return "", err
+	}
+	ba := hash.Sum(nil)
+	sign = string(ba[:])
+	return
 }
 
-func SignFilesContent(pathes []string) (sign string, err error) {
+func SignStrings(ss ...string) (sign string, err error) {
+	if len(ss) == 0 {
+		return
+	} else if len(ss) == 1 {
+		return signString(ss[0])
+	}
+
+	concat := ""
+	for _, s := range ss {
+		sign, err = signString(s)
+		if err != nil {
+			return "", err
+		}
+		concat += sign + ";"
+	}
+	sign, err = signString(concat)
+	return
+}
+
+func SignFilesContent(pathes ...string) (sign string, err error) {
 	open := func(filePath string) (io.ReadCloser, error) {
 		return os.Open(filePath)
 	}
@@ -42,7 +67,7 @@ func SignDirContent(path string) (sign string, err error) {
 	return
 }
 
-func SignFsContents(pathes []string) (sign string, err error) {
+func SignFsContents(pathes ...string) (sign string, err error) {
 	signatures := map[string]string{}
 	for _, path := range pathes {
 		fileInfo, err := os.Stat(path)
@@ -52,7 +77,7 @@ func SignFsContents(pathes []string) (sign string, err error) {
 		if fileInfo.IsDir() {
 			sign, err = SignDirContent(path)
 		} else {
-			sign, err = SignFileContent(path)
+			sign, err = SignFilesContent(path)
 		}
 		if err != nil {
 			return "", err
@@ -79,17 +104,6 @@ func SignFsContents(pathes []string) (sign string, err error) {
 	return
 }
 
-func SignString(s string) (sign string, err error) {
-	var hash = sha256.New()
-	_, err = hash.Write([]byte(s))
-	if err != nil {
-		return "", err
-	}
-	ba := hash.Sum(nil)
-	sign = string(ba[:])
-	return
-}
-
 /*
 func sortArray(objects []interface{}) error {
 	if len(objects) == 0 {
@@ -104,17 +118,18 @@ func sortArray(objects []interface{}) error {
 }
 */
 
-func SignObject(object interface{}) (sign string, err error) {
+/*
+func SignObject0(object interface{}) (sign string, err error) {
 	v := reflect.ValueOf(object)
 	switch v.Kind() {
 	case reflect.String:
-		sign, err = SignString(v.String())
+		sign, err = SignStrings(v.String())
 
 	case reflect.Slice:
 		concat := ""
 		for i := 0; i < v.Len(); i++ {
 			item := v.Index(i)
-			s, err := SignObject(item)
+			s, err := SignObject(item.Interface())
 			if err != nil {
 				return "", err
 			}
@@ -124,15 +139,16 @@ func SignObject(object interface{}) (sign string, err error) {
 
 	case reflect.Map:
 		concat := ""
+		// FIXME: Must sort map key for a consistent map hash
 		//sortedKeys := sortArray(v.MapKeys())
 		sortedKeys := v.MapKeys()
 		for _, key := range sortedKeys {
 			val := v.MapIndex(key)
-			s1, err := SignObject(key)
+			s1, err := SignObject(key.Interface())
 			if err != nil {
 				return "", err
 			}
-			s2, err := SignObject(val)
+			s2, err := SignObject(val.Interface())
 			if err != nil {
 				return "", err
 			}
@@ -143,5 +159,28 @@ func SignObject(object interface{}) (sign string, err error) {
 	default:
 		err = fmt.Errorf("Not support object type: %T", object)
 	}
+	return
+}
+*/
+
+func SignObject(object interface{}) (sign string, err error) {
+	b, err := json.Marshal(object)
+	if err != nil {
+		return "", err
+	}
+	sign, err = SignStrings(string(b[:]))
+	return sign, err
+}
+
+func SignObjects(objects ...interface{}) (sign string, err error) {
+	concat := ""
+	for _, object := range objects {
+		s, err := SignObject(object)
+		if err != nil {
+			return "", err
+		}
+		concat += s + ";"
+	}
+	sign, err = SignStrings(concat)
 	return
 }
