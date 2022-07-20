@@ -4,9 +4,10 @@ import (
 	//"fmt"
 	"os"
 	"path/filepath"
+
 	//"github.com/stretchr/testify/assert"
-	"time"
 	"math/rand"
+	"time"
 )
 
 func init() {
@@ -17,11 +18,11 @@ func init() {
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func RandSeq(n int) string {
-    b := make([]rune, n)
-    for i := range b {
-        b[i] = letters[rand.Intn(len(letters))]
-    }
-    return string(b)
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
 
 func BuildRandTempPath() (filePath string, err error) {
@@ -35,14 +36,23 @@ func BuildRandTempPath() (filePath string, err error) {
 	return
 }
 
-func MkRandTempDir() (path string, err error) {
-        path, err = BuildRandTempPath()
+func MkRandTempFile() (path string, err error) {
+	path, err = BuildRandTempPath()
 	if err != nil {
 		return
 	}
-        err = os.MkdirAll(path, 0755)
-        //os.Chdir(path)
-        return
+	err = os.WriteFile(path, []byte(""), 0400)
+	return
+}
+
+func MkRandTempDir() (path string, err error) {
+	path, err = BuildRandTempPath()
+	if err != nil {
+		return
+	}
+	err = os.MkdirAll(path, 0755)
+	//os.Chdir(path)
+	return
 }
 
 func MkRandSubDir(parentPath string) (path string, err error) {
@@ -52,8 +62,7 @@ func MkRandSubDir(parentPath string) (path string, err error) {
 	if err != nil {
 		return
 	}
-        err = os.MkdirAll(path, 0755)
-        //os.Chdir(path)
-        return
+	err = os.MkdirAll(path, 0755)
+	//os.Chdir(path)
+	return
 }
-
