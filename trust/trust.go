@@ -41,12 +41,10 @@ func SignDirContent(path string) (sign string, err error) {
 }
 
 func SignContents(pathes []string) (sign string, err error) {
-	var signatures map[string]string
+	signatures := map[string]string{}
 	for _, path := range pathes {
 		fileInfo, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			continue
-		} else {
+		if err != nil {
 			return "", err
 		}
 		if fileInfo.IsDir() {
@@ -61,9 +59,14 @@ func SignContents(pathes []string) (sign string, err error) {
 	}
 
 	var hash = sha256.New()
-	for path, h := range signatures {
+	for _, path := range pathes {
+		h, ok := signatures[path]
+		if !ok {
+			continue
+		}
 		msg := path + ":" + h + ";"
 		_, err = hash.Write([]byte(msg))
+		//fmt.Printf("Added hash: %s\n", msg)
 		if err != nil {
 			return "", err
 		}

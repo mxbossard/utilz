@@ -2,11 +2,12 @@ package trust
 
 import (
 	//"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"mby.fr/utils/test"
 )
@@ -172,4 +173,47 @@ func TestSignDir(t *testing.T) {
 
 	s12, err := SignDirContent(dir1)
 	assertSameSignature(t, s11, s12, err, "adding file3")
+}
+
+func TestSignNotExistsContents(t *testing.T) {
+	path1, err := test.BuildRandTempPath()
+	require.NoError(t, err, "should not error")
+	defer os.RemoveAll(path1)
+
+	_, err = SignContents([]string{path1})
+	require.Error(t, err, "should error")
+}
+
+func TestSignEmptyContents(t *testing.T) {
+	path1, err := test.MkRandTempFile()
+	require.NoError(t, err, "should not error")
+	defer os.RemoveAll(path1)
+	assert.FileExists(t, path1, "Temp file should exists")
+
+	s1, err := SignContents([]string{path1})
+	assertSignatureOk(t, s1, err, "empty file1")
+
+	s2, err := SignContents([]string{path1})
+	assertSameSignature(t, s1, s2, err, "empty file1")
+
+	path2, err := test.MkRandTempFile()
+	require.NoError(t, err, "should not error")
+	defer os.RemoveAll(path2)
+	assert.FileExists(t, path2, "Temp file should exists")
+
+	s3, err := SignContents([]string{path2})
+	assertSignatureOk(t, s3, err, "empty file2")
+
+	s4, err := SignContents([]string{path2})
+	assertSameSignature(t, s3, s4, err, "empty file2")
+
+	s5, err := SignContents([]string{path1, path2})
+	assertSignatureOk(t, s5, err, "empty file1 and file2")
+
+	s6, err := SignContents([]string{path1, path2})
+	assertSameSignature(t, s5, s6, err, "empty file1 and file2")
+
+	assertSignatureDiffer(t, s1, s3, err, "file1 signature should differ from file2")
+	assertSignatureDiffer(t, s1, s5, err, "file1 signature should differ from file1+file2")
+	assertSignatureDiffer(t, s3, s5, err, "file2 signature should differ from file1+file2")
 }
