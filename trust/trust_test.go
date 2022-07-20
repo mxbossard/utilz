@@ -180,20 +180,20 @@ func TestSignNotExistsContents(t *testing.T) {
 	require.NoError(t, err, "should not error")
 	defer os.RemoveAll(path1)
 
-	_, err = SignContents([]string{path1})
+	_, err = SignFsContents([]string{path1})
 	require.Error(t, err, "should error")
 }
 
-func TestSignEmptyContents(t *testing.T) {
+func TestSignEmptyFsContents(t *testing.T) {
 	path1, err := test.MkRandTempFile()
 	require.NoError(t, err, "should not error")
 	defer os.RemoveAll(path1)
 	assert.FileExists(t, path1, "Temp file should exists")
 
-	s1, err := SignContents([]string{path1})
+	s1, err := SignFsContents([]string{path1})
 	assertSignatureOk(t, s1, err, "empty file1")
 
-	s2, err := SignContents([]string{path1})
+	s2, err := SignFsContents([]string{path1})
 	assertSameSignature(t, s1, s2, err, "empty file1")
 
 	path2, err := test.MkRandTempFile()
@@ -201,19 +201,48 @@ func TestSignEmptyContents(t *testing.T) {
 	defer os.RemoveAll(path2)
 	assert.FileExists(t, path2, "Temp file should exists")
 
-	s3, err := SignContents([]string{path2})
+	s3, err := SignFsContents([]string{path2})
 	assertSignatureOk(t, s3, err, "empty file2")
 
-	s4, err := SignContents([]string{path2})
+	s4, err := SignFsContents([]string{path2})
 	assertSameSignature(t, s3, s4, err, "empty file2")
 
-	s5, err := SignContents([]string{path1, path2})
+	s5, err := SignFsContents([]string{path1, path2})
 	assertSignatureOk(t, s5, err, "empty file1 and file2")
 
-	s6, err := SignContents([]string{path1, path2})
+	s6, err := SignFsContents([]string{path1, path2})
 	assertSameSignature(t, s5, s6, err, "empty file1 and file2")
 
 	assertSignatureDiffer(t, s1, s3, err, "file1 signature should differ from file2")
 	assertSignatureDiffer(t, s1, s5, err, "file1 signature should differ from file1+file2")
 	assertSignatureDiffer(t, s3, s5, err, "file2 signature should differ from file1+file2")
+}
+
+func TestSignObject(t *testing.T) {
+	sign1, err := SignObject("")
+	require.NoError(t, err, "should not error")
+	assert.NotEmpty(t, sign1, "should not be empty")
+
+	sign2, err := SignObject("foo")
+	require.NoError(t, err, "should not error")
+	assert.NotEmpty(t, sign2, "should not be empty")
+
+	sign3, err := SignObject("foo")
+	require.NoError(t, err, "should not error")
+	assert.NotEmpty(t, sign2, "should not be empty")
+	assert.Equal(t, sign2, sign3, "should be same signature")
+
+	sign4, err := SignObject([]string{"foo"})
+	require.NoError(t, err, "should not error")
+	assert.NotEmpty(t, sign2, "should not be empty")
+
+	sign5, err := SignObject([]string{"foo"})
+	require.NoError(t, err, "should not error")
+	assert.NotEmpty(t, sign2, "should not be empty")
+	assert.Equal(t, sign4, sign5, "should be same signature")
+
+	sign6, err := SignObject([]string{"foo", "bar"})
+	require.NoError(t, err, "should not error")
+	assert.NotEmpty(t, sign2, "should not be empty")
+	assert.NotEqual(t, sign5, sign6, "should be different signature")
 }
