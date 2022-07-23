@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	//"errors"
 )
 
@@ -17,7 +18,8 @@ type Cache interface {
 }
 
 type persistentCache struct {
-	path string
+	mutex *sync.Mutex
+	path  string
 }
 
 func NewPersistentCache(path string) (cache Cache, err error) {
@@ -29,7 +31,8 @@ func NewPersistentCache(path string) (cache Cache, err error) {
 	if err != nil {
 		return
 	}
-	cache = persistentCache{path}
+	var mutex sync.Mutex
+	cache = persistentCache{&mutex, path}
 	return
 }
 
@@ -45,7 +48,9 @@ func (c persistentCache) bucketFilepath(key string) (dir, path string) {
 func (c persistentCache) LoadString(key string) (value string, ok bool, err error) {
 	_, bucketPath := c.bucketFilepath(key)
 	//fmt.Printf("Loading value from bucket: %s\n", bucketPath)
+	c.mutex.Lock()
 	content, err := os.ReadFile(bucketPath)
+	c.mutex.Unlock()
 	if os.IsNotExist(err) {
 		err = nil
 		return
@@ -60,12 +65,15 @@ func (c persistentCache) LoadString(key string) (value string, ok bool, err erro
 
 func (c persistentCache) StoreString(key, value string) (err error) {
 	dir, path := c.bucketFilepath(key)
+	c.mutex.Lock()
+	// FIXME: always atempt to create dir
 	err = os.MkdirAll(dir, 0755)
 	if err != nil {
 		return
 	}
 	//fmt.Printf("Storing value: %s in bucket: %s ...\n", value, bucket)
 	err = os.WriteFile(path, []byte(value), 0644)
+	c.mutex.Unlock()
 	return
 }
 
