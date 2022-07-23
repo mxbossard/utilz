@@ -3,8 +3,8 @@ package errorz
 import (
 	//"fmt"
 	"errors"
-	"strings"
 	"reflect"
+	"strings"
 )
 
 type Aggregated struct {
@@ -16,14 +16,22 @@ func (a Aggregated) GotError() bool {
 }
 
 func (a *Aggregated) Add(e error) {
-	a.errors = append([]error{e}, a.errors...)
+	if e != nil {
+		a.errors = append([]error{e}, a.errors...)
+	}
 }
 
 func (a *Aggregated) AddAll(errs ...error) {
-	a.errors = append(errs, a.errors...)
-	//for _, e := range errs {
-	//	a.Add(e)
-	//}
+	//a.errors = append(errs, a.errors...)
+	for _, e := range errs {
+		a.Add(e)
+	}
+}
+
+func NewAggregated(errors ...error) Aggregated {
+	agg := Aggregated{}
+	agg.AddAll(errors...)
+	return agg
 }
 
 func (a *Aggregated) Concat(agg Aggregated) {
@@ -60,7 +68,7 @@ func (a Aggregated) Get(target interface{}) (errs []error) {
 
 	// Reverse array order
 	//for i, j := 0, len(errs)-1; i < j; i, j = i+1, j-1 {
-    	//	errs[i], errs[j] = errs[j], errs[i]
+	//	errs[i], errs[j] = errs[j], errs[i]
 	//}
 
 	return errs
@@ -88,7 +96,7 @@ func (a Aggregated) As(target interface{}) bool {
 func (a Aggregated) Unwrap() error {
 	if len(a.errors) > 1 {
 		unwrapped := Aggregated{}
-		unwrapped.errors = a.errors[:len(a.errors) - 1]
+		unwrapped.errors = a.errors[:len(a.errors)-1]
 		return unwrapped
 	}
 	return nil
