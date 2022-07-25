@@ -78,7 +78,6 @@ func (l Basic) Debug(format string, a ...interface{}) {
 }
 
 func (l Basic) Info(format string, a ...interface{}) {
-	fmt.Printf("logz loggingLevel: %d\n", l.loggingLevel)
 	if l.loggingLevel > 1 {
 		l.log("INFO ", ansi.HilightBlue, format, a...)
 	}
