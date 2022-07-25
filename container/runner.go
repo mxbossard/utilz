@@ -13,7 +13,7 @@ var (
 	binary = "docker"
 )
 
-type Run struct {
+type Runner struct {
 	Name       string
 	Remove     bool
 	Entrypoint string
@@ -23,41 +23,41 @@ type Run struct {
 	CmdArgs    []string
 }
 
-func (config Run) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
+func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 	var runParams []string
 	runParams = append(runParams, "run")
 
-	if config.Name != "" {
-		runParams = append(runParams, "--name", config.Name)
+	if r.Name != "" {
+		runParams = append(runParams, "--name", r.Name)
 	}
 
-	if config.Remove {
+	if r.Remove {
 		runParams = append(runParams, "--rm")
 	}
 
-	if config.Entrypoint != "" {
-		runParams = append(runParams, "--entrypoint", config.Entrypoint)
+	if r.Entrypoint != "" {
+		runParams = append(runParams, "--entrypoint", r.Entrypoint)
 	}
 
 	// Add volumes args
-	for _, arg := range config.Volumes {
+	for _, arg := range r.Volumes {
 		runParams = append(runParams, "-v", arg)
 	}
 
 	// Add env args
-	for argKey, argValue := range config.EnvArgs {
+	for argKey, argValue := range r.EnvArgs {
 		var envArg string = "-e=" + argKey + "=" + argValue
 		runParams = append(runParams, envArg)
 	}
 
-	runParams = append(runParams, config.Image)
+	runParams = append(runParams, r.Image)
 
 	// Add command args
-	runParams = append(runParams, config.CmdArgs...)
+	runParams = append(runParams, r.CmdArgs...)
 
 	cmd := exec.Command(binary, runParams...)
 
-	// Manage exec outputs
+	// Manage // exec outputs
 	errors := make(chan error, 10)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -67,13 +67,11 @@ func (config Run) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 	if err != nil {
 		errors <- err
 	}
-
 	go inout.CopyChannelingErrors(stdout, stdOut, errors)
 	go inout.CopyChannelingErrors(stderr, stdErr, errors)
 
 	err = cmd.Start()
 	if err != nil {
-		//logger.Flush()
 		errors <- err
 	}
 	err = cmd.Wait()
