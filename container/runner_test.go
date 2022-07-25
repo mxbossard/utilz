@@ -9,9 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	testImage = "alpine:3.16"
+)
+
 func TestWaitRun(t *testing.T) {
 	expectedOut := "foo"
-	run := Run{Image: "alpine:3.16", CmdArgs: []string{"echo", expectedOut}}
+	run := Runner{Image: testImage, CmdArgs: []string{"echo", expectedOut}}
 	var outBuff bytes.Buffer
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
@@ -23,7 +27,7 @@ func TestWaitRun(t *testing.T) {
 
 func TestWaitRunWithEntrypoint(t *testing.T) {
 	expectedOut := "foo"
-	run := Run{Image: "alpine:3.16", Entrypoint: "echo", CmdArgs: []string{expectedOut}}
+	run := Runner{Image: testImage, Entrypoint: "echo", CmdArgs: []string{expectedOut}}
 	var outBuff bytes.Buffer
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
@@ -37,7 +41,7 @@ func TestWaitRunWithEnvArg(t *testing.T) {
 	expectedOut := "foo"
 	envArgs := make(map[string]string)
 	envArgs["var"] = expectedOut
-	run := Run{Image: "alpine:3.16", EnvArgs: envArgs, CmdArgs: []string{"sh", "-c", "echo $var"}}
+	run := Runner{Image: testImage, EnvArgs: envArgs, CmdArgs: []string{"sh", "-c", "echo $var"}}
 	var outBuff bytes.Buffer
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
