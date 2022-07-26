@@ -81,19 +81,6 @@ func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 	}
 
 	// Aggregate all errors
-	var errors errorz.Aggregated
-	for {
-		var err error
-		// Use select to not block if no error in channel
-		select {
-		case err = <-errorsChan:
-			errors.Add(err)
-		default:
-		}
-		if err == nil {
-			break
-		}
-	}
-
+	var errors = errorz.ConsumedAggregated(errorsChan)
 	return errors.Return()
 }

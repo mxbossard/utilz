@@ -36,12 +36,6 @@ func (a *Aggregated) AddAll(errs ...error) {
 	}
 }
 
-func NewAggregated(errors ...error) Aggregated {
-	agg := Aggregated{}
-	agg.AddAll(errors...)
-	return agg
-}
-
 func (a *Aggregated) Concat(agg Aggregated) {
 	a.AddAll(agg.errors...)
 }
@@ -108,4 +102,28 @@ func (a Aggregated) Unwrap() error {
 		return unwrapped
 	}
 	return nil
+}
+
+// Aggregate all errors in a chan error
+func ConsumedAggregated(errorsChan chan error) Aggregated {
+	var errors Aggregated
+	for {
+		var err error
+		// Use select to not block if no error in channel
+		select {
+		case err = <-errorsChan:
+			errors.Add(err)
+		default:
+		}
+		if err == nil {
+			break
+		}
+	}
+	return errors
+}
+
+func NewAggregated(errors ...error) Aggregated {
+	agg := Aggregated{}
+	agg.AddAll(errors...)
+	return agg
 }
