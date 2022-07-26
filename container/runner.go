@@ -6,6 +6,7 @@ import (
 	"io"
 	"os/exec"
 
+	"mby.fr/utils/errorz"
 	"mby.fr/utils/inout"
 )
 
@@ -23,7 +24,7 @@ type Runner struct {
 	CmdArgs    []string
 }
 
-func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
+func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (errors errorz.Aggregated) {
 	var runParams []string
 	runParams = append(runParams, "run")
 
@@ -58,29 +59,38 @@ func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 	cmd := exec.Command(binary, runParams...)
 
 	// Manage // exec outputs
-	errors := make(chan error, 10)
+	errorsChan := make(chan error, 10)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		errors <- err
+		errorsChan <- err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		errors <- err
+		errorsChan <- err
 	}
-	go inout.CopyChannelingErrors(stdout, stdOut, errors)
-	go inout.CopyChannelingErrors(stderr, stdErr, errors)
+	go inout.CopyChannelingErrors(stdout, stdOut, errorsChan)
+	go inout.CopyChannelingErrors(stderr, stdErr, errorsChan)
 
 	err = cmd.Start()
 	if err != nil {
-		errors <- err
+		errorsChan <- err
 	}
 	err = cmd.Wait()
-	// Return first error from Wait() or from errors chan.
-	if err == nil {
+	if err != nil {
+		errorsChan <- err
+	}
+
+	// Aggregate all errors
+	for {
+		var err error
 		// Use select to not block if no error in channel
 		select {
-		case err = <-errors:
+		case err = <-errorsChan:
+			errors.Add(err)
 		default:
+		}
+		if err == nil {
+			break
 		}
 	}
 
