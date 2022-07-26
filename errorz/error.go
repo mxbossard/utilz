@@ -11,6 +11,14 @@ type Aggregated struct {
 	errors []error
 }
 
+// Return nil if no errors
+func (a Aggregated) Return() error {
+	if !a.GotError() {
+		return nil
+	}
+	return a
+}
+
 func (a Aggregated) GotError() bool {
 	return len(a.errors) > 0
 }

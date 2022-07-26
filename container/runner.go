@@ -24,7 +24,7 @@ type Runner struct {
 	CmdArgs    []string
 }
 
-func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (errors errorz.Aggregated) {
+func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 	var runParams []string
 	runParams = append(runParams, "run")
 
@@ -81,6 +81,7 @@ func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (errors errorz.Aggregat
 	}
 
 	// Aggregate all errors
+	var errors errorz.Aggregated
 	for {
 		var err error
 		// Use select to not block if no error in channel
@@ -94,5 +95,5 @@ func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (errors errorz.Aggregat
 		}
 	}
 
-	return
+	return errors.Return()
 }
