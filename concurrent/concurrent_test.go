@@ -16,7 +16,7 @@ func TestRun(t *testing.T) {
 		return a, nil
 	}
 
-	wg, outputs, errors := Run(p, expected...)
+	wg, outputs, errors := Run[](p, expected...)
 
 	assert.Empty(t, errors)
 	//assert.Empty(t, outputs)
