@@ -20,9 +20,9 @@ func TestWaitRun(t *testing.T) {
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
 
-	require.NoError(t, err)
 	assert.Equal(t, expectedOut+"\n", outBuff.String())
 	assert.Empty(t, errBuff.String())
+	require.NoError(t, err)
 }
 
 func TestWaitRunWithEntrypoint(t *testing.T) {
@@ -32,9 +32,9 @@ func TestWaitRunWithEntrypoint(t *testing.T) {
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
 
-	require.NoError(t, err)
 	assert.Equal(t, expectedOut+"\n", outBuff.String())
 	assert.Empty(t, errBuff.String())
+	require.NoError(t, err)
 }
 
 func TestWaitRunWithEnvArg(t *testing.T) {
@@ -46,7 +46,7 @@ func TestWaitRunWithEnvArg(t *testing.T) {
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
 
-	require.NoError(t, err)
 	assert.Equal(t, expectedOut+"\n", outBuff.String())
 	assert.Empty(t, errBuff.String())
+	require.NoError(t, err)
 }
