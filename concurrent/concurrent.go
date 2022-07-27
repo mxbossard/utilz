@@ -1,8 +1,8 @@
 package concurrent
 
 import (
-	"fmt"
 	"sync"
+	"mby.fr/utils/errorz"
 )
 
 type Processor[I, O any] func(I) (O, error)
@@ -14,10 +14,8 @@ func Run[I, O any](p Processor[I, O], inputs ...I) (*sync.WaitGroup, chan O, cha
 	errors := make(chan error, len(inputs))
 	for _, in := range inputs {
 		wg.Add(1)
-		fmt.Println("Laucnhing")
 		go func(i I) {
 			defer wg.Done()
-			fmt.Println("Laucnhed")
 			out, err := p(i)
 			if err != nil {
 				errors <- err
@@ -30,8 +28,9 @@ func Run[I, O any](p Processor[I, O], inputs ...I) (*sync.WaitGroup, chan O, cha
 	return &wg, outputs, errors
 }
 
-func RunWaiting[I, O any](p Processor[I, O], inputs ...I) (chan O, chan error) {
+func RunWaiting[I, O any](p Processor[I, O], inputs ...I) (chan O, error) {
 	wg, outputs, errors := Run(p, inputs...)
 	wg.Wait()
-	return outputs, errors
+	err := errorz.ConsumedAggregated(errors)
+	return outputs, err.Return()
 }
