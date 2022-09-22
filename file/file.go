@@ -1,6 +1,8 @@
 package file
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -13,25 +15,26 @@ func manageError(err error) bool {
 	return true
 }
 
-// Create a directory. It may already exists. 
+// Create a directory. It may already exists.
 func CreateDirectory(path string) (err error) {
 	err = os.MkdirAll(path, 0755)
 	return
 }
 
-// Create a new directory. 
-func CreateNewDirectory(path string) (err error){
+// Create a new directory.
+func CreateNewDirectory(path string) (err error) {
 	err = os.Mkdir(path, 0755)
 	return
 }
 
-// Create a directory in a parent directory. 
+// Create a directory in a parent directory.
 func CreateSubDirectory(parentDirPath, name string) (path string, err error) {
 	path = filepath.Join(parentDirPath, name)
 	err = CreateDirectory(path)
 	return
 }
-// Create a new directory in a parent directory. 
+
+// Create a new directory in a parent directory.
 func CreateNewSubDirectory(parentDirPath, name string) (path string, err error) {
 	path = filepath.Join(parentDirPath, name)
 	err = CreateNewDirectory(path)
@@ -52,7 +55,7 @@ func Chdir(path string) (err error) {
 
 // Create a file with a string content only if file does not exists yet.
 func SoftInitFile(filepath, content string) (path string, err error) {
-	_, err = os.Stat(filepath); 
+	_, err = os.Stat(filepath)
 	if os.IsNotExist(err) {
 		// Do not overwrite file if it already exists
 		err = os.WriteFile(filepath, []byte(content), 0644)
@@ -60,3 +63,16 @@ func SoftInitFile(filepath, content string) (path string, err error) {
 	return
 }
 
+func Read(filepath string) (content []byte, err error) {
+	content, err = ioutil.ReadFile(filepath)
+	return
+}
+
+func Print(filepath string) (err error) {
+	content, err := Read(filepath)
+	if err != nil {
+		return
+	}
+	fmt.Printf("\n%s\n", content)
+	return
+}
