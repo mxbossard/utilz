@@ -2,7 +2,6 @@ package file
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -64,7 +63,7 @@ func SoftInitFile(filepath, content string) (path string, err error) {
 }
 
 func Read(filepath string) (content []byte, err error) {
-	content, err = ioutil.ReadFile(filepath)
+	content, err = os.ReadFile(filepath)
 	return
 }
 
