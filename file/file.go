@@ -75,3 +75,10 @@ func Print(filepath string) (err error) {
 	fmt.Printf("\n%s\n", content)
 	return
 }
+
+func PrintTree(parentPath string) {
+	filepath.Walk(parentPath, func(name string, info os.FileInfo, err error) error {
+		fmt.Println(name)
+		return nil
+	})
+}
