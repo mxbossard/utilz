@@ -11,10 +11,14 @@ import (
 )
 
 var (
-	binary = "docker"
+	dockerBinary = "docker"
 )
 
-type Runner struct {
+type Runner interface {
+	Wait(io.Writer, io.Writer) error
+}
+
+type DockerRunner struct {
 	Name       string
 	Remove     bool
 	Entrypoint string
@@ -24,7 +28,7 @@ type Runner struct {
 	CmdArgs    []string
 }
 
-func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
+func (r DockerRunner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 	var runParams []string
 	runParams = append(runParams, "run")
 
@@ -56,7 +60,7 @@ func (r Runner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 	// Add command args
 	runParams = append(runParams, r.CmdArgs...)
 
-	cmd := exec.Command(binary, runParams...)
+	cmd := exec.Command(dockerBinary, runParams...)
 
 	// Manage // exec outputs
 	errorsChan := make(chan error, 10)

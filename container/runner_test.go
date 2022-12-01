@@ -15,7 +15,7 @@ var (
 
 func TestWaitRun(t *testing.T) {
 	expectedOut := "foo"
-	run := Runner{Remove: true, Image: testImage, CmdArgs: []string{"echo", expectedOut}}
+	run := DockerRunner{Remove: true, Image: testImage, CmdArgs: []string{"echo", expectedOut}}
 	var outBuff bytes.Buffer
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
@@ -27,7 +27,7 @@ func TestWaitRun(t *testing.T) {
 
 func TestWaitRunWithEntrypoint(t *testing.T) {
 	expectedOut := "foo"
-	run := Runner{Remove: true, Image: testImage, Entrypoint: "echo", CmdArgs: []string{expectedOut}}
+	run := DockerRunner{Remove: true, Image: testImage, Entrypoint: "echo", CmdArgs: []string{expectedOut}}
 	var outBuff bytes.Buffer
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
@@ -41,7 +41,7 @@ func TestWaitRunWithEnvArg(t *testing.T) {
 	expectedOut := "foo"
 	envArgs := make(map[string]string)
 	envArgs["var"] = expectedOut
-	run := Runner{Remove: true, Image: testImage, EnvArgs: envArgs, CmdArgs: []string{"sh", "-c", "echo $var"}}
+	run := DockerRunner{Remove: true, Image: testImage, EnvArgs: envArgs, CmdArgs: []string{"sh", "-c", "echo $var"}}
 	var outBuff bytes.Buffer
 	var errBuff bytes.Buffer
 	err := run.Wait(&outBuff, &errBuff)
