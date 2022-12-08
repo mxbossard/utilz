@@ -1,4 +1,4 @@
-package file
+package filez
 
 import (
 	"fmt"
@@ -81,4 +81,13 @@ func PrintTree(parentPath string) {
 		fmt.Println(name)
 		return nil
 	})
+}
+
+func IsDirectory(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	return fileInfo.IsDir(), err
 }
