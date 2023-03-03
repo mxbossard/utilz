@@ -8,12 +8,48 @@ import (
 	//"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"mby.fr/utils/promise"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCmd(t *testing.T) {
+	c := Cmd("echo", "foo")
+	assert.NotNil(t, c)
+	assert.NotNil(t, c.Cmd)
+	assert.NotNil(t, c.config)
+	assert.NotNil(t, c.stdoutRecord)
+	assert.NotNil(t, c.stderrRecord)
+	assert.Len(t, c.ResultsCodes, 0)
+	assert.Len(t, c.Executions, 0)
+}
+
+func TestCmdCtx(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	c := CmdCtx(ctx, "echo", "foo")
+	assert.NotNil(t, c)
+	assert.NotNil(t, c.Cmd)
+	assert.NotNil(t, c.config)
+	assert.NotNil(t, c.stdoutRecord)
+	assert.NotNil(t, c.stderrRecord)
+	assert.Len(t, c.ResultsCodes, 0)
+	assert.Len(t, c.Executions, 0)
+}
+
+func TestString(t *testing.T) {
+	c := Cmd("echo", "foo")
+	assert.Equal(t, "echo foo", c.String())
+
+	c.AddArgs("bar", "$val")
+	assert.Equal(t, "echo foo bar $val", c.String())
+
+	c.AddEnv("val", "baz")
+	assert.Equal(t, "echo foo bar $val", c.String())
+}
 
 func TestAddArgs(t *testing.T) {
 	e := Cmd("echo")
@@ -24,7 +60,7 @@ func TestAddArgs(t *testing.T) {
 	assert.Equal(t, []string{"echo", "foo", "bar", "baz"}, e.Args)
 }
 
-func TestRecordingOutputs(t *testing.T) {
+func TestBlockRun(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg := "foobar"
 	e := Cmd(echoBinary, echoArg)
@@ -33,13 +69,15 @@ func TestRecordingOutputs(t *testing.T) {
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
 	assert.Equal(t, []int{0}, e.ResultsCodes)
-	sout := e.StdoutRecord()
-	serr := e.StderrRecord()
-	assert.Equal(t, echoArg+"\n", sout)
-	assert.Equal(t, "", serr)
+
+	e2 := Cmd("false")
+	rc2, err2 := e2.BlockRun()
+	require.NoError(t, err2, "should not error")
+	assert.Equal(t, 1, rc2)
+	assert.Equal(t, []int{1}, e2.ResultsCodes)
 }
 
-func TestBlockRun(t *testing.T) {
+func TestBlockRun_WithOutputs(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg := "foobar"
 	stdout := strings.Builder{}
@@ -54,6 +92,33 @@ func TestBlockRun(t *testing.T) {
 	serr := stderr.String()
 	assert.Equal(t, echoArg+"\n", sout)
 	assert.Equal(t, "", serr)
+}
+
+func TestBlockRun_RecordingOutputs(t *testing.T) {
+	echoBinary := "/bin/echo"
+	echoArg := "foobar"
+	e := Cmd(echoBinary, echoArg)
+
+	rc, err := e.BlockRun()
+	require.NoError(t, err, "should not error")
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{0}, e.ResultsCodes)
+	sout := e.StdoutRecord()
+	serr := e.StderrRecord()
+	assert.Equal(t, echoArg+"\n", sout)
+	assert.Equal(t, "", serr)
+}
+
+func TestBlockRun_WithEnv(t *testing.T) {
+	e := Cmd("/bin/sh", "-c", "echo foo $VALUE").AddEnv("VALUE", "baz")
+	//e := Cmd("/bin/sh", "-c", "export").AddEnv("VALUE", "baz")
+
+	rc, err := e.BlockRun()
+	require.NoError(t, err, "should not error")
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, "foo baz\n", e.StdoutRecord())
+	assert.Equal(t, "", e.StderrRecord())
 }
 
 func TesBlockRun_ReRun(t *testing.T) {

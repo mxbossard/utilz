@@ -87,13 +87,16 @@ func (e *cmdz) recordingOutputs(stdout, stderr io.Writer) {
 	e.Stderr = &e.stderrRecord
 }
 
-func (e *cmdz) AddEnv(key, value string) {
+func (e *cmdz) AddEnv(key, value string) *cmdz {
 	entry := fmt.Sprintf("%s=%s", key, value)
 	e.Env = append(e.Env, entry)
+	e.checkpoint()
+	return e
 }
 
-func (e *cmdz) AddArgs(args ...string) {
+func (e *cmdz) AddArgs(args ...string) *cmdz {
 	e.Args = append(e.Args, args...)
+	return e
 }
 
 func (e *cmdz) StdoutRecord() string {
@@ -198,6 +201,7 @@ func (e *cmdz) AsyncRun() *execPromise {
 
 func Cmd(binary string, args ...string) *cmdz {
 	cmd := exec.Command(binary, args...)
+	cmd.Env = make([]string, 8)
 	e := cmdz{Cmd: cmd}
 	e.recordingOutputs(cmd.Stdout, cmd.Stderr)
 	e.checkpoint()
@@ -206,6 +210,7 @@ func Cmd(binary string, args ...string) *cmdz {
 
 func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
 	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd.Env = make([]string, 8)
 	e := cmdz{Cmd: cmd}
 	e.recordingOutputs(cmd.Stdout, cmd.Stderr)
 	e.checkpoint()
