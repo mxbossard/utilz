@@ -5,7 +5,7 @@ import (
 	//"io"
 	"context"
 	//"log"
-	"os/exec"
+	//"os/exec"
 	"strings"
 	"testing"
 
@@ -109,8 +109,8 @@ func TestAsynckRunAll_WithFailure(t *testing.T) {
 	p := AsyncRunAll(e1, e2)
 
 	val, err := WaitAllResults(p)
-	require.Error(t, err)
-	assert.Nil(t, val)
+	require.NoError(t, err)
+	assert.Equal(t, []int{0, 1}, *val)
 }
 
 func TestAsynckRunBest(t *testing.T) {
@@ -159,7 +159,7 @@ func TestAsynckRunBest_WithFailure(t *testing.T) {
 	br, err := WaitBestResults(p)
 	require.NoError(t, err)
 	require.NotNil(t, br)
-	assert.True(t, br.DidError())
+	assert.False(t, br.DidError())
 	assert.Equal(t, 2, br.Len())
 
 	val, err := br.Result(0)
@@ -167,10 +167,7 @@ func TestAsynckRunBest_WithFailure(t *testing.T) {
 	assert.Equal(t, 0, val)
 
 	val, err = br.Result(1)
-	assert.Error(t, err)
-	require.IsType(t, &exec.ExitError{}, err)
-	assert.Equal(t, 1, err.(*exec.ExitError).ProcessState.ExitCode())
-	// FIXME: should return 1 !!!
+	assert.NoError(t, err)
 	assert.Equal(t, 1, val)
 
 }

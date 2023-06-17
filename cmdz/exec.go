@@ -37,8 +37,16 @@ func (e Exec) WithStdOuts() (rc int, err error) {
 
 func (e Exec) BlockRun() (rc int, err error) {
 	err = e.Run()
-	rc = e.ProcessState.ExitCode()
-	return
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			rc = exitErr.ProcessState.ExitCode()
+		} else {
+			return -1, err
+		}
+	} else {
+		rc = e.ProcessState.ExitCode()
+	}
+	return rc, nil
 }
 
 func (e Exec) AsyncRun() *promise.Promise[int] {
