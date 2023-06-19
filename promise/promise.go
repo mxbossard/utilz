@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"mby.fr/utils/errorz"
 )
 
 type Promise[T any] struct {
@@ -189,6 +191,16 @@ func (br BestResults[T]) DidError() bool {
 		}
 	}
 	return false
+}
+
+func (br BestResults[T]) AggError() errorz.Aggregated {
+	var errors []error
+	for _, err := range br.Errors {
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+	return errorz.NewAggregated(errors...)
 }
 
 func (br BestResults[T]) Result(idx int) (T, error) {
