@@ -107,6 +107,16 @@ func WaitAllResults(p *ExecsPromise) (*[]int, error) {
 	return p.Await(ctx)
 }
 
+func ParallelRunAll(forkCount int, execs ...*Exec) ([]int, error) {
+	p := AsyncRunAll(execs...)
+	br, err := WaitAllResults(p)
+	if err != nil {
+		return nil, err
+	}
+
+	return *br, nil
+}
+
 func AsyncRunBest(execs ...*Exec) *promise.Promise[promise.BestResults[int]] {
 	var promises []*promise.Promise[int]
 	for _, e := range execs {
@@ -131,23 +141,16 @@ func WaitBestResults(p *promise.Promise[promise.BestResults[int]]) (*promise.Bes
 	return br, err
 }
 
-func ParallelRetriedRun(retries int, execs ...*Exec) ([]int, error) {
-	rcs := make([]int, len(execs))
-	remainingExecs := execs
-	for i := 0; i < retries && len(remainingExecs) > 0; i++ {
-		p := AsyncRunBest(remainingExecs...)
-		br, err := WaitBestResults(p)
-		if err != nil {
-			return nil, err
-		}
-		remainingExecs = nil
-		for idx, rc := range br.Results {
-			rcs[idx] = rc
-			if rc != 0 {
-				// If rc != 0 exec failed => retrying
-				remainingExecs = append(remainingExecs, execs[idx])
-			}
+func Failed(resultCodes ...int) bool {
+	for _, rc := range resultCodes {
+		if rc != 0 {
+			return true
 		}
 	}
-	return rcs, nil
+	return false
+}
+
+
+func Succeed(resultCodes ...int) bool {
+	return ! Failed(resultCodes...)
 }
