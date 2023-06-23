@@ -1,6 +1,7 @@
 package cmdz
 
 import (
+	//"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"mby.fr/utils/inout"
 	"mby.fr/utils/promise"
 )
 
@@ -17,9 +19,12 @@ type ExecsPromise = promise.Promise[[]int]
 type Exec struct {
 	*exec.Cmd
 
-	Retries int
+	StdoutRecord inout.RecordingWriter
+	StderrRecord inout.RecordingWriter
+
+	Retries        int
 	RetryDelayInMs int64
-	ResultsCodes []int
+	ResultsCodes   []int
 }
 
 func (e *Exec) AddEnv(key, value string) {
@@ -31,6 +36,31 @@ func (e *Exec) AddArgs(args ...string) {
 	e.Args = append(e.Args, args...)
 }
 
+func (e *Exec) RecordingOutputs(stdout, stderr io.Writer) {
+	e.StdoutRecord.Nested = stdout
+	e.StderrRecord.Nested = stderr
+	e.Stdout = &e.StdoutRecord
+	e.Stderr = &e.StderrRecord
+}
+
+/*
+func (e Exec) FlushOutputs() (err error) {
+	if e.StdoutBuffer != nil {
+		err = e.StdoutBuffer.Flush()
+		if err != nil {
+			return
+		}
+	}
+	if e.StderrBuffer != nil {
+		err = e.StderrBuffer.Flush()
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+*/
+
 func (e Exec) String() (t string) {
 	t = strings.Join(e.Args, " ")
 	return
@@ -39,8 +69,8 @@ func (e Exec) String() (t string) {
 func (e *Exec) BlockRun() (rc int, err error) {
 	err = e.Run()
 	rc = -1
-	for i:= 0; i <= e.Retries && rc != 0; i++ {
-		if (i > 0) {
+	for i := 0; i <= e.Retries && rc != 0; i++ {
+		if i > 0 {
 			// Wait between retries
 			time.Sleep(time.Duration(e.RetryDelayInMs) * time.Millisecond)
 		}
@@ -56,6 +86,7 @@ func (e *Exec) BlockRun() (rc int, err error) {
 		}
 		e.ResultsCodes = append(e.ResultsCodes, rc)
 	}
+	//e.FlushOutputs()
 	return rc, nil
 }
 
@@ -73,15 +104,14 @@ func (e *Exec) AsyncRun() *ExecPromise {
 func Execution(binary string, args ...string) *Exec {
 	cmd := exec.Command(binary, args...)
 	e := Exec{Cmd: cmd, RetryDelayInMs: 100}
+	e.RecordingOutputs(cmd.Stdout, cmd.Stderr)
 	return &e
 }
 
 func ExecutionOutputs(stdout, stderr io.Writer, binary string, args ...string) *Exec {
-	cmd := exec.Command(binary, args...)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	e := Exec{Cmd: cmd}
-	return &e
+	e := Execution(binary, args...)
+	e.RecordingOutputs(stdout, stderr)
+	return e
 }
 
 func ExecutionContext(ctx context.Context, binary string, args ...string) *Exec {
@@ -150,7 +180,6 @@ func Failed(resultCodes ...int) bool {
 	return false
 }
 
-
 func Succeed(resultCodes ...int) bool {
-	return ! Failed(resultCodes...)
+	return !Failed(resultCodes...)
 }
