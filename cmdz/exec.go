@@ -24,7 +24,10 @@ type Exec struct {
 
 	Retries        int
 	RetryDelayInMs int64
+	
 	ResultsCodes   []int
+	// FIXME: replace ResultsCodes by Executions
+	Executions []*exec.Cmd
 }
 
 func (e *Exec) AddEnv(key, value string) {
@@ -96,6 +99,7 @@ func (e *Exec) BlockRun() (rc int, err error) {
 			rc = e.ProcessState.ExitCode()
 		}
 		e.ResultsCodes = append(e.ResultsCodes, rc)
+		e.Executions = append(e.Executions, e.Cmd)
 	}
 	return rc, nil
 }
