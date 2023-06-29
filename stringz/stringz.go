@@ -1,7 +1,9 @@
 package stringz
 
 import (
+	"fmt"
 	"regexp"
+	"strings"
 )
 
 func Left(s string, n int) string {
@@ -43,4 +45,17 @@ func SplitByRegexp(s, regex string) (parts []string, separators []string) {
 		s = splitted[1]
 	}
 	return
+}
+
+func JoinStringers[T fmt.Stringer](stringers []T, separator string) string {
+	var b strings.Builder
+	if len(stringers) == 0 {
+		return ""
+	}
+	b.WriteString(stringers[0].String())
+	for _, s := range stringers[1:] {
+		b.WriteString(separator)
+		b.WriteString(s.String())
+	}
+	return b.String()
 }

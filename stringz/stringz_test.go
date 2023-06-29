@@ -1,7 +1,9 @@
 package stringz
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
 )
 
@@ -65,4 +67,31 @@ func TestSplitByRegexp(t *testing.T) {
 		assert.Equal(t, c.want1, got1, "case #%d 1 should be equal", i)
 		assert.Equal(t, c.want2, got2, "case #%d 2 should be equal", i)
 	}
+}
+
+func TestJoinStringers(t *testing.T) {
+	s1 := strings.Builder{}
+	s1.WriteString("foo")
+	s2 := strings.Builder{}
+	s2.WriteString("bar")
+	s3 := strings.Builder{}
+	s3.WriteString("baz")
+
+	t0 := JoinStringers([]fmt.Stringer{&s1}, "-")
+	assert.Equal(t, "foo", t0)
+
+	t1 := JoinStringers([]fmt.Stringer{&s1, &s2}, "")
+	assert.Equal(t, "foobar", t1)
+
+	t2 := JoinStringers([]fmt.Stringer{&s1, &s2}, " ")
+	assert.Equal(t, "foo bar", t2)
+
+	t3 := JoinStringers([]fmt.Stringer{&s1, &s2}, "\n")
+	assert.Equal(t, "foo\nbar", t3)
+
+	t4 := JoinStringers([]fmt.Stringer{&s1, &s2, &s3}, " ")
+	assert.Equal(t, "foo bar baz", t4)
+
+	t5 := JoinStringers([]fmt.Stringer{}, "-")
+	assert.Equal(t, "", t5)
 }

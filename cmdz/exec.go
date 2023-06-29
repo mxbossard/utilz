@@ -2,6 +2,7 @@ package cmdz
 
 import (
 	//"bufio"
+
 	"context"
 	"fmt"
 	"io"
@@ -13,9 +14,6 @@ import (
 	"mby.fr/utils/promise"
 )
 
-type ExecPromise = promise.Promise[int]
-type ExecsPromise = promise.Promise[[]int]
-
 type Exec struct {
 	*exec.Cmd
 
@@ -24,8 +22,8 @@ type Exec struct {
 
 	Retries        int
 	RetryDelayInMs int64
-	
-	ResultsCodes   []int
+
+	ResultsCodes []int
 	// FIXME: replace ResultsCodes by Executions
 	Executions []*exec.Cmd
 }
@@ -71,6 +69,15 @@ func (e Exec) FlushOutputs() (err error) {
 func (e Exec) String() (t string) {
 	t = strings.Join(e.Args, " ")
 	return
+}
+
+func (e Exec) ReportError() string {
+	execCmdSummary := e.String()
+	attempts := len(e.ResultsCodes)
+	status := e.ResultsCodes[attempts-1]
+	stderr := e.StderrRecord.String()
+	errorMessage := fmt.Sprintf("Exec failed after %d attempt(s): [%s] !\nRC=%d ERR> %s", attempts, execCmdSummary, status, strings.TrimSpace(stderr))
+	return errorMessage
 }
 
 func (e *Exec) BlockRun() (rc int, err error) {
@@ -134,111 +141,4 @@ func ExecutionContext(ctx context.Context, binary string, args ...string) *Exec 
 	cmd := exec.CommandContext(ctx, binary, args...)
 	e := Exec{Cmd: cmd}
 	return &e
-}
-
-func AsyncRunAll(execs ...*Exec) *ExecsPromise {
-	var promises []*promise.Promise[int]
-	for _, e := range execs {
-		p := e.AsyncRun()
-		promises = append(promises, p)
-	}
-
-	ctx := context.Background()
-	p := promise.All[int](ctx, promises...)
-	return p
-}
-
-func WaitAllResults(p *ExecsPromise) (*[]int, error) {
-	ctx := context.Background()
-	return p.Await(ctx)
-}
-
-func AsyncRunBest(execs ...*Exec) *promise.Promise[promise.BestResults[int]] {
-	var promises []*promise.Promise[int]
-	for _, e := range execs {
-		p := e.AsyncRun()
-		promises = append(promises, p)
-	}
-
-	ctx := context.Background()
-	p := promise.Best[int](ctx, promises...)
-	return p
-}
-
-func WaitBestResults(p *promise.Promise[promise.BestResults[int]]) (*promise.BestResults[int], error) {
-	ctx := context.Background()
-	br, err := p.Await(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if br.DidError() {
-		return nil, br.AggError()
-	}
-	return br, err
-}
-
-func Failed(resultCodes ...int) bool {
-	for _, rc := range resultCodes {
-		if rc != 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func Succeed(resultCodes ...int) bool {
-	return !Failed(resultCodes...)
-}
-
-func ParallelRunAll(forkCount int, execs ...*Exec) ([]int, error) {
-	p := AsyncRunAll(execs...)
-	br, err := WaitAllResults(p)
-	if err != nil {
-		return nil, err
-	}
-
-	return *br, nil
-}
-
-func reportExecError(exec Exec) string {
-	execCmdSummary := exec.String()
-	attempts := len(exec.ResultsCodes)
-	status := exec.ResultsCodes[attempts-1]
-	stderr := exec.StderrRecord.String()
-	errorMessage := fmt.Sprintf("Exec failed after %d attempt(s): [%s] !\nRC=%d ERR> %s", attempts, execCmdSummary, status, strings.TrimSpace(stderr))
-	return errorMessage
-}
-
-func Parallel(forkCount int, execs ...*Exec) error {
-	statuses, err := ParallelRunAll(forkCount, execs...)
-
-	if err != nil {
-		return err
-	}
-	if Failed(statuses...) {
-		errorMessages := ""
-		for idx, status := range statuses {
-			if status > 0 {
-				//stdout := execs[idx].StdoutRecord.String()
-				execErr := reportExecError(*execs[idx])
-				errorMessages += fmt.Sprintf("%s\n", execErr)
-			}
-		}
-		return fmt.Errorf("Encountered some parallel execution failure: \n%s", errorMessages)
-	}
-	return nil
-}
-
-func Sequential(execs ...*Exec) error {
-	for _, exec := range(execs) {
-		status, err := exec.BlockRun()
-		if err != nil {
-			return err
-		}
-		if status > 0 {
-			execErr := reportExecError(*exec)
-			return fmt.Errorf("Encountered some sequential execution failure: \n%s", execErr)
-		}
-	}
-	return nil
 }
