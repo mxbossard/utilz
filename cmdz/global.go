@@ -8,17 +8,14 @@ import (
 	"mby.fr/utils/promise"
 )
 
-type ExecPromise = promise.Promise[int]
-type ExecsPromise = promise.Promise[[]int]
-
 type Executer interface {
 	String() string
 	ReportError() string
 	BlockRun() (int, error)
-	AsyncRun() *ExecPromise
+	AsyncRun() *execPromise
 }
 
-func AsyncRunAll(execs ...Executer) *ExecsPromise {
+func AsyncRunAll(execs ...Executer) *execsPromise {
 	var promises []*promise.Promise[int]
 	for _, e := range execs {
 		p := e.AsyncRun()
@@ -30,7 +27,7 @@ func AsyncRunAll(execs ...Executer) *ExecsPromise {
 	return p
 }
 
-func WaitAllResults(p *ExecsPromise) (*[]int, error) {
+func WaitAllResults(p *execsPromise) (*[]int, error) {
 	ctx := context.Background()
 	return p.Await(ctx)
 }
@@ -72,7 +69,7 @@ func Succeed(resultCodes ...int) bool {
 	return !Failed(resultCodes...)
 }
 
-func ParallelRunAll(forkCount int, execs ...Executer) ([]int, error) {
+func BlockParallelRunAll(forkCount int, execs ...Executer) ([]int, error) {
 	p := AsyncRunAll(execs...)
 	br, err := WaitAllResults(p)
 	if err != nil {
@@ -82,8 +79,8 @@ func ParallelRunAll(forkCount int, execs ...Executer) ([]int, error) {
 	return *br, nil
 }
 
-func Parallel(forkCount int, execs ...Executer) error {
-	statuses, err := ParallelRunAll(forkCount, execs...)
+func BlockParallel(forkCount int, execs ...Executer) error {
+	statuses, err := BlockParallelRunAll(forkCount, execs...)
 
 	if err != nil {
 		return err
@@ -102,7 +99,7 @@ func Parallel(forkCount int, execs ...Executer) error {
 	return nil
 }
 
-func Sequential(execs ...*Exec) error {
+func BlockSerial(execs ...Executer) error {
 	for _, exec := range execs {
 		status, err := exec.BlockRun()
 		if err != nil {

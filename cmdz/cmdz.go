@@ -14,8 +14,13 @@ import (
 	"mby.fr/utils/promise"
 )
 
-type Exec struct {
+type execPromise = promise.Promise[int]
+type execsPromise = promise.Promise[[]int]
+
+type cmdz struct {
 	*exec.Cmd
+
+	clone exec.Cmd
 
 	StdoutRecord inout.RecordingWriter
 	StderrRecord inout.RecordingWriter
@@ -28,16 +33,16 @@ type Exec struct {
 	Executions []*exec.Cmd
 }
 
-func (e *Exec) AddEnv(key, value string) {
+func (e *cmdz) AddEnv(key, value string) {
 	entry := fmt.Sprintf("%s=%s", key, value)
 	e.Env = append(e.Env, entry)
 }
 
-func (e *Exec) AddArgs(args ...string) {
+func (e *cmdz) AddArgs(args ...string) {
 	e.Args = append(e.Args, args...)
 }
 
-func (e *Exec) RecordingOutputs(stdout, stderr io.Writer) {
+func (e *cmdz) RecordingOutputs(stdout, stderr io.Writer) {
 	if stdout != nil {
 		e.StdoutRecord.Nested = stdout
 		e.Stdout = &e.StdoutRecord
@@ -46,6 +51,24 @@ func (e *Exec) RecordingOutputs(stdout, stderr io.Writer) {
 		e.StderrRecord.Nested = stderr
 		e.Stderr = &e.StderrRecord
 	}
+}
+
+func (e *cmdz) checkpoint() {
+	e.clone = *e.Cmd
+}
+
+func (e *cmdz) rollback() {
+	// Clone checkpoint
+	newClone := e.clone
+	e.Cmd = &newClone
+}
+
+func (e *cmdz) reset() {
+	e.StdoutRecord.Reset()
+	e.StderrRecord.Reset()
+	e.ResultsCodes = nil
+	e.Executions = nil
+	e.rollback()
 }
 
 /*
@@ -66,12 +89,12 @@ func (e Exec) FlushOutputs() (err error) {
 }
 */
 
-func (e Exec) String() (t string) {
+func (e cmdz) String() (t string) {
 	t = strings.Join(e.Args, " ")
 	return
 }
 
-func (e Exec) ReportError() string {
+func (e cmdz) ReportError() string {
 	execCmdSummary := e.String()
 	attempts := len(e.ResultsCodes)
 	status := e.ResultsCodes[attempts-1]
@@ -80,16 +103,15 @@ func (e Exec) ReportError() string {
 	return errorMessage
 }
 
-func (e *Exec) BlockRun() (rc int, err error) {
-	clone := *e.Cmd
+func (e *cmdz) BlockRun() (rc int, err error) {
+	e.reset()
 	rc = -1
 	for i := 0; i <= e.Retries && rc != 0; i++ {
+
 		if i > 0 {
 			// Wait between retries
 			time.Sleep(time.Duration(e.RetryDelayInMs) * time.Millisecond)
 		}
-		newClone := clone
-		e.Cmd = &newClone
 		err = e.Start()
 		if err != nil {
 			return
@@ -107,11 +129,12 @@ func (e *Exec) BlockRun() (rc int, err error) {
 		}
 		e.ResultsCodes = append(e.ResultsCodes, rc)
 		e.Executions = append(e.Executions, e.Cmd)
+		e.rollback()
 	}
 	return rc, nil
 }
 
-func (e *Exec) AsyncRun() *ExecPromise {
+func (e *cmdz) AsyncRun() *execPromise {
 	p := promise.New(func(resolve func(int), reject func(error)) {
 		rc, err := e.BlockRun()
 		if err != nil {
@@ -122,23 +145,26 @@ func (e *Exec) AsyncRun() *ExecPromise {
 	return p
 }
 
-func Execution(binary string, args ...string) *Exec {
+func Execution(binary string, args ...string) *cmdz {
 	cmd := exec.Command(binary, args...)
-	e := Exec{Cmd: cmd, RetryDelayInMs: 100}
+	e := cmdz{Cmd: cmd, RetryDelayInMs: 100}
 	stdout := &strings.Builder{}
 	stderr := &strings.Builder{}
 	e.RecordingOutputs(stdout, stderr)
+	e.checkpoint()
 	return &e
 }
 
-func ExecutionOutputs(stdout, stderr io.Writer, binary string, args ...string) *Exec {
+func ExecutionOutputs(stdout, stderr io.Writer, binary string, args ...string) *cmdz {
 	e := Execution(binary, args...)
 	e.RecordingOutputs(stdout, stderr)
 	return e
 }
 
-func ExecutionContext(ctx context.Context, binary string, args ...string) *Exec {
+func ExecutionContext(ctx context.Context, binary string, args ...string) *cmdz {
+	e := Execution(binary, args...)
 	cmd := exec.CommandContext(ctx, binary, args...)
-	e := Exec{Cmd: cmd}
-	return &e
+	e.Cmd = cmd
+	e.checkpoint()
+	return e
 }

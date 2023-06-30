@@ -14,7 +14,7 @@ func Filter[T any](slice []T, predicate func(T) bool) []T {
 	return result
 }
 
-func Map[T, I any](items []I, mapper func(I) T) (result []T) {
+func Map[I, T any](items []I, mapper func(I) T) (result []T) {
 	if mapper == nil {
 		log.Fatal("No mapper func supplied !")
 	}
