@@ -8,6 +8,20 @@ import (
 	"mby.fr/utils/stringz"
 )
 
+func Sequence() *seq {
+	return &seq{}
+}
+
+/*
+func Serial() *serialSeq {
+	return Sequence().Serial()
+}
+
+func Parallel() *parallelSeq {
+	return Sequence().Parallel()
+}
+*/
+
 type seq struct {
 	// TODO describe a sequence of // and serial Exec to execute
 	execs    []Executer
@@ -25,8 +39,24 @@ func (s *seq) Parallel(execs ...Executer) *parallelSeq {
 	return &parallelSeq{s}
 }
 
-func Sequence() *seq {
-	return &seq{}
+func (s *seq) StdoutRecord() string {
+	stdouts := collections.Map[Executer, string](s.execs, func(e Executer) string {
+		return e.StdoutRecord()
+	})
+	return strings.Join(stdouts, "")
+}
+
+func (s *seq) StderrRecord() string {
+	stderrs := collections.Map[Executer, string](s.execs, func(e Executer) string {
+		return e.StderrRecord()
+	})
+	return strings.Join(stderrs, "")
+}
+
+func (s *seq) reset() {
+	for _, e := range s.execs {
+		e.reset()
+	}
 }
 
 type serialSeq struct {
@@ -36,6 +66,12 @@ type serialSeq struct {
 func (s *serialSeq) Serial(execs ...Executer) *serialSeq {
 	s.seq.execs = append(s.seq.execs, execs...)
 	return s
+}
+
+func (s *serialSeq) Parallel(execs ...Executer) *parallelSeq {
+	p := Sequence().Parallel(execs...)
+	s.seq.execs = append(s.seq.execs, p)
+	return p
 }
 
 func (s serialSeq) String() string {
@@ -50,6 +86,7 @@ func (s serialSeq) ReportError() string {
 }
 
 func (s *serialSeq) BlockRun() (rc int, err error) {
+	s.reset()
 	err = BlockSerial(s.seq.execs...)
 	if err != nil {
 		return 1, err
@@ -72,37 +109,43 @@ type parallelSeq struct {
 	*seq
 }
 
-func (s *parallelSeq) Parallel(execs ...Executer) *parallelSeq {
-	s.seq.execs = append(s.seq.execs, execs...)
+func (p *parallelSeq) Parallel(execs ...Executer) *parallelSeq {
+	p.seq.execs = append(p.seq.execs, execs...)
+	return p
+}
+
+func (p *parallelSeq) Serial(execs ...Executer) *serialSeq {
+	s := Sequence().Serial(execs...)
+	p.seq.execs = append(p.seq.execs, s)
 	return s
 }
 
-func (s parallelSeq) String() string {
-	return stringz.JoinStringers(s.seq.execs, "\n")
+func (p parallelSeq) String() string {
+	return stringz.JoinStringers(p.seq.execs, "\n")
 }
 
-func (s parallelSeq) ReportError() string {
-	errors := collections.Map[Executer, string](s.seq.execs, func(e Executer) string {
+func (p parallelSeq) ReportError() string {
+	errors := collections.Map[Executer, string](p.seq.execs, func(e Executer) string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
 }
 
-func (s *parallelSeq) BlockRun() (rc int, err error) {
-	err = BlockParallel(-1, s.seq.execs...)
+func (p *parallelSeq) BlockRun() (rc int, err error) {
+	p.reset()
+	err = BlockParallel(-1, p.seq.execs...)
 	if err != nil {
 		return 1, err
 	}
 	return 0, nil
 }
 
-func (s *parallelSeq) AsyncRun() *execPromise {
-	p := promise.New(func(resolve func(int), reject func(error)) {
-		rc, err := s.BlockRun()
+func (p *parallelSeq) AsyncRun() *execPromise {
+	return promise.New(func(resolve func(int), reject func(error)) {
+		rc, err := p.BlockRun()
 		if err != nil {
 			reject(err)
 		}
 		resolve(rc)
 	})
-	return p
 }

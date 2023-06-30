@@ -22,8 +22,8 @@ type cmdz struct {
 
 	clone exec.Cmd
 
-	StdoutRecord inout.RecordingWriter
-	StderrRecord inout.RecordingWriter
+	stdoutRecord inout.RecordingWriter
+	stderrRecord inout.RecordingWriter
 
 	Retries        int
 	RetryDelayInMs int64
@@ -44,13 +44,21 @@ func (e *cmdz) AddArgs(args ...string) {
 
 func (e *cmdz) RecordingOutputs(stdout, stderr io.Writer) {
 	if stdout != nil {
-		e.StdoutRecord.Nested = stdout
-		e.Stdout = &e.StdoutRecord
+		e.stdoutRecord.Nested = stdout
+		e.Stdout = &e.stdoutRecord
 	}
 	if stderr != nil {
-		e.StderrRecord.Nested = stderr
-		e.Stderr = &e.StderrRecord
+		e.stderrRecord.Nested = stderr
+		e.Stderr = &e.stderrRecord
 	}
+}
+
+func (e *cmdz) StdoutRecord() string {
+	return e.stdoutRecord.String()
+}
+
+func (e *cmdz) StderrRecord() string {
+	return e.stderrRecord.String()
 }
 
 func (e *cmdz) checkpoint() {
@@ -64,8 +72,8 @@ func (e *cmdz) rollback() {
 }
 
 func (e *cmdz) reset() {
-	e.StdoutRecord.Reset()
-	e.StderrRecord.Reset()
+	e.stdoutRecord.Reset()
+	e.stderrRecord.Reset()
 	e.ResultsCodes = nil
 	e.Executions = nil
 	e.rollback()
@@ -98,7 +106,7 @@ func (e cmdz) ReportError() string {
 	execCmdSummary := e.String()
 	attempts := len(e.ResultsCodes)
 	status := e.ResultsCodes[attempts-1]
-	stderr := e.StderrRecord.String()
+	stderr := e.stderrRecord.String()
 	errorMessage := fmt.Sprintf("Exec failed after %d attempt(s): [%s] !\nRC=%d ERR> %s", attempts, execCmdSummary, status, strings.TrimSpace(stderr))
 	return errorMessage
 }

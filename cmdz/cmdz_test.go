@@ -50,8 +50,8 @@ func TesBlockRun_ReRun(t *testing.T) {
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
 	assert.Equal(t, []int{0}, e.ResultsCodes)
-	sout := e.StdoutRecord.String()
-	serr := e.StderrRecord.String()
+	sout := e.StdoutRecord()
+	serr := e.StderrRecord()
 	assert.Equal(t, echoArg+"\n", sout)
 	assert.Equal(t, "", serr)
 
@@ -59,8 +59,8 @@ func TesBlockRun_ReRun(t *testing.T) {
 	require.NoError(t, err3, "should not error")
 	assert.Equal(t, 0, rc3)
 	assert.Equal(t, []int{0}, e.ResultsCodes)
-	sout3 := e.StdoutRecord.String()
-	serr3 := e.StderrRecord.String()
+	sout3 := e.StdoutRecord()
+	serr3 := e.StderrRecord()
 	assert.Equal(t, echoArg+"\n", sout3)
 	assert.Equal(t, "", serr3)
 }
@@ -74,8 +74,8 @@ func TestBlockRun_Retries(t *testing.T) {
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 1, rc)
 	assert.Equal(t, []int{1, 1, 1}, e.ResultsCodes)
-	sout := e.StdoutRecord.String()
-	serr := e.StderrRecord.String()
+	sout := e.StdoutRecord()
+	serr := e.StderrRecord()
 	assert.Equal(t, "", sout)
 	assert.Equal(t, "", serr)
 }

@@ -38,9 +38,11 @@ func TestSequence_Serial(t *testing.T) {
 	rc1, err1 := s.BlockRun()
 	require.NoError(t, err1)
 	assert.Equal(t, 0, rc1)
-	assert.Equal(t, "foo\n", e1.StdoutRecord.String())
-	assert.Equal(t, "", e2.StdoutRecord.String())
-	assert.Equal(t, "", e3.StdoutRecord.String())
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "", e2.StdoutRecord())
+	assert.Equal(t, "", e3.StdoutRecord())
+	assert.Equal(t, "foo\n", s.StdoutRecord())
+	assert.Equal(t, "", s.StderrRecord())
 
 	s2 := Sequence().Serial(e1, e2)
 	assert.Equal(t, "echo foo\necho bar", s2.String())
@@ -48,9 +50,11 @@ func TestSequence_Serial(t *testing.T) {
 	rc2, err2 := s2.BlockRun()
 	require.NoError(t, err2)
 	assert.Equal(t, 0, rc2)
-	assert.Equal(t, "foo\n", e1.StdoutRecord.String())
-	assert.Equal(t, "bar\n", e2.StdoutRecord.String())
-	assert.Equal(t, "", e3.StdoutRecord.String())
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "bar\n", e2.StdoutRecord())
+	assert.Equal(t, "", e3.StdoutRecord())
+	assert.Equal(t, "foo\nbar\n", s2.StdoutRecord())
+	assert.Equal(t, "", s2.StderrRecord())
 
 	s2.Serial(e3)
 	assert.Equal(t, "echo foo\necho bar\necho baz", s2.String())
@@ -58,9 +62,11 @@ func TestSequence_Serial(t *testing.T) {
 	rc3, err3 := s2.BlockRun()
 	require.NoError(t, err3)
 	assert.Equal(t, 0, rc3)
-	assert.Equal(t, "foo\n", e1.StdoutRecord.String())
-	assert.Equal(t, "bar\n", e2.StdoutRecord.String())
-	assert.Equal(t, "baz\n", e3.StdoutRecord.String())
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "bar\n", e2.StdoutRecord())
+	assert.Equal(t, "baz\n", e3.StdoutRecord())
+	assert.Equal(t, "foo\nbar\nbaz\n", s2.StdoutRecord())
+	assert.Equal(t, "", s2.StderrRecord())
 
 	// Test serial timings
 	s2.Serial(sleep10ms)
@@ -70,6 +76,8 @@ func TestSequence_Serial(t *testing.T) {
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, duration, int64(10000), "Serial too quick !")
 	assert.Less(t, duration, int64(20000), "Serial too slow !")
+	assert.Equal(t, "foo\nbar\nbaz\n", s2.StdoutRecord())
+	assert.Equal(t, "", s2.StderrRecord())
 
 	s2.Serial(sleep10ms)
 	start = time.Now()
@@ -78,6 +86,8 @@ func TestSequence_Serial(t *testing.T) {
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, duration, int64(20000), "Serial too quick !")
 	assert.Less(t, duration, int64(30000), "Serial too slow !")
+	assert.Equal(t, "foo\nbar\nbaz\n", s2.StdoutRecord())
+	assert.Equal(t, "", s2.StderrRecord())
 
 	s2.Serial(sleep100ms)
 	start = time.Now()
@@ -86,6 +96,8 @@ func TestSequence_Serial(t *testing.T) {
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, duration, int64(120000), "Serial too quick !")
 	assert.Less(t, duration, int64(150000), "Serial too slow !")
+	assert.Equal(t, "foo\nbar\nbaz\n", s2.StdoutRecord())
+	assert.Equal(t, "", s2.StderrRecord())
 }
 
 func TestSequence_Parallel(t *testing.T) {
@@ -99,9 +111,11 @@ func TestSequence_Parallel(t *testing.T) {
 	rc, err := p.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, "foo\n", e1.StdoutRecord.String())
-	assert.Equal(t, "", e2.StdoutRecord.String())
-	assert.Equal(t, "", e3.StdoutRecord.String())
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "", e2.StdoutRecord())
+	assert.Equal(t, "", e3.StdoutRecord())
+	assert.Equal(t, "foo\n", p.StdoutRecord())
+	assert.Equal(t, "", p.StderrRecord())
 
 	p2 := Sequence().Parallel(e1, e2)
 	assert.Equal(t, "echo foo\necho bar", p2.String())
@@ -109,9 +123,11 @@ func TestSequence_Parallel(t *testing.T) {
 	rc2, err2 := p2.BlockRun()
 	require.NoError(t, err2)
 	assert.Equal(t, 0, rc2)
-	assert.Equal(t, "foo\n", e1.StdoutRecord.String())
-	assert.Equal(t, "bar\n", e2.StdoutRecord.String())
-	assert.Equal(t, "", e3.StdoutRecord.String())
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "bar\n", e2.StdoutRecord())
+	assert.Equal(t, "", e3.StdoutRecord())
+	assert.Equal(t, "foo\nbar\n", p2.StdoutRecord())
+	assert.Equal(t, "", p2.StderrRecord())
 
 	p2.Parallel(e3)
 	assert.Equal(t, "echo foo\necho bar\necho baz", p2.String())
@@ -119,9 +135,11 @@ func TestSequence_Parallel(t *testing.T) {
 	rc3, err3 := p2.BlockRun()
 	require.NoError(t, err3)
 	assert.Equal(t, 0, rc3)
-	assert.Equal(t, "foo\n", e1.StdoutRecord.String())
-	assert.Equal(t, "bar\n", e2.StdoutRecord.String())
-	assert.Equal(t, "baz\n", e3.StdoutRecord.String())
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "bar\n", e2.StdoutRecord())
+	assert.Equal(t, "baz\n", e3.StdoutRecord())
+	assert.Equal(t, "foo\nbar\nbaz\n", p2.StdoutRecord())
+	assert.Equal(t, "", p2.StderrRecord())
 
 	// Test serial timings
 	p2.Parallel(sleep10ms)
@@ -132,6 +150,8 @@ func TestSequence_Parallel(t *testing.T) {
 	//assert.Len(t, 4, rc)
 	assert.GreaterOrEqual(t, duration, int64(10000), "Parallel too quick !")
 	assert.Less(t, duration, int64(20000), "Parallel too slow !")
+	assert.Equal(t, "foo\nbar\nbaz\n", p2.StdoutRecord())
+	assert.Equal(t, "", p2.StderrRecord())
 
 	p2.Parallel(sleep11ms)
 	start = time.Now()
@@ -141,6 +161,8 @@ func TestSequence_Parallel(t *testing.T) {
 	//assert.Len(t, 5, rc)
 	assert.GreaterOrEqual(t, duration, int64(11000), "Parallel too quick !")
 	assert.Less(t, duration, int64(21000), "Parallel too slow !")
+	assert.Equal(t, "foo\nbar\nbaz\n", p2.StdoutRecord())
+	assert.Equal(t, "", p2.StderrRecord())
 
 	p2.Parallel(sleep100ms)
 	start = time.Now()
@@ -150,4 +172,6 @@ func TestSequence_Parallel(t *testing.T) {
 	//assert.Len(t, 5, rc)
 	assert.GreaterOrEqual(t, duration, int64(100000), "Parallel too quick !")
 	assert.Less(t, duration, int64(120000), "Parallel too slow !")
+	assert.Equal(t, "foo\nbar\nbaz\n", p2.StdoutRecord())
+	assert.Equal(t, "", p2.StderrRecord())
 }

@@ -13,6 +13,9 @@ type Executer interface {
 	ReportError() string
 	BlockRun() (int, error)
 	AsyncRun() *execPromise
+	StdoutRecord() string
+	StderrRecord() string
+	reset()
 }
 
 func AsyncRunAll(execs ...Executer) *execsPromise {
