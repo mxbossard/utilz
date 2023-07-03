@@ -17,17 +17,17 @@ import (
 )
 
 var (
-	e1 = New("echo", "foo")
-	e2 = New("echo", "bar")
-	e3 = New("echo", "baz")
+	e1 = Cmd("echo", "foo")
+	e2 = Cmd("echo", "bar")
+	e3 = Cmd("echo", "baz")
 
-	sleep10ms  = New("sleep", "0.01")
-	sleep11ms  = New("sleep", "0.011")
-	sleep100ms = New("sleep", "0.1")
-	sleep200ms = New("sleep", "0.2")
+	sleep10ms  = Cmd("sleep", "0.01")
+	sleep11ms  = Cmd("sleep", "0.011")
+	sleep100ms = Cmd("sleep", "0.1")
+	sleep200ms = Cmd("sleep", "0.2")
 )
 
-func TestSequence_Serial(t *testing.T) {
+func TestSerial(t *testing.T) {
 	e1.reset()
 	e2.reset()
 	e3.reset()
@@ -100,7 +100,7 @@ func TestSequence_Serial(t *testing.T) {
 	assert.Equal(t, "", s2.StderrRecord())
 }
 
-func TestSequence_Parallel(t *testing.T) {
+func TestParallel(t *testing.T) {
 	e1.reset()
 	e2.reset()
 	e3.reset()

@@ -39,7 +39,6 @@ type config struct {
 	timeout        int
 	stdout         io.Writer
 	stderr         io.Writer
-	ctx            context.Context
 }
 
 type cmdz struct {
@@ -71,11 +70,6 @@ func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
 	e.stdout = stdout
 	e.stderr = stderr
 	e.recordingOutputs(stdout, stderr)
-	return e
-}
-
-func (e *cmdz) Context(ctx context.Context) *cmdz {
-	e.config.ctx = ctx
 	return e
 }
 
@@ -202,14 +196,17 @@ func (e *cmdz) AsyncRun() *execPromise {
 	return p
 }
 
-func New(binary string, args ...string) *cmdz {
+func Cmd(binary string, args ...string) *cmdz {
 	cmd := exec.Command(binary, args...)
 	e := cmdz{Cmd: cmd}
-	/*
-		stdout := &strings.Builder{}
-		stderr := &strings.Builder{}
-		e.RecordingOutputs(stdout, stderr)
-	*/
+	e.recordingOutputs(cmd.Stdout, cmd.Stderr)
+	e.checkpoint()
+	return &e
+}
+
+func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
+	cmd := exec.CommandContext(ctx, binary, args...)
+	e := cmdz{Cmd: cmd}
 	e.recordingOutputs(cmd.Stdout, cmd.Stderr)
 	e.checkpoint()
 	return &e

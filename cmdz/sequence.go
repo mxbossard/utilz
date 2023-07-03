@@ -1,7 +1,6 @@
 package cmdz
 
 import (
-	"context"
 	"io"
 	"strings"
 
@@ -113,11 +112,6 @@ func (s *serialSeq) Outputs(stdout, stderr io.Writer) *serialSeq {
 	return s
 }
 
-func (s *serialSeq) Context(ctx context.Context) *serialSeq {
-	s.config.ctx = ctx
-	return s
-}
-
 func (s *serialSeq) Add(execs ...Executer) *serialSeq {
 	s.execs = append(s.execs, execs...)
 	return s
@@ -156,6 +150,8 @@ func (s *serialSeq) AsyncRun() *execPromise {
 
 type parallelSeq struct {
 	*seq
+
+	forkCount int
 }
 
 func (s *parallelSeq) Retries(count, delayInMs int) *parallelSeq {
@@ -175,8 +171,8 @@ func (s *parallelSeq) Outputs(stdout, stderr io.Writer) *parallelSeq {
 	return s
 }
 
-func (s *parallelSeq) Context(ctx context.Context) *parallelSeq {
-	s.config.ctx = ctx
+func (s *parallelSeq) Fork(count int) *parallelSeq {
+	s.forkCount = count
 	return s
 }
 

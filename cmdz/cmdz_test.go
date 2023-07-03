@@ -16,7 +16,7 @@ import (
 )
 
 func TestAddArgs(t *testing.T) {
-	e := New("echo")
+	e := Cmd("echo")
 	assert.Equal(t, []string{"echo"}, e.Args)
 	e.AddArgs("foo")
 	assert.Equal(t, []string{"echo", "foo"}, e.Args)
@@ -27,7 +27,7 @@ func TestAddArgs(t *testing.T) {
 func TestRecordingOutputs(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg := "foobar"
-	e := New(echoBinary, echoArg)
+	e := Cmd(echoBinary, echoArg)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -44,7 +44,7 @@ func TestBlockRun(t *testing.T) {
 	echoArg := "foobar"
 	stdout := strings.Builder{}
 	stderr := strings.Builder{}
-	e := New(echoBinary, echoArg).Outputs(&stdout, &stderr)
+	e := Cmd(echoBinary, echoArg).Outputs(&stdout, &stderr)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -59,7 +59,7 @@ func TestBlockRun(t *testing.T) {
 func TesBlockRun_ReRun(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg := "foobar"
-	e := New(echoBinary, echoArg)
+	e := Cmd(echoBinary, echoArg)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -82,7 +82,7 @@ func TesBlockRun_ReRun(t *testing.T) {
 
 func TestBlockRun_Retries(t *testing.T) {
 	echoBinary := "/bin/false"
-	e := New(echoBinary).Retries(2, 100)
+	e := Cmd(echoBinary).Retries(2, 100)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -99,12 +99,12 @@ func TestAsyncRun(t *testing.T) {
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := New(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
+	e1 := Cmd(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
 
 	echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := New(echoBinary, echoArg2).Outputs(&stdout2, &stderr2).Retries(3, 100)
+	e2 := Cmd(echoBinary, echoArg2).Outputs(&stdout2, &stderr2).Retries(3, 100)
 
 	p1 := e1.AsyncRun()
 	p2 := e2.AsyncRun()
