@@ -18,14 +18,12 @@ func TestAsyncRunAll(t *testing.T) {
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := ExecutionOutputs(&stdout1, &stderr1, echoBinary, echoArg1)
-	e1.Retries = 2
+	e1 := New(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
 
 	echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := ExecutionOutputs(&stdout2, &stderr2, echoBinary, echoArg2)
-	e2.Retries = 2
+	e2 := New(echoBinary, echoArg2).Outputs(&stdout2, &stderr2).Retries(2, 100)
 
 	p := AsyncRunAll(e1, e2)
 
@@ -42,14 +40,12 @@ func TestAsynkRunAll_WithFailure(t *testing.T) {
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := ExecutionOutputs(&stdout1, &stderr1, echoBinary, echoArg1)
-	e1.Retries = 2
+	e1 := New(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
 
 	//echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := ExecutionOutputs(&stdout2, &stderr2, "/bin/false")
-	e2.Retries = 2
+	e2 := New("/bin/false").Outputs(&stdout2, &stderr2).Retries(2, 100)
 
 	p := AsyncRunAll(e1, e2)
 
@@ -65,14 +61,12 @@ func TestBlockParallelRunAll(t *testing.T) {
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := ExecutionOutputs(&stdout1, &stderr1, echoBinary, echoArg1)
-	e1.Retries = 2
+	e1 := New(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
 
 	echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := ExecutionOutputs(&stdout2, &stderr2, echoBinary, echoArg2)
-	e2.Retries = 2
+	e2 := New(echoBinary, echoArg2).Outputs(&stdout2, &stderr2).Retries(2, 100)
 
 	val, err := BlockParallelRunAll(-1, e1, e2)
 	require.NoError(t, err)
@@ -87,14 +81,12 @@ func TestBlockParallelRunAll_WithFailure(t *testing.T) {
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := ExecutionOutputs(&stdout1, &stderr1, echoBinary, echoArg1)
-	e1.Retries = 2
+	e1 := New(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
 
 	//echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := ExecutionOutputs(&stdout2, &stderr2, "/bin/false")
-	e2.Retries = 2
+	e2 := New("/bin/false").Outputs(&stdout2, &stderr2).Retries(2, 100)
 
 	val, err := BlockParallelRunAll(-1, e1, e2)
 	require.NoError(t, err)
@@ -109,14 +101,12 @@ func TestAsyncRunBest(t *testing.T) {
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := ExecutionOutputs(&stdout1, &stderr1, echoBinary, echoArg1)
-	e1.Retries = 2
+	e1 := New(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
 
 	echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := ExecutionOutputs(&stdout2, &stderr2, echoBinary, echoArg2)
-	e2.Retries = 2
+	e2 := New(echoBinary, echoArg2).Outputs(&stdout2, &stderr2).Retries(2, 100)
 
 	p := AsyncRunBest(e1, e2)
 
@@ -142,14 +132,12 @@ func TestAsyncRunBest_WithFailure(t *testing.T) {
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := ExecutionOutputs(&stdout1, &stderr1, echoBinary, echoArg1)
-	e1.Retries = 2
+	e1 := New(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
 
 	//echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := ExecutionOutputs(&stdout2, &stderr2, "/bin/false")
-	e2.Retries = 2
+	e2 := New("/bin/false").Outputs(&stdout2, &stderr2).Retries(2, 100)
 
 	p := AsyncRunBest(e1, e2)
 

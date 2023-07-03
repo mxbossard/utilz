@@ -17,14 +17,14 @@ import (
 )
 
 var (
-	e1 = Execution("echo", "foo")
-	e2 = Execution("echo", "bar")
-	e3 = Execution("echo", "baz")
+	e1 = New("echo", "foo")
+	e2 = New("echo", "bar")
+	e3 = New("echo", "baz")
 
-	sleep10ms  = Execution("sleep", "0.01")
-	sleep11ms  = Execution("sleep", "0.011")
-	sleep100ms = Execution("sleep", "0.1")
-	sleep200ms = Execution("sleep", "0.2")
+	sleep10ms  = New("sleep", "0.01")
+	sleep11ms  = New("sleep", "0.011")
+	sleep100ms = New("sleep", "0.1")
+	sleep200ms = New("sleep", "0.2")
 )
 
 func TestSequence_Serial(t *testing.T) {
@@ -32,7 +32,7 @@ func TestSequence_Serial(t *testing.T) {
 	e2.reset()
 	e3.reset()
 
-	s := Sequence().Serial(e1)
+	s := Serial(e1)
 	assert.Equal(t, "echo foo", s.String())
 
 	rc1, err1 := s.BlockRun()
@@ -44,7 +44,7 @@ func TestSequence_Serial(t *testing.T) {
 	assert.Equal(t, "foo\n", s.StdoutRecord())
 	assert.Equal(t, "", s.StderrRecord())
 
-	s2 := Sequence().Serial(e1, e2)
+	s2 := Serial(e1, e2)
 	assert.Equal(t, "echo foo\necho bar", s2.String())
 
 	rc2, err2 := s2.BlockRun()
@@ -56,7 +56,7 @@ func TestSequence_Serial(t *testing.T) {
 	assert.Equal(t, "foo\nbar\n", s2.StdoutRecord())
 	assert.Equal(t, "", s2.StderrRecord())
 
-	s2.Serial(e3)
+	s2.Add(e3)
 	assert.Equal(t, "echo foo\necho bar\necho baz", s2.String())
 
 	rc3, err3 := s2.BlockRun()
@@ -69,7 +69,7 @@ func TestSequence_Serial(t *testing.T) {
 	assert.Equal(t, "", s2.StderrRecord())
 
 	// Test serial timings
-	s2.Serial(sleep10ms)
+	s2.Add(sleep10ms)
 	start := time.Now()
 	_, err := s2.BlockRun()
 	duration := time.Since(start).Microseconds()
@@ -79,7 +79,7 @@ func TestSequence_Serial(t *testing.T) {
 	assert.Equal(t, "foo\nbar\nbaz\n", s2.StdoutRecord())
 	assert.Equal(t, "", s2.StderrRecord())
 
-	s2.Serial(sleep10ms)
+	s2.Add(sleep10ms)
 	start = time.Now()
 	_, err = s2.BlockRun()
 	duration = time.Since(start).Microseconds()
@@ -89,7 +89,7 @@ func TestSequence_Serial(t *testing.T) {
 	assert.Equal(t, "foo\nbar\nbaz\n", s2.StdoutRecord())
 	assert.Equal(t, "", s2.StderrRecord())
 
-	s2.Serial(sleep100ms)
+	s2.Add(sleep100ms)
 	start = time.Now()
 	_, err = s2.BlockRun()
 	duration = time.Since(start).Microseconds()
@@ -105,7 +105,7 @@ func TestSequence_Parallel(t *testing.T) {
 	e2.reset()
 	e3.reset()
 
-	p := Sequence().Parallel(e1)
+	p := Parallel(e1)
 	assert.Equal(t, "echo foo", p.String())
 
 	rc, err := p.BlockRun()
@@ -117,7 +117,7 @@ func TestSequence_Parallel(t *testing.T) {
 	assert.Equal(t, "foo\n", p.StdoutRecord())
 	assert.Equal(t, "", p.StderrRecord())
 
-	p2 := Sequence().Parallel(e1, e2)
+	p2 := Parallel(e1, e2)
 	assert.Equal(t, "echo foo\necho bar", p2.String())
 
 	rc2, err2 := p2.BlockRun()
@@ -129,7 +129,7 @@ func TestSequence_Parallel(t *testing.T) {
 	assert.Equal(t, "foo\nbar\n", p2.StdoutRecord())
 	assert.Equal(t, "", p2.StderrRecord())
 
-	p2.Parallel(e3)
+	p2.Add(e3)
 	assert.Equal(t, "echo foo\necho bar\necho baz", p2.String())
 
 	rc3, err3 := p2.BlockRun()
@@ -142,7 +142,7 @@ func TestSequence_Parallel(t *testing.T) {
 	assert.Equal(t, "", p2.StderrRecord())
 
 	// Test serial timings
-	p2.Parallel(sleep10ms)
+	p2.Add(sleep10ms)
 	start := time.Now()
 	_, err = p2.BlockRun()
 	duration := time.Since(start).Microseconds()
@@ -153,7 +153,7 @@ func TestSequence_Parallel(t *testing.T) {
 	assert.Equal(t, "foo\nbar\nbaz\n", p2.StdoutRecord())
 	assert.Equal(t, "", p2.StderrRecord())
 
-	p2.Parallel(sleep11ms)
+	p2.Add(sleep11ms)
 	start = time.Now()
 	_, err = p2.BlockRun()
 	duration = time.Since(start).Microseconds()
@@ -164,7 +164,7 @@ func TestSequence_Parallel(t *testing.T) {
 	assert.Equal(t, "foo\nbar\nbaz\n", p2.StdoutRecord())
 	assert.Equal(t, "", p2.StderrRecord())
 
-	p2.Parallel(sleep100ms)
+	p2.Add(sleep100ms)
 	start = time.Now()
 	_, err = p2.BlockRun()
 	duration = time.Since(start).Microseconds()

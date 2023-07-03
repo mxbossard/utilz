@@ -8,16 +8,6 @@ import (
 	"mby.fr/utils/promise"
 )
 
-type Executer interface {
-	String() string
-	ReportError() string
-	BlockRun() (int, error)
-	AsyncRun() *execPromise
-	StdoutRecord() string
-	StderrRecord() string
-	reset()
-}
-
 func AsyncRunAll(execs ...Executer) *execsPromise {
 	var promises []*promise.Promise[int]
 	for _, e := range execs {

@@ -16,7 +16,7 @@ import (
 )
 
 func TestAddArgs(t *testing.T) {
-	e := Execution("echo")
+	e := New("echo")
 	assert.Equal(t, []string{"echo"}, e.Args)
 	e.AddArgs("foo")
 	assert.Equal(t, []string{"echo", "foo"}, e.Args)
@@ -24,12 +24,27 @@ func TestAddArgs(t *testing.T) {
 	assert.Equal(t, []string{"echo", "foo", "bar", "baz"}, e.Args)
 }
 
+func TestRecordingOutputs(t *testing.T) {
+	echoBinary := "/bin/echo"
+	echoArg := "foobar"
+	e := New(echoBinary, echoArg)
+
+	rc, err := e.BlockRun()
+	require.NoError(t, err, "should not error")
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{0}, e.ResultsCodes)
+	sout := e.StdoutRecord()
+	serr := e.StderrRecord()
+	assert.Equal(t, echoArg+"\n", sout)
+	assert.Equal(t, "", serr)
+}
+
 func TestBlockRun(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg := "foobar"
 	stdout := strings.Builder{}
 	stderr := strings.Builder{}
-	e := ExecutionOutputs(&stdout, &stderr, echoBinary, echoArg)
+	e := New(echoBinary, echoArg).Outputs(&stdout, &stderr)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -44,7 +59,7 @@ func TestBlockRun(t *testing.T) {
 func TesBlockRun_ReRun(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg := "foobar"
-	e := Execution(echoBinary, echoArg)
+	e := New(echoBinary, echoArg)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -67,8 +82,7 @@ func TesBlockRun_ReRun(t *testing.T) {
 
 func TestBlockRun_Retries(t *testing.T) {
 	echoBinary := "/bin/false"
-	e := Execution(echoBinary)
-	e.Retries = 2
+	e := New(echoBinary).Retries(2, 100)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -85,14 +99,12 @@ func TestAsyncRun(t *testing.T) {
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := ExecutionOutputs(&stdout1, &stderr1, echoBinary, echoArg1)
-	e1.Retries = 2
+	e1 := New(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
 
 	echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := ExecutionOutputs(&stdout2, &stderr2, echoBinary, echoArg2)
-	e2.Retries = 3
+	e2 := New(echoBinary, echoArg2).Outputs(&stdout2, &stderr2).Retries(3, 100)
 
 	p1 := e1.AsyncRun()
 	p2 := e2.AsyncRun()

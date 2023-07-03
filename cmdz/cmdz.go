@@ -17,20 +17,80 @@ import (
 type execPromise = promise.Promise[int]
 type execsPromise = promise.Promise[[]int]
 
+type Executer interface {
+	reset()
+
+	//Retries(int, int) Executer
+	//Timeout(int) Executer
+	//Outputs(io.Writer, io.Writer) Executer
+	//Context(context.Context) Executer
+
+	String() string
+	ReportError() string
+	BlockRun() (int, error)
+	AsyncRun() *execPromise
+	StdoutRecord() string
+	StderrRecord() string
+}
+
+type config struct {
+	retries        int
+	retryDelayInMs int
+	timeout        int
+	stdout         io.Writer
+	stderr         io.Writer
+	ctx            context.Context
+}
+
 type cmdz struct {
 	*exec.Cmd
+	config
 
 	clone exec.Cmd
 
 	stdoutRecord inout.RecordingWriter
 	stderrRecord inout.RecordingWriter
 
-	Retries        int
-	RetryDelayInMs int64
-
 	ResultsCodes []int
 	// FIXME: replace ResultsCodes by Executions
 	Executions []*exec.Cmd
+}
+
+func (e *cmdz) Retries(count, delayInMs int) *cmdz {
+	e.config.retries = count
+	e.config.retryDelayInMs = delayInMs
+	return e
+}
+
+func (e *cmdz) Timeout(delayInMs int) *cmdz {
+	e.config.timeout = delayInMs
+	return e
+}
+
+func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
+	e.stdout = stdout
+	e.stderr = stderr
+	e.recordingOutputs(stdout, stderr)
+	return e
+}
+
+func (e *cmdz) Context(ctx context.Context) *cmdz {
+	e.config.ctx = ctx
+	return e
+}
+
+func (e *cmdz) recordingOutputs(stdout, stderr io.Writer) {
+	if stdout == nil {
+		stdout = &strings.Builder{}
+	}
+	if stderr == nil {
+		stderr = &strings.Builder{}
+	}
+
+	e.stdoutRecord.Nested = stdout
+	e.Stdout = &e.stdoutRecord
+	e.stderrRecord.Nested = stderr
+	e.Stderr = &e.stderrRecord
 }
 
 func (e *cmdz) AddEnv(key, value string) {
@@ -40,17 +100,6 @@ func (e *cmdz) AddEnv(key, value string) {
 
 func (e *cmdz) AddArgs(args ...string) {
 	e.Args = append(e.Args, args...)
-}
-
-func (e *cmdz) RecordingOutputs(stdout, stderr io.Writer) {
-	if stdout != nil {
-		e.stdoutRecord.Nested = stdout
-		e.Stdout = &e.stdoutRecord
-	}
-	if stderr != nil {
-		e.stderrRecord.Nested = stderr
-		e.Stderr = &e.stderrRecord
-	}
 }
 
 func (e *cmdz) StdoutRecord() string {
@@ -114,11 +163,11 @@ func (e cmdz) ReportError() string {
 func (e *cmdz) BlockRun() (rc int, err error) {
 	e.reset()
 	rc = -1
-	for i := 0; i <= e.Retries && rc != 0; i++ {
+	for i := 0; i <= e.config.retries && rc != 0; i++ {
 
 		if i > 0 {
 			// Wait between retries
-			time.Sleep(time.Duration(e.RetryDelayInMs) * time.Millisecond)
+			time.Sleep(time.Duration(e.config.retryDelayInMs) * time.Millisecond)
 		}
 		err = e.Start()
 		if err != nil {
@@ -153,26 +202,15 @@ func (e *cmdz) AsyncRun() *execPromise {
 	return p
 }
 
-func Execution(binary string, args ...string) *cmdz {
+func New(binary string, args ...string) *cmdz {
 	cmd := exec.Command(binary, args...)
-	e := cmdz{Cmd: cmd, RetryDelayInMs: 100}
-	stdout := &strings.Builder{}
-	stderr := &strings.Builder{}
-	e.RecordingOutputs(stdout, stderr)
+	e := cmdz{Cmd: cmd}
+	/*
+		stdout := &strings.Builder{}
+		stderr := &strings.Builder{}
+		e.RecordingOutputs(stdout, stderr)
+	*/
+	e.recordingOutputs(cmd.Stdout, cmd.Stderr)
 	e.checkpoint()
 	return &e
-}
-
-func ExecutionOutputs(stdout, stderr io.Writer, binary string, args ...string) *cmdz {
-	e := Execution(binary, args...)
-	e.RecordingOutputs(stdout, stderr)
-	return e
-}
-
-func ExecutionContext(ctx context.Context, binary string, args ...string) *cmdz {
-	e := Execution(binary, args...)
-	cmd := exec.CommandContext(ctx, binary, args...)
-	e.Cmd = cmd
-	e.checkpoint()
-	return e
 }
