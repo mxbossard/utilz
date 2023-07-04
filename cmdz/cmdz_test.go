@@ -51,15 +51,6 @@ func TestString(t *testing.T) {
 	assert.Equal(t, "echo foo bar $val", c.String())
 }
 
-func TestAddArgs(t *testing.T) {
-	e := Cmd("echo")
-	assert.Equal(t, []string{"echo"}, e.Args)
-	e.AddArgs("foo")
-	assert.Equal(t, []string{"echo", "foo"}, e.Args)
-	e.AddArgs("bar", "baz")
-	assert.Equal(t, []string{"echo", "foo", "bar", "baz"}, e.Args)
-}
-
 func TestBlockRun(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg := "foobar"
@@ -109,9 +100,20 @@ func TestBlockRun_RecordingOutputs(t *testing.T) {
 	assert.Equal(t, "", serr)
 }
 
-func TestBlockRun_WithEnv(t *testing.T) {
+func TestBlockRun_AddArgs(t *testing.T) {
+	echoBinary := "/bin/echo"
+	e := Cmd(echoBinary).AddArgs("foo", "bar")
+
+	rc, err := e.BlockRun()
+	require.NoError(t, err, "should not error")
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, "foo bar\n", e.StdoutRecord())
+	assert.Equal(t, "", e.StderrRecord())
+}
+
+func TestBlockRun_AddEnv(t *testing.T) {
 	e := Cmd("/bin/sh", "-c", "echo foo $VALUE").AddEnv("VALUE", "baz")
-	//e := Cmd("/bin/sh", "-c", "export").AddEnv("VALUE", "baz")
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -193,4 +195,8 @@ func TestAsyncRun(t *testing.T) {
 	assert.Equal(t, "", stderr1.String())
 	assert.Equal(t, echoArg2+"\n", stdout2.String())
 	assert.Equal(t, "", stderr2.String())
+}
+
+func TestReportError(t *testing.T) {
+	// TODO
 }

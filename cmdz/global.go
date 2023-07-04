@@ -3,7 +3,7 @@ package cmdz
 import (
 	//"bufio"
 	"context"
-	"fmt"
+	//"fmt"
 
 	"mby.fr/utils/promise"
 )
@@ -62,46 +62,69 @@ func Succeed(resultCodes ...int) bool {
 	return !Failed(resultCodes...)
 }
 
-func BlockParallelRunAll(forkCount int, execs ...Executer) ([]int, error) {
+func blockParallelRunAll(forkCount int, execs ...Executer) ([]int, error) {
 	p := AsyncRunAll(execs...)
-	br, err := WaitAllResults(p)
+	statuses, err := WaitAllResults(p)
 	if err != nil {
 		return nil, err
 	}
 
-	return *br, nil
+	return *statuses, nil
 }
 
-func BlockParallel(forkCount int, execs ...Executer) error {
-	statuses, err := BlockParallelRunAll(forkCount, execs...)
-
+func blockParallelRunBest(forkCount int, execs ...Executer) ([]int, error) {
+	p := AsyncRunBest(execs...)
+	br, err := WaitBestResults(p)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if Failed(statuses...) {
-		errorMessages := ""
-		for idx, status := range statuses {
-			if status > 0 {
-				//stdout := execs[idx].StdoutRecord.String()
-				execErr := execs[idx].ReportError()
-				errorMessages += fmt.Sprintf("%s\n", execErr)
+
+	return br.Results, nil
+}
+
+func blockParallel(failFast bool, forkCount int, execs ...Executer) (status int, err error) {
+	if failFast {
+		for _, exec := range execs {
+			if c, ok := exec.(*cmdz); ok {
+				c.errorOnFailure = true
 			}
 		}
-		return fmt.Errorf("Encountered some parallel execution failure: \n%s", errorMessages)
 	}
-	return nil
+	statuses, err := blockParallelRunAll(forkCount, execs...)
+	if err != nil {
+		if f, ok := err.(failure); failFast && ok {
+			return f.rc, nil
+		}
+		return -1, err
+	}
+
+	if Failed(statuses...) {
+		// Return first failure
+		//errorMessages := ""
+		for _, s := range statuses {
+			if s > 0 {
+				//execErr := execs[idx].ReportError()
+				//errorMessages += fmt.Sprintf("%s\n", execErr)
+				return s, nil
+			}
+		}
+		//return fmt.Errorf("Encountered some parallel execution failure: \n%s", errorMessages)
+	}
+	return
 }
 
-func BlockSerial(execs ...Executer) error {
+func blockSerial(failFast bool, execs ...Executer) (status int, err error) {
 	for _, exec := range execs {
-		status, err := exec.BlockRun()
+		status, err = exec.BlockRun()
 		if err != nil {
-			return err
+			return -1, err
 		}
-		if status > 0 {
-			execErr := exec.ReportError()
-			return fmt.Errorf("Encountered some sequential execution failure: \n%s", execErr)
+		
+		if failFast && status > 0 {
+			return
+			//execErr := exec.ReportError()
+			//return fmt.Errorf("Encountered some sequential execution failure: \n%s", execErr)
 		}
 	}
-	return nil
+	return
 }

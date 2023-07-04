@@ -17,13 +17,17 @@ import (
 type execPromise = promise.Promise[int]
 type execsPromise = promise.Promise[[]int]
 
+type failure struct {
+	rc int
+}
+
+func (f failure) Error() string {
+    return fmt.Sprintf("Failing with ResultCode: %d !", f.rc)
+}
+
 type Executer interface {
 	reset()
-
-	//Retries(int, int) Executer
-	//Timeout(int) Executer
-	//Outputs(io.Writer, io.Writer) Executer
-	//Context(context.Context) Executer
+	fallback(config)
 
 	String() string
 	ReportError() string
@@ -39,13 +43,39 @@ type config struct {
 	timeout        int
 	stdout         io.Writer
 	stderr         io.Writer
+	errorOnFailure	   bool
+}
+
+// Merge lower priority config into higher priority
+func mergeConfigs(higher, lower config) config {
+	merged := higher
+	if merged.retries == 0 {
+		merged.retries = lower.retries
+	}
+	if merged.retryDelayInMs == 0 {
+		merged.retryDelayInMs = lower.retryDelayInMs
+	}
+	if merged.timeout == 0 {
+		merged.timeout = lower.timeout
+	}
+	if merged.stdout == nil {
+		merged.stdout = lower.stdout
+	}
+	if merged.stderr == nil {
+		merged.stderr = lower.stderr
+	}
+	if ! merged.errorOnFailure {
+		merged.errorOnFailure = lower.errorOnFailure
+	}
+	return merged
 }
 
 type cmdz struct {
 	*exec.Cmd
 	config
 
-	clone exec.Cmd
+	cmdCheckpoint exec.Cmd
+	fallbackConfig config
 
 	stdoutRecord inout.RecordingWriter
 	stderrRecord inout.RecordingWriter
@@ -67,8 +97,8 @@ func (e *cmdz) Timeout(delayInMs int) *cmdz {
 }
 
 func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
-	e.stdout = stdout
-	e.stderr = stderr
+	e.config.stdout = stdout
+	e.config.stderr = stderr
 	e.recordingOutputs(stdout, stderr)
 	return e
 }
@@ -82,20 +112,21 @@ func (e *cmdz) recordingOutputs(stdout, stderr io.Writer) {
 	}
 
 	e.stdoutRecord.Nested = stdout
-	e.Stdout = &e.stdoutRecord
+	e.Cmd.Stdout = &e.stdoutRecord
 	e.stderrRecord.Nested = stderr
-	e.Stderr = &e.stderrRecord
+	e.Cmd.Stderr = &e.stderrRecord
 }
 
 func (e *cmdz) AddEnv(key, value string) *cmdz {
 	entry := fmt.Sprintf("%s=%s", key, value)
-	e.Env = append(e.Env, entry)
+	e.Cmd.Env = append(e.Env, entry)
 	e.checkpoint()
 	return e
 }
 
 func (e *cmdz) AddArgs(args ...string) *cmdz {
-	e.Args = append(e.Args, args...)
+	e.Cmd.Args = append(e.Args, args...)
+	e.checkpoint()
 	return e
 }
 
@@ -108,12 +139,12 @@ func (e *cmdz) StderrRecord() string {
 }
 
 func (e *cmdz) checkpoint() {
-	e.clone = *e.Cmd
+	e.cmdCheckpoint = *e.Cmd
 }
 
 func (e *cmdz) rollback() {
 	// Clone checkpoint
-	newClone := e.clone
+	newClone := e.cmdCheckpoint
 	e.Cmd = &newClone
 }
 
@@ -123,6 +154,10 @@ func (e *cmdz) reset() {
 	e.ResultsCodes = nil
 	e.Executions = nil
 	e.rollback()
+}
+
+func (e *cmdz) fallback(cfg config) {
+	e.fallbackConfig = cfg
 }
 
 /*
@@ -159,12 +194,15 @@ func (e cmdz) ReportError() string {
 
 func (e *cmdz) BlockRun() (rc int, err error) {
 	e.reset()
+	config := mergeConfigs(e.config, e.fallbackConfig)
+	e.recordingOutputs(config.stdout, config.stderr)
+	e.checkpoint()
 	rc = -1
-	for i := 0; i <= e.config.retries && rc != 0; i++ {
+	for i := 0; i <= config.retries && rc != 0; i++ {
 
 		if i > 0 {
 			// Wait between retries
-			time.Sleep(time.Duration(e.config.retryDelayInMs) * time.Millisecond)
+			time.Sleep(time.Duration(config.retryDelayInMs) * time.Millisecond)
 		}
 		err = e.Start()
 		if err != nil {
@@ -185,13 +223,20 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 		e.Executions = append(e.Executions, e.Cmd)
 		e.rollback()
 	}
-	return rc, nil
+	if e.errorOnFailure && rc > 0 {
+		err = failure{rc}
+	}
+	return
 }
 
 func (e *cmdz) AsyncRun() *execPromise {
 	p := promise.New(func(resolve func(int), reject func(error)) {
 		rc, err := e.BlockRun()
 		if err != nil {
+			reject(err)
+		}
+		if e.errorOnFailure && rc > 0 {
+			err = failure{rc}
 			reject(err)
 		}
 		resolve(rc)
@@ -203,7 +248,6 @@ func Cmd(binary string, args ...string) *cmdz {
 	cmd := exec.Command(binary, args...)
 	cmd.Env = make([]string, 8)
 	e := cmdz{Cmd: cmd}
-	e.recordingOutputs(cmd.Stdout, cmd.Stderr)
 	e.checkpoint()
 	return &e
 }
@@ -212,7 +256,6 @@ func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Env = make([]string, 8)
 	e := cmdz{Cmd: cmd}
-	e.recordingOutputs(cmd.Stdout, cmd.Stderr)
 	e.checkpoint()
 	return &e
 }

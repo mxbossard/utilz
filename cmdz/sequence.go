@@ -95,6 +95,11 @@ type serialSeq struct {
 	*seq
 }
 
+func (s *serialSeq) FailFast(enabled bool) *serialSeq {
+	s.failFast = enabled
+	return s
+}
+
 func (s *serialSeq) Retries(count, delayInMs int) *serialSeq {
 	s.config.retries = count
 	s.config.retryDelayInMs = delayInMs
@@ -129,12 +134,12 @@ func (s serialSeq) ReportError() string {
 }
 
 func (s *serialSeq) BlockRun() (rc int, err error) {
-	s.reset()
-	err = BlockSerial(s.seq.execs...)
-	if err != nil {
-		return 1, err
+	for _, exec := range s.seq.execs {
+		exec.fallback(s.config)
 	}
-	return 0, nil
+	s.reset()
+	rc, err = blockSerial(s.failFast, s.seq.execs...)
+	return
 }
 
 func (s *serialSeq) AsyncRun() *execPromise {
@@ -152,6 +157,11 @@ type parallelSeq struct {
 	*seq
 
 	forkCount int
+}
+
+func (s *parallelSeq) FailFast(enabled bool) *parallelSeq {
+	s.failFast = enabled
+	return s
 }
 
 func (s *parallelSeq) Retries(count, delayInMs int) *parallelSeq {
@@ -193,12 +203,12 @@ func (s parallelSeq) ReportError() string {
 }
 
 func (s *parallelSeq) BlockRun() (rc int, err error) {
-	s.reset()
-	err = BlockParallel(-1, s.seq.execs...)
-	if err != nil {
-		return 1, err
+	for _, exec := range s.seq.execs {
+		exec.fallback(s.config)
 	}
-	return 0, nil
+	s.reset()
+	rc, err = blockParallel(s.failFast, s.forkCount, s.seq.execs...)
+	return
 }
 
 func (s *parallelSeq) AsyncRun() *execPromise {

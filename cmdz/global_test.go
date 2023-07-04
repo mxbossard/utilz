@@ -68,7 +68,7 @@ func TestBlockParallelRunAll(t *testing.T) {
 	stderr2 := strings.Builder{}
 	e2 := Cmd(echoBinary, echoArg2).Outputs(&stdout2, &stderr2).Retries(2, 100)
 
-	val, err := BlockParallelRunAll(-1, e1, e2)
+	val, err := blockParallelRunAll(-1, e1, e2)
 	require.NoError(t, err)
 	require.NotNil(t, val)
 	assert.Equal(t, []int{0, 0}, val)
@@ -88,7 +88,7 @@ func TestBlockParallelRunAll_WithFailure(t *testing.T) {
 	stderr2 := strings.Builder{}
 	e2 := Cmd("/bin/false").Outputs(&stdout2, &stderr2).Retries(2, 100)
 
-	val, err := BlockParallelRunAll(-1, e1, e2)
+	val, err := blockParallelRunAll(-1, e1, e2)
 	require.NoError(t, err)
 	require.NotNil(t, val)
 	assert.Equal(t, []int{0, 1}, val)
@@ -156,5 +156,82 @@ func TestAsyncRunBest_WithFailure(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, val)
 	assert.Equal(t, []int{1, 1, 1}, e2.ResultsCodes)
+}
+
+func TestBlockSerial(t *testing.T) {
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	f1 := Cmd("false")
+
+	rc, err := blockSerial(false, e1, e2)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "bar\n", e2.StdoutRecord())
+
+	e1.reset()
+	f1.reset()
+	e2.reset()
+	rc, err = blockSerial(false, f1, e1)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+
+	e1.reset()
+	f1.reset()
+	e2.reset()
+	rc, err = blockSerial(false, e1, f1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+
+	e1.reset()
+	f1.reset()
+	e2.reset()
+
+	rc, err = blockSerial(true, f1, e1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	assert.Equal(t, "", e1.StdoutRecord())
+}
+
+func TestBlockParallel(t *testing.T) {
+	e1 := Cmd("/bin/sh", "-c", "sleep 0.1 ; echo foo")
+	e2 := Cmd("/bin/sh", "-c", "sleep 0.1 ; echo bar")
+	f1 := Cmd("false")
+
+	rc, err := blockParallel(false, -1, e1, e2)
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "bar\n", e2.StdoutRecord())
+
+	e1.reset()
+	f1.reset()
+	e2.reset()
+	rc, err = blockParallel(false, -1, f1, e1, e2)
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "bar\n", e2.StdoutRecord())
+
+	e1.reset()
+	f1.reset()
+	e2.reset()
+	rc, err = blockParallel(false, -1, e1, f1, e2)
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "bar\n", e2.StdoutRecord())
+
+	e1.reset()
+	f1.reset()
+	e2.reset()
+	// Should fail fast before echoing to stdout
+	rc, err = blockParallel(true, -1, e1, e2, f1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	assert.Equal(t, "", e1.StdoutRecord())
+	assert.Equal(t, "", e2.StdoutRecord())
 
 }
