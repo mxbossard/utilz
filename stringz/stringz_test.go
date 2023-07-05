@@ -49,6 +49,44 @@ func TestRight(t *testing.T) {
 	}
 }
 
+func TestSummaryRatioEllipsis(t *testing.T) {
+	ellipsis := "[...]"
+	shortMsg := "bar"
+	shortMultilineMsg := `foofoofoo
+		barbarbar
+		bazbazbaz`
+	longMsg := "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+	multilineMsg := `Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+		Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. 
+		Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
+		Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.`
+	
+	assert.Equal(t, "", SummaryRatioEllipsis("", 10, 0.5, ellipsis))
+	assert.Equal(t, "Lorem ipsum dolor sit amet", SummaryRatioEllipsis("  Lorem   ipsum  dolor  sit  amet ", 40, 0.5, ellipsis))
+	
+	assert.Equal(t, shortMsg, SummaryRatioEllipsis(shortMsg, 20, 0.5, ellipsis))
+	assert.Equal(t, shortMsg, SummaryRatioEllipsis(shortMsg, 4, 0.5, ellipsis))
+	assert.Equal(t, "br", SummaryRatioEllipsis(shortMsg, 2, 0.5, ellipsis))
+
+	assert.Equal(t, "foofoof[...]azbazbaz", SummaryRatioEllipsis(shortMultilineMsg, 20, 0.5, ellipsis))
+	assert.Equal(t, "foofo[...] bazbazbaz", SummaryRatioEllipsis(shortMultilineMsg, 20, 0.34, ellipsis))
+	assert.Equal(t, "foofoofoo barbarbar bazbazbaz", SummaryRatioEllipsis(shortMultilineMsg, 41, 0.34, ellipsis))
+	assert.Equal(t, "foofoofoo barbarbar bazbazbaz", SummaryRatioEllipsis(shortMultilineMsg, 41, 0.25, ellipsis))
+	assert.Equal(t, "foaz", SummaryRatioEllipsis(shortMultilineMsg, 4, 0.5, ellipsis))
+
+	assert.Equal(t, "Lorem i[...]laborum.", SummaryRatioEllipsis(longMsg, 20, 0.5, ellipsis))
+	assert.Equal(t, "Lorem[...]t laborum.", SummaryRatioEllipsis(longMsg, 20, 0.34, ellipsis))
+	assert.Equal(t, "Lorem ipsum dolor [...]im id est laborum.", SummaryRatioEllipsis(longMsg, 41, 0.5, ellipsis))
+	assert.Equal(t, "Lorem ips[...]mollit anim id est laborum.", SummaryRatioEllipsis(longMsg, 41, 0.25, ellipsis))
+	assert.Equal(t, "Lom.", SummaryRatioEllipsis(longMsg, 4, 0.5, ellipsis))
+
+	assert.Equal(t, "Lorem i[...]laborum.", SummaryRatioEllipsis(multilineMsg, 20, 0.5, ellipsis))
+	assert.Equal(t, "Lorem[...]t laborum.", SummaryRatioEllipsis(multilineMsg, 20, 0.34, ellipsis))
+	assert.Equal(t, "Lorem ipsum dolor [...]im id est laborum.", SummaryRatioEllipsis(multilineMsg, 41, 0.5, ellipsis))
+	assert.Equal(t, "Lorem ips[...]mollit anim id est laborum.", SummaryRatioEllipsis(multilineMsg, 41, 0.25, ellipsis))
+	assert.Equal(t, "Lom.", SummaryRatioEllipsis(multilineMsg, 4, 0.5, ellipsis))
+}
+
 func TestSplitByRegexp(t *testing.T) {
 	cases := []struct {
 		in    string

@@ -14,7 +14,7 @@ import (
 
 # 1 seul execution
 - config: retries, outputs, context, timeout
-Executer(binary, ...args)
+Cmd(binary, ...args)
 	.Retries(count)
 	.Timeout(deadline)
 	.Outputs(stdout, stderr)
@@ -28,16 +28,16 @@ Parallel()
 	.Outputs(stdout, stderr)
 	.Context(ctx)
 	.Fork(fork)
-	.Add(Executer(...)...)
+	.Add(Cmd(...)...)
 	.Add(
-		Executer(...)...,
-		Executer(...)...
+		Cmd(...)...,
+		Cmd(...)...
 	)
 	.Add(
-		Executer(...)...,
-		Serial(
-			Executer(...)...,
-			Executer(...)...
+		Cmd(...)...,
+		Cmd(
+			Cmd(...)...,
+			Cmd(...)...
 		)
 	)
 
@@ -48,16 +48,16 @@ Serial()
 	.Timeout(deadline)
 	.Outputs(stdout, stderr)
 	.Context(ctx)
-	.Add(Executer(...)...)
+	.Add(Cmd(...)...)
 	.Add(
-		Executer(...)...,
-		Executer(...)...
+		Cmd(...)...,
+		Cmd(...)...
 	)
 	.Add(
-		Executer(...)...,
+		Cmd(...)...,
 		Parallel(
-			Executer(...)...,
-			Executer(...)...
+			Cmd(...)...,
+			Cmd(...)...
 		)
 	)
 */
@@ -68,6 +68,8 @@ type seq struct {
 	// TODO describe a sequence of // and serial Exec to execute
 	execs    []Executer
 	failFast bool
+	fallbackConfig *config
+
 	status   int
 }
 
@@ -89,6 +91,10 @@ func (s *seq) reset() {
 	for _, e := range s.execs {
 		e.reset()
 	}
+}
+
+func (s *seq) fallback(cfg *config) {
+	s.fallbackConfig = cfg
 }
 
 type serialSeq struct {
@@ -117,6 +123,11 @@ func (s *serialSeq) Outputs(stdout, stderr io.Writer) *serialSeq {
 	return s
 }
 
+func (s *serialSeq) ErrorOnFailure(enable bool) *serialSeq {
+	s.config.errorOnFailure = enable
+	return s
+}
+
 func (s *serialSeq) Add(execs ...Executer) *serialSeq {
 	s.execs = append(s.execs, execs...)
 	return s
@@ -134,11 +145,14 @@ func (s serialSeq) ReportError() string {
 }
 
 func (s *serialSeq) BlockRun() (rc int, err error) {
+	mergedConfig := mergeConfigs(&s.config, s.fallbackConfig)
 	for _, exec := range s.seq.execs {
-		exec.fallback(s.config)
+		exec.fallback(mergedConfig)
 	}
 	s.reset()
-	rc, err = blockSerial(s.failFast, s.seq.execs...)
+	if len(s.seq.execs) > 0 {
+		rc, err = blockSerial(s.failFast, s.seq.execs...)
+	}
 	return
 }
 
@@ -181,6 +195,11 @@ func (s *parallelSeq) Outputs(stdout, stderr io.Writer) *parallelSeq {
 	return s
 }
 
+func (s *parallelSeq) ErrorOnFailure(enable bool) *parallelSeq {
+	s.config.errorOnFailure = enable
+	return s
+}
+
 func (s *parallelSeq) Fork(count int) *parallelSeq {
 	s.forkCount = count
 	return s
@@ -204,10 +223,12 @@ func (s parallelSeq) ReportError() string {
 
 func (s *parallelSeq) BlockRun() (rc int, err error) {
 	for _, exec := range s.seq.execs {
-		exec.fallback(s.config)
+		exec.fallback(&s.config)
 	}
 	s.reset()
-	rc, err = blockParallel(s.failFast, s.forkCount, s.seq.execs...)
+	if len(s.seq.execs) > 0 {
+		rc, err = blockParallel(s.failFast, s.forkCount, s.seq.execs...)
+	}
 	return
 }
 

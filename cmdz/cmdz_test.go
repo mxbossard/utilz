@@ -161,6 +161,13 @@ func TestBlockRun_Retries(t *testing.T) {
 	assert.Equal(t, "", serr)
 }
 
+func TestBlockRun_ErrorOnFailure(t *testing.T) {
+	f := Cmd("/bin/false").ErrorOnFailure(true)
+	rc, err := f.BlockRun()
+	require.Error(t, err, "should error")
+	assert.Equal(t, -1, rc)
+}
+
 func TestAsyncRun(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg1 := "foobar"

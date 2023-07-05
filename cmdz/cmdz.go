@@ -12,22 +12,25 @@ import (
 
 	"mby.fr/utils/inout"
 	"mby.fr/utils/promise"
+	"mby.fr/utils/stringz"
 )
 
 type execPromise = promise.Promise[int]
 type execsPromise = promise.Promise[[]int]
 
 type failure struct {
-	rc int
+	Rc int
+	Cmd *cmdz
 }
 
 func (f failure) Error() string {
-    return fmt.Sprintf("Failing with ResultCode: %d !", f.rc)
+	stderrSummary := stringz.Summary(f.Cmd.StderrRecord(), 64)
+    return fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
 }
 
 type Executer interface {
 	reset()
-	fallback(config)
+	fallback(*config)
 
 	String() string
 	ReportError() string
@@ -47,8 +50,11 @@ type config struct {
 }
 
 // Merge lower priority config into higher priority
-func mergeConfigs(higher, lower config) config {
-	merged := higher
+func mergeConfigs(higher, lower *config) *config {
+	merged := *higher
+	if lower == nil {
+		return &merged
+	}
 	if merged.retries == 0 {
 		merged.retries = lower.retries
 	}
@@ -67,7 +73,7 @@ func mergeConfigs(higher, lower config) config {
 	if ! merged.errorOnFailure {
 		merged.errorOnFailure = lower.errorOnFailure
 	}
-	return merged
+	return &merged
 }
 
 type cmdz struct {
@@ -75,7 +81,7 @@ type cmdz struct {
 	config
 
 	cmdCheckpoint exec.Cmd
-	fallbackConfig config
+	fallbackConfig *config
 
 	stdoutRecord inout.RecordingWriter
 	stderrRecord inout.RecordingWriter
@@ -100,6 +106,11 @@ func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
 	e.config.stdout = stdout
 	e.config.stderr = stderr
 	e.recordingOutputs(stdout, stderr)
+	return e
+}
+
+func (e *cmdz) ErrorOnFailure(enable bool) *cmdz {
+	e.config.errorOnFailure = enable
 	return e
 }
 
@@ -156,7 +167,7 @@ func (e *cmdz) reset() {
 	e.rollback()
 }
 
-func (e *cmdz) fallback(cfg config) {
+func (e *cmdz) fallback(cfg *config) {
 	e.fallbackConfig = cfg
 }
 
@@ -194,7 +205,7 @@ func (e cmdz) ReportError() string {
 
 func (e *cmdz) BlockRun() (rc int, err error) {
 	e.reset()
-	config := mergeConfigs(e.config, e.fallbackConfig)
+	config := mergeConfigs(&e.config, e.fallbackConfig)
 	e.recordingOutputs(config.stdout, config.stderr)
 	e.checkpoint()
 	rc = -1
@@ -224,7 +235,8 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 		e.rollback()
 	}
 	if e.errorOnFailure && rc > 0 {
-		err = failure{rc}
+		err = failure{rc, e}
+		rc = -1
 	}
 	return
 }
@@ -236,7 +248,7 @@ func (e *cmdz) AsyncRun() *execPromise {
 			reject(err)
 		}
 		if e.errorOnFailure && rc > 0 {
-			err = failure{rc}
+			err = failure{rc, e}
 			reject(err)
 		}
 		resolve(rc)

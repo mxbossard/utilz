@@ -93,7 +93,7 @@ func blockParallel(failFast bool, forkCount int, execs ...Executer) (status int,
 	statuses, err := blockParallelRunAll(forkCount, execs...)
 	if err != nil {
 		if f, ok := err.(failure); failFast && ok {
-			return f.rc, nil
+			return f.Rc, nil
 		}
 		return -1, err
 	}

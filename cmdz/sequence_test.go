@@ -21,6 +21,10 @@ var (
 	e2 = Cmd("echo", "bar")
 	e3 = Cmd("echo", "baz")
 
+	es1 = Cmd("/bin/sh", "-c", "sleep 0.1 && echo foo")
+	es2 = Cmd("/bin/sh", "-c", "sleep 0.2 && echo bar")
+	es3 = Cmd("/bin/sh", "-c", "sleep 0.3 && echo baz")
+
 	sleep10ms  = Cmd("sleep", "0.01")
 	sleep11ms  = Cmd("sleep", "0.011")
 	sleep100ms = Cmd("sleep", "0.1")
@@ -168,6 +172,13 @@ func TestSerial_FailFast(t *testing.T) {
 	assert.Equal(t, "foo\n", s.StdoutRecord())
 }
 
+func TestSerial_ErrorOnFailure(t *testing.T) {
+	f := Cmd("/bin/false").ErrorOnFailure(true)
+	s := Serial(e1, f)
+	rc, err := s.BlockRun()
+	require.Error(t, err, "should error")
+	assert.Equal(t, -1, rc)
+}
 
 func TestParallel(t *testing.T) {
 	e1.reset()
@@ -312,4 +323,52 @@ func TestParallel_FailFast(t *testing.T) {
 	assert.Equal(t, []int{1, 1, 1}, f1.ResultsCodes)
 	assert.Equal(t, []int(nil), c2.ResultsCodes)
 	assert.Equal(t, "", p.StdoutRecord())
+}
+
+func TestParallel_ErrorOnFailure(t *testing.T) {
+	f := Cmd("/bin/false").ErrorOnFailure(true)
+	p := Parallel(e1, f)
+	rc, err := p.BlockRun()
+	require.Error(t, err, "should error")
+	assert.Equal(t, -1, rc)
+}
+
+func Test_Chaining(t *testing.T) {
+	p := Parallel()
+	p.Add(e1, Serial(es2, e3))
+
+	s := Serial()
+	s.Add(p)
+	s.Add(e1)
+
+	rc, err := s.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo\nbar\nbaz\nfoo\n", s.StdoutRecord())
+}
+
+func Test_FallbackPersitence(t *testing.T) {
+	// FIXME
+	t.Skip("Skipped because not implemented.")
+
+	f := Cmd("/bin/false")
+
+	rc, err := f.BlockRun()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	// Retries should be 0 by default
+	assert.Equal(t, []int{1}, f.ResultsCodes, "Bad retries defaulr")
+
+	s := Serial(f).Retries(2, 0)
+	rc, err = s.BlockRun()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	// Retries should be 2 fallback by Serial config
+	assert.Equal(t, []int{1, 1, 1}, f.ResultsCodes, "Bad retries fallback")
+
+	rc, err = f.BlockRun()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	// Retries should be 0 by default fallback should not persist
+	assert.Equal(t, []int{1}, f.ResultsCodes, "Undesired fallback persistance")
 }

@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+var (
+	spacesRegexp = regexp.MustCompile(`\s+`)
+)
+
 func Left(s string, n int) string {
 	r := []rune(s)
 	if len(r) > n {
@@ -20,6 +24,42 @@ func Right(s string, n int) string {
 		return string(r[len(r)-n : len(r)])
 	}
 	return s
+}
+
+func SummaryRatioEllipsis(s string, length int, leftRatio float32, ellipsis string) string {
+	if leftRatio < 0 {
+		leftRatio = 0
+	} else if leftRatio > 1 {
+		leftRatio = 1
+	}
+	if length < 2*len(ellipsis) {
+		ellipsis = ""
+	}
+
+	// Clean spaces
+	s = strings.TrimSpace(s)
+	s = spacesRegexp.ReplaceAllString(s, " ")
+
+	if len(s) <= length {
+		return s
+	}
+
+	leftCount := int(float32(length - len(ellipsis)) * leftRatio)
+	rightCount := length - len(ellipsis) - leftCount
+
+	sb := strings.Builder{}
+	sb.WriteString(s[0:leftCount])
+	sb.WriteString(ellipsis)
+	sb.WriteString(s[len(s)-rightCount:len(s)])
+	return sb.String()
+}
+
+func SummaryRatio(s string, length int, leftRatio float32) string {
+	return SummaryRatioEllipsis(s, length, leftRatio, "[...]")
+}
+
+func Summary(s string, length int) string {
+	return SummaryRatioEllipsis(s, length, 0.5, "[...]")
 }
 
 func SplitByRegexp(s, regex string) (parts []string, separators []string) {
