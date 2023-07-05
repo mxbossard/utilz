@@ -16,28 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	e1 = Cmd("echo", "foo")
-	e2 = Cmd("echo", "bar")
-	e3 = Cmd("echo", "baz")
-
-	es1 = Cmd("/bin/sh", "-c", "sleep 0.1 && echo foo")
-	es2 = Cmd("/bin/sh", "-c", "sleep 0.2 && echo bar")
-	es3 = Cmd("/bin/sh", "-c", "sleep 0.3 && echo baz")
-
-	sleep10ms  = Cmd("sleep", "0.01")
-	sleep11ms  = Cmd("sleep", "0.011")
-	sleep100ms = Cmd("sleep", "0.1")
-	sleep200ms = Cmd("sleep", "0.2")
-
-	f1 = Cmd("false")
-	f2 = Cmd("false")
-)
-
 func TestSerial(t *testing.T) {
-	e1.reset()
-	e2.reset()
-	e3.reset()
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	e3 := Cmd("echo", "baz")
+	sleep10ms := Cmd("sleep", "0.01")
+	sleep100ms := Cmd("sleep", "0.1")
 
 	s := Serial(e1)
 	assert.Equal(t, "echo foo", s.String())
@@ -108,9 +92,10 @@ func TestSerial(t *testing.T) {
 }
 
 func TestSerial_Retries(t *testing.T) {
-	e1.reset()
-	f1.reset()
-	e2.reset()
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	f1 := Cmd("false")
+
 	s := Serial(e1, f1, e2)
 	rc, err := s.BlockRun()
 
@@ -135,9 +120,9 @@ func TestSerial_Retries(t *testing.T) {
 }
 
 func TestSerial_Outputs(t *testing.T) {
-	e1.reset()
-	f1.reset()
-	e2.reset()
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	f1 := Cmd("false")
 
 	sb := strings.Builder{}
 	s := Serial(e1, f1, e2).Outputs(&sb, nil)
@@ -149,11 +134,11 @@ func TestSerial_Outputs(t *testing.T) {
 }
 
 func TestSerial_FailFast(t *testing.T) {
-	e1.reset()
-	f1.reset()
-	e2.reset()
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	f1 := Cmd("false")
 
-	s := Serial(e1, f1, e2).FailFast(true)
+	s := Serial(e1, f1, e2).FailFast(true).ErrorOnFailure(false)
 	rc, err := s.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 1, rc)
@@ -173,6 +158,7 @@ func TestSerial_FailFast(t *testing.T) {
 }
 
 func TestSerial_ErrorOnFailure(t *testing.T) {
+	e1 := Cmd("echo", "foo")
 	f := Cmd("/bin/false").ErrorOnFailure(true)
 	s := Serial(e1, f)
 	rc, err := s.BlockRun()
@@ -181,9 +167,12 @@ func TestSerial_ErrorOnFailure(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
-	e1.reset()
-	e2.reset()
-	e3.reset()
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	e3 := Cmd("echo", "baz")
+	sleep10ms := Cmd("sleep", "0.01")
+	sleep11ms := Cmd("sleep", "0.011")
+	sleep100ms := Cmd("sleep", "0.1")
 
 	p := Parallel(e1)
 	assert.Equal(t, "echo foo", p.String())
@@ -256,11 +245,12 @@ func TestParallel(t *testing.T) {
 	assert.Equal(t, "", p2.StderrRecord())
 }
 
-
 func TestParallel_Retries(t *testing.T) {
-	e1.reset()
-	f1.reset()
-	e2.reset()
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	f1 := Cmd("false")
+	f2 := Cmd("false")
+
 	p := Parallel(e1, f1, e2)
 	rc, err := p.BlockRun()
 
@@ -287,7 +277,7 @@ func TestParallel_Retries(t *testing.T) {
 func TestParallel_Outputs(t *testing.T) {
 	c1 := Cmd("/bin/sh", "-c", "sleep 0.1 ; echo foo")
 	c2 := Cmd("/bin/sh", "-c", "sleep 0.2 ; echo bar")
-	f1.reset()
+	f1 := Cmd("false")
 
 	sb := strings.Builder{}
 	p := Parallel(c1, f1, c2).Outputs(&sb, nil)
@@ -301,7 +291,7 @@ func TestParallel_Outputs(t *testing.T) {
 func TestParallel_FailFast(t *testing.T) {
 	c1 := Cmd("/bin/sh", "-c", "sleep 0.1 && echo foo")
 	c2 := Cmd("/bin/sh", "-c", "sleep 0.2 && echo bar")
-	f1.reset()
+	f1 := Cmd("false")
 
 	p := Parallel(c1, f1, c2).FailFast(true)
 	rc, err := p.BlockRun()
@@ -311,7 +301,7 @@ func TestParallel_FailFast(t *testing.T) {
 	assert.Equal(t, []int(nil), c1.ResultsCodes)
 	assert.Equal(t, []int{1}, f1.ResultsCodes)
 	assert.Equal(t, []int(nil), c2.ResultsCodes)
-	
+
 	c1.reset()
 	c2.reset()
 	f1.reset()
@@ -326,6 +316,7 @@ func TestParallel_FailFast(t *testing.T) {
 }
 
 func TestParallel_ErrorOnFailure(t *testing.T) {
+	e1 := Cmd("echo", "foo")
 	f := Cmd("/bin/false").ErrorOnFailure(true)
 	p := Parallel(e1, f)
 	rc, err := p.BlockRun()
@@ -334,6 +325,10 @@ func TestParallel_ErrorOnFailure(t *testing.T) {
 }
 
 func Test_Chaining(t *testing.T) {
+	e1 := Cmd("echo", "foo")
+	es2 := Cmd("/bin/sh", "-c", "sleep 0.2 && echo bar")
+	e3 := Cmd("echo", "baz")
+
 	p := Parallel()
 	p.Add(e1, Serial(es2, e3))
 
