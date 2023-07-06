@@ -66,11 +66,11 @@ type seq struct {
 	config
 
 	// TODO describe a sequence of // and serial Exec to execute
-	execs    []Executer
-	failFast bool
+	execs          []Executer
+	failFast       bool
 	fallbackConfig *config
 
-	status   int
+	status int
 }
 
 func (s *seq) StdoutRecord() string {
