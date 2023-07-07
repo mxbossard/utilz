@@ -2,6 +2,10 @@ package collections
 
 import "log"
 
+type Predicater[T any] interface {
+	Predicate(...T) bool
+}
+
 func Filter[T any](slice []T, predicate func(T) bool) []T {
 	result := make([]T, 0, len(slice))
 
@@ -35,3 +39,23 @@ func Reduce[T any](items []T, reducer func(T, T) T) (result T) {
 	}
 	return
 }
+
+func Contains(slice []any, item any) bool {
+	for _, i := range slice {
+		if i == item {
+			return true
+		}
+	}
+	return false
+}
+
+/*
+func Contains[T any](slice []T, item T) bool {
+	for _, i := range slice {
+		if i == item {
+			return true
+		}
+	}
+	return false
+}
+*/
