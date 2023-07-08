@@ -1,6 +1,9 @@
 package collections
 
-import "log"
+import (
+	"log"
+	"reflect"
+)
 
 type Predicater[T any] interface {
 	Predicate(...T) bool
@@ -40,22 +43,20 @@ func Reduce[T any](items []T, reducer func(T, T) T) (result T) {
 	return
 }
 
-func Contains(slice []any, item any) bool {
-	for _, i := range slice {
-		if i == item {
+func ContainsAny[T any](slice *[]T, item T) bool {
+	for _, i := range *slice {
+		if reflect.DeepEqual(i, item) {
 			return true
 		}
 	}
 	return false
 }
 
-/*
-func Contains[T any](slice []T, item T) bool {
-	for _, i := range slice {
+func Contains[T comparable](slice *[]T, item T) bool {
+	for _, i := range *slice {
 		if i == item {
 			return true
 		}
 	}
 	return false
 }
-*/
