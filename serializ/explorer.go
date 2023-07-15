@@ -17,6 +17,7 @@ type (
 	jsonExplorer struct {
 		json []byte
 		path []string
+		tree map[string]any
 		//pointer any
 		//err error
 	}
@@ -40,13 +41,14 @@ func (e *jsonExplorer) Path(path string) (*jsonExplorer) {
 }
 
 func (e jsonExplorer) Resolve() (result any, err error) {
-	var tree map[string]any
-	err = json.Unmarshal(e.json, &tree)
-	if err != nil {
-		return
+	if e.tree == nil {
+		err = json.Unmarshal(e.json, &e.tree)
+		if err != nil {
+			return
+		}
 	}
 	var p any
-	p = tree
+	p = e.tree
 	var browsingPath []string
 	for _, key := range e.path {
 		if p == nil {
@@ -158,10 +160,32 @@ func JsonStringExplorer(json string) (*jsonExplorer) {
 	return JsonExplorer([]byte(json))
 }
 
+func JsonMapExplorer(json map[string]any) (*jsonExplorer) {
+	return &jsonExplorer{
+		tree: json,
+	}
+}
+
 func JsonResolver[T any](json []byte, path string) (*jsonResolver[T]) {
 	return &jsonResolver[T]{JsonExplorer(json).Path(path)}
 }
 
 func JsonStringResolver[T any](json string, path string) (*jsonResolver[T]) {
 	return JsonResolver[T]([]byte(json), path)
+}
+
+func JsonMapResolver[T any](json map[string]any, path string) (*jsonResolver[T]) {
+	return &jsonResolver[T]{JsonMapExplorer(json).Path(path)}
+}
+
+func ResolveJson[T any](json []byte, path string) (T, error) {
+	return JsonResolver[T](json, path).Resolve()
+}
+
+func ResolveJsonString[T any](json string, path string) (T, error) {
+	return JsonStringResolver[T](json, path).Resolve()
+}
+
+func ResolveJsonMap[T any](json map[string]any, path string) (T, error) {
+	return JsonMapResolver[T](json, path).Resolve()
 }
