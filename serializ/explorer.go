@@ -1,16 +1,19 @@
 package serializ
 
 import (
-	"errors"
 	"encoding/json"
-	"strings"
+	"errors"
 	"fmt"
 	_ "log"
+	"strings"
+
+	"mby.fr/utils/errorz"
 )
 
 var (
-	ErrPathDontExists = errors.New("Path don't exists")
-	ErrBadElementType = errors.New("Bad element type")
+	ErrRelPathNotSupported = errors.New("Relative path not supported")
+	ErrPathDontExists      = errors.New("Path don't exists")
+	ErrBadElementType      = errors.New("Bad element type")
 )
 
 type (
@@ -19,7 +22,7 @@ type (
 		path []string
 		tree map[string]any
 		//pointer any
-		//err error
+		err errorz.Aggregated
 	}
 
 	jsonResolver[T any] struct {
@@ -27,20 +30,29 @@ type (
 	}
 )
 
-func (e *jsonExplorer) Get(key string) (*jsonExplorer) {
+func (e *jsonExplorer) Get(key string) *jsonExplorer {
 	e.path = append(e.path, key)
 	return e
 }
 
-func (e *jsonExplorer) Path(path string) (*jsonExplorer) {
+func (e *jsonExplorer) Path(path string) *jsonExplorer {
 	if path == "" {
 		return e
 	}
-	e.path = append(e.path, strings.Split(path, ".")...)
+	if path[0:1] != "/" {
+		err := fmt.Errorf("%w: path %s does not start with / !", ErrRelPathNotSupported, path)
+		e.err.Add(err)
+		return e
+	}
+	path = path[1:len(path)]
+	e.path = append(e.path, strings.Split(path, "/")...)
 	return e
 }
 
 func (e jsonExplorer) Resolve() (result any, err error) {
+	if e.err.GotError() {
+		return nil, e.err
+	}
 	if e.tree == nil {
 		err = json.Unmarshal(e.json, &e.tree)
 		if err != nil {
@@ -52,17 +64,17 @@ func (e jsonExplorer) Resolve() (result any, err error) {
 	var browsingPath []string
 	for _, key := range e.path {
 		if p == nil {
-			err = fmt.Errorf("%w: path %s is nil cannot resolve path %s ! In json: %s", ErrPathDontExists, strings.Join(browsingPath, "."), e.path, e.json)	
+			err = fmt.Errorf("%w: path %s is nil cannot resolve path %s ! In json: %s", ErrPathDontExists, strings.Join(browsingPath, "."), e.path, e.json)
 			return
 		}
 		browsingPath = append(browsingPath, key)
 		if m, ok := p.(map[string]any); ok {
 			if p, ok = m[key]; !ok {
-				err = fmt.Errorf("%w: path %s does not exists ! In json: %s", ErrPathDontExists, strings.Join(browsingPath, "."), e.json)	
+				err = fmt.Errorf("%w: path %s does not exists ! In json: %s", ErrPathDontExists, strings.Join(browsingPath, "."), e.json)
 				return
 			}
 		} else {
-			err = fmt.Errorf("%w: path %s exists but is not a map ! In json: %s", ErrPathDontExists, strings.Join(browsingPath, "."), e.json)	
+			err = fmt.Errorf("%w: path %s exists but is not a map ! In json: %s", ErrPathDontExists, strings.Join(browsingPath, "."), e.json)
 			return
 		}
 	}
@@ -150,31 +162,31 @@ func map2Struct[T any](in map[string]any) (res T, err error) {
 	return
 }
 
-func JsonExplorer(json []byte) (*jsonExplorer) {
+func JsonExplorer(json []byte) *jsonExplorer {
 	return &jsonExplorer{
 		json: json,
 	}
 }
 
-func JsonStringExplorer(json string) (*jsonExplorer) {
+func JsonStringExplorer(json string) *jsonExplorer {
 	return JsonExplorer([]byte(json))
 }
 
-func JsonMapExplorer(json map[string]any) (*jsonExplorer) {
+func JsonMapExplorer(json map[string]any) *jsonExplorer {
 	return &jsonExplorer{
 		tree: json,
 	}
 }
 
-func JsonResolver[T any](json []byte, path string) (*jsonResolver[T]) {
+func JsonResolver[T any](json []byte, path string) *jsonResolver[T] {
 	return &jsonResolver[T]{JsonExplorer(json).Path(path)}
 }
 
-func JsonStringResolver[T any](json string, path string) (*jsonResolver[T]) {
+func JsonStringResolver[T any](json string, path string) *jsonResolver[T] {
 	return JsonResolver[T]([]byte(json), path)
 }
 
-func JsonMapResolver[T any](json map[string]any, path string) (*jsonResolver[T]) {
+func JsonMapResolver[T any](json map[string]any, path string) *jsonResolver[T] {
 	return &jsonResolver[T]{JsonMapExplorer(json).Path(path)}
 }
 
