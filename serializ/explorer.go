@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ErrRelPathNotSupported = errors.New("Relative path not supported")
+	ErrBatPathFormat = errors.New("Bad path format")
 	ErrPathDontExists      = errors.New("Path don't exists")
 	ErrBadElementType      = errors.New("Bad element type")
 )
@@ -40,7 +40,7 @@ func (e *jsonExplorer) Path(path string) *jsonExplorer {
 		return e
 	}
 	if path[0:1] != "/" {
-		err := fmt.Errorf("%w: path %s does not start with / !", ErrRelPathNotSupported, path)
+		err := fmt.Errorf("%w: path %s does not start with / !", ErrBatPathFormat, path)
 		e.err.Add(err)
 		return e
 	}

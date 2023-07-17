@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	_ "log"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 	"mby.fr/utils/errorz"
 )
+
+// Patcher API inspired by https://www.rfc-editor.org/rfc/rfc6902
 
 type (
 	operation interface {
@@ -31,7 +34,8 @@ type (
 func (o *basicOp) Transform(in map[string]any) (map[string]any, error) {
 	switch o.op {
 	case "add":
-
+		out, err := treeAdd(in, o.path, o.value)
+		return out, err
 	case "remove":
 
 	case "replace":
@@ -222,26 +226,130 @@ func PatcherString(yamlIn string) *patcher {
 	return &patcher{tree: []byte(yamlIn)}
 }
 
-func treeAdd(tree map[string]any, path string, value any) error {
+func treeLeaf[T any](tree map[string]any, path string) (res T, err error) {
+	if path == "" || path[0:1] != "/" {
+		err = fmt.Errorf("%w: path: [%s] must start with / !", ErrBatPathFormat, path)
+		return
+	}
+	var p any
+	p = tree
+	path = strings.TrimLeft(path, "/")
+	if path != "" {
+		splitedPath := strings.Split(path, "/")
+		var browsingPath []string
+		for _, key := range splitedPath {
+			if p == nil {
+				err = fmt.Errorf("%w: path %s is nil cannot resolve path %s in tree: %s !", ErrPathDontExists, "/"+strings.Join(browsingPath, "/"), path, tree)
+				return
+			}
+			browsingPath = append(browsingPath, key)
+			if m, ok := p.(map[string]any); ok {
+				if p, ok = m[key]; !ok {
+					err = fmt.Errorf("%w: path %s not found in tree: %s !", ErrPathDontExists, "/"+strings.Join(browsingPath, "/"), tree)
+					return
+				}
+			} else {
+				err = fmt.Errorf("%w: path %s exists but is not a map in tree: %s !", ErrPathDontExists, "/"+strings.Join(browsingPath, "/"), tree)
+				return
+			}
+		}
+	}
+	var ok bool
+	if res, ok = p.(T); !ok {
+		err = fmt.Errorf("Impossible to cast %T to %T !", p, res)
+		return
+	}
+	return
+}
 
+func parentPath(path string) string {
+	if path == "" || path == "/" {
+		return "/"
+	}
+	path = strings.TrimLeft(path, "/") // Remove heading /
+	path = strings.TrimRight(path, "/") // Remove optional trailing /
+	splitted := strings.Split(path, "/")
+	return "/" + strings.Join(splitted[0:len(splitted) - 1], "/")
+}
+
+func lastChild(path string) string {
+	if path == "" || path == "/" {
+		return ""
+	}
+	path = strings.TrimLeft(path, "/") // Remove heading /
+	path = strings.TrimRight(path, "/") // Remove optional trailing /
+	splitted := strings.Split(path, "/")
+	return splitted[len(splitted)-1:len(splitted)][0]
+}
+
+func treeAdd(tree map[string]any, path string, value any) (map[string]any, error) {
+	// If the target location specifies an array index, a new value is inserted into the array at the specified index.
+    // If the target location specifies an object member that does not already exist, a new member is added to the object.
+    // If the target location specifies an object member that does exist, that member's value is replaced.
+
+	if path == "" || path == "/" {
+		if m, ok := value.(map[string]any); ok {
+			return m, nil
+		}
+		err := fmt.Errorf("Attempt to replace document root by a non map !")
+		return nil, err
+	}
+
+	pPath := parentPath(path)
+	lChild := lastChild(path)
+
+	clone := tree
+	parent, err := treeLeaf[map[string]any](clone, pPath)
+	if err != nil {
+		return nil, err
+	}
+
+	switch elt := parent[lChild].(type) {
+	case []any:
+		elt = append(elt, value)
+	default:
+		parent[lChild] = value
+	}
+
+	return clone, nil
 }
 
 func treeRemove(tree map[string]any, path string) error {
+	// The target location MUST exist for the operation to be successful.
 
+	return nil
 }
 
 func treeReplace(tree map[string]any, path string, value any) error {
+	// The operation object MUST contain a "value" member whose content specifies the replacement value.
+	// The target location MUST exist for the operation to be successful.
 
+	return nil
 }
 
 func treeMove(tree map[string]any, from, path string) error {
+	// The operation object MUST contain a "from" member, which is a string containing a JSON Pointer value that references the location in the target document to move the value from.
+	// The "from" location MUST exist for the operation to be successful.
+	// Equivalent to a remove then a add.
 
+	return nil
 }
 
 func treeCopy(tree map[string]any, from, path string) error {
+	// The operation object MUST contain a "from" member, which is a string containing a JSON Pointer value that references the location in the target document to copy the value from.
+	// The "from" location MUST exist for the operation to be successful.
+	// Equivalent to an add.
 
+	return nil
 }
 
 func treeTest(tree map[string]any, path string, value any) (bool, error) {
-
+	// The operation object MUST contain a "value" member that conveys the value to be compared to the target location's value.
+	// The target location MUST be equal to the "value" value for the operation to be considered successful.
+	// Here, "equal" means that the value at the target location and the value conveyed by "value" are of the same JSON type, and that they are considered equal by the following rules for that type:
+	// 		strings: are considered equal if they contain the same number of Unicode characters and their code points are byte-by-byte equal.
+	//		numbers: are considered equal if their values are numerically equal.
+	//		arrays: are considered equal if they contain the same number of values, and if each value can be considered equal to the value at the corresponding position in the other array, using this list of type-specific rules.
+	
+	return false, nil
 }
