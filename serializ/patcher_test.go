@@ -356,22 +356,22 @@ func TestTransform_JsonAdd(t *testing.T) {
 // TODO: add some tests
 
 func TestTransform_JsonScenarios(t *testing.T) {
-	p := PatcherString("{}").Add("/ki", 4).Add("/ks", "foo")
+	p := PatcherString("{}").Add("/ki", 4).Add("/ks", "foo").Default("/ks", "bar")
 	require.NotNil(t, p)
 
 	res, err := p.ResolveString()
 	require.NoError(t, err)
 	require.Equal(t, res, `{"ki":4,"ks":"foo"}`)
 
-	p = PatcherString(res).Replace("/ki", "42")
+	p = PatcherString(res).Replace("/ki", "42").Default("/kd", "bar")
 	require.NotNil(t, p)
 	res, err = p.ResolveString()
 	require.NoError(t, err)
-	require.Equal(t, res, `{"ki":"42","ks":"foo"}`)
+	require.Equal(t, res, `{"kd":"bar","ki":"42","ks":"foo"}`)
 
 	km, err := PatcherString("{}").Add("/k1", "v1").Add("/k2", "v2").ResolveMap()
 	require.NoError(t, err)
-	p = PatcherString(res).Add("/km", km)
+	p = PatcherString(res).Remove("/kd").Add("/km", km)
 	require.NotNil(t, p)
 	res, err = p.ResolveString()
 	require.NoError(t, err)
@@ -427,5 +427,24 @@ k2: bar
 k3: 42
 `
 	assert.Equal(t, expectedYaml, res)
+
+}
+
+func TestTransform_K8sScenarios(t *testing.T) {
+	inputRes := `apiVersion: v1
+kind: Namespace
+metadata:
+    name: foo
+`
+	p := PatcherString(inputRes).
+		Default("/kind", "Namespace").
+		Default("/metadata/name", "bar").
+		Default("/metadata/namespace", "foo").
+		Test("/kind", "Namespace").Then(OpRemove("/metadata/namespace")).
+		OutFormat("yaml")
+
+	res, err := p.ResolveString()
+	require.NoError(t, err)
+	assert.Equal(t, inputRes, res)
 
 }

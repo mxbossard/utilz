@@ -37,6 +37,8 @@ func (o *basicOp) Transform(in map[string]any) (out map[string]any, err error) {
 	switch o.op {
 	case "add":
 		out, err = treeAdd(in, o.path, o.value)
+	case "default":
+		out, err = treeDefault(in, o.path, o.value)
 	case "remove":
 		out, err = treeRemove(in, o.path)
 	case "replace":
@@ -55,9 +57,9 @@ func (o *testOp) Transform(in map[string]any) (out map[string]any, err error) {
 	switch o.op {
 	case "test":
 		err = treeTest(in, o.path, o.value)
+		out = in
 		if err != nil {
 			// Swallow test error
-			out = in
 			for _, op := range o.elseOps {
 				out, err = op.Transform(out)
 				if err != nil {
@@ -82,6 +84,11 @@ func OpAdd(path string, value any) *basicOp {
 	return &basicOp{op: "add", path: path, value: value}
 }
 
+func OpDefault(path string, value any) *basicOp {
+	// Not in standard
+	return &basicOp{op: "default", path: path, value: value}
+}
+
 func OpRemove(path string) *basicOp {
 	return &basicOp{op: "remove", path: path}
 }
@@ -100,10 +107,17 @@ func OpCopy(from, path string) *basicOp {
 
 func OpTest(path string, value any, thenOp, elseOp operation) *testOp {
 	basicOp := basicOp{op: "test", path: path, value: value}
+	var thenOps, elseOps []operation
+	if thenOp != nil {
+		thenOps = append(thenOps, thenOp)
+	}
+	if elseOp != nil {
+		elseOps = append(elseOps, elseOp)
+	}
 	return &testOp{
 		basicOp: basicOp,
-		thenOps: []operation{thenOp},
-		elseOps: []operation{elseOp},
+		thenOps: thenOps,
+		elseOps: elseOps,
 	}
 }
 
@@ -190,6 +204,11 @@ func (p *patcher) OutFormat(format string) *patcher {
 
 func (p *patcher) Add(path string, value any) *patcher {
 	p.ops = append(p.ops, OpAdd(path, value))
+	return p
+}
+
+func (p *patcher) Default(path string, value any) *patcher {
+	p.ops = append(p.ops, OpDefault(path, value))
 	return p
 }
 
@@ -386,6 +405,25 @@ func treeAdd(tree map[string]any, path string, value any) (map[string]any, error
 			parent[lChild] = value
 		}
 	} else {
+		parent[lChild] = value
+	}
+
+	return clone, nil
+}
+
+func treeDefault(tree map[string]any, path string, value any) (map[string]any, error) {
+	// Not in standard
+	// Should add only if do not exists
+
+	pPath := parentPath(path)
+	lChild := lastChild(path)
+	clone := collections.CloneMap(tree)
+	parent, err := treeLeaf[map[string]any](clone, pPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if parent[lChild] == nil {
 		parent[lChild] = value
 	}
 
