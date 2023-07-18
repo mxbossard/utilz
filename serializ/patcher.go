@@ -28,8 +28,9 @@ type (
 
 	testOp struct {
 		basicOp
-		thenOps []operation
-		elseOps []operation
+		swallowError bool
+		thenOps      []operation
+		elseOps      []operation
 	}
 )
 
@@ -74,6 +75,9 @@ func (o *testOp) Transform(in map[string]any) (out map[string]any, err error) {
 				}
 			}
 		}
+		if o.swallowError {
+			err = nil
+		}
 	default:
 		err = fmt.Errorf("Not supported patch operation: %s !", o.op)
 	}
@@ -105,7 +109,7 @@ func OpCopy(from, path string) *basicOp {
 	return &basicOp{op: "copy", from: from, path: path}
 }
 
-func OpTest(path string, value any, thenOp, elseOp operation) *testOp {
+func OpTest(path string, value any, thenOp, elseOp operation, swallowError bool) *testOp {
 	basicOp := basicOp{op: "test", path: path, value: value}
 	var thenOps, elseOps []operation
 	if thenOp != nil {
@@ -115,9 +119,10 @@ func OpTest(path string, value any, thenOp, elseOp operation) *testOp {
 		elseOps = append(elseOps, elseOp)
 	}
 	return &testOp{
-		basicOp: basicOp,
-		thenOps: thenOps,
-		elseOps: elseOps,
+		basicOp:      basicOp,
+		thenOps:      thenOps,
+		elseOps:      elseOps,
+		swallowError: swallowError,
 	}
 }
 
@@ -233,11 +238,19 @@ func (p *patcher) Copy(from, path string) *patcher {
 }
 
 func (p *patcher) Test(path string, value any) *pThenOrElse {
-	p.ops = append(p.ops, OpTest(path, value, nil, nil))
+	p.ops = append(p.ops, OpTest(path, value, nil, nil, false))
 	pt := pThen{p}
 	pe := pElse{p}
 	ptoe := pThenOrElse{pt, pe}
 	return &ptoe
+}
+
+func (p *pThenOrElse) SwallowError() *pThenOrElse {
+	lastOp := p.pThen.ops[len(p.pThen.ops)-1]
+	if testOp, ok := lastOp.(*testOp); ok {
+		testOp.swallowError = true
+	}
+	return p
 }
 
 func (p *pThen) Then(ops ...operation) *patcherOrElse {
