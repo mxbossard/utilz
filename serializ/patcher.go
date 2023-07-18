@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	_ "log"
+	"reflect"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"mby.fr/utils/collections"
 	"mby.fr/utils/errorz"
 )
 
@@ -266,26 +268,36 @@ func parentPath(path string) string {
 	if path == "" || path == "/" {
 		return "/"
 	}
-	path = strings.TrimLeft(path, "/") // Remove heading /
+	path = strings.TrimLeft(path, "/")  // Remove heading /
 	path = strings.TrimRight(path, "/") // Remove optional trailing /
 	splitted := strings.Split(path, "/")
-	return "/" + strings.Join(splitted[0:len(splitted) - 1], "/")
+	return "/" + strings.Join(splitted[0:len(splitted)-1], "/")
 }
 
 func lastChild(path string) string {
 	if path == "" || path == "/" {
 		return ""
 	}
-	path = strings.TrimLeft(path, "/") // Remove heading /
+	path = strings.TrimLeft(path, "/")  // Remove heading /
 	path = strings.TrimRight(path, "/") // Remove optional trailing /
 	splitted := strings.Split(path, "/")
-	return splitted[len(splitted)-1:len(splitted)][0]
+	return splitted[len(splitted)-1 : len(splitted)][0]
 }
 
 func treeAdd(tree map[string]any, path string, value any) (map[string]any, error) {
 	// If the target location specifies an array index, a new value is inserted into the array at the specified index.
-    // If the target location specifies an object member that does not already exist, a new member is added to the object.
-    // If the target location specifies an object member that does exist, that member's value is replaced.
+	// If the target location specifies an object member that does not already exist, a new member is added to the object.
+	// If the target location specifies an object member that does exist, that member's value is replaced.
+	// When the operation is applied, the target location MUST reference one of:
+	// - The root of the target document - whereupon the specified value becomes the entire content of the target document.
+	// - A member to add to an existing object - whereupon the supplied value is added to that object at the indicated location. If the member already exists, it is replaced by the specified value.
+	// - An element to add to an existing array - whereupon the supplied value is added to the array at the indicated location. Any elements at or above the specified index are shifted one position to the right.  The specified index MUST NOT be greater than the number of elements in the array.  If the "-" character is used to index the end of the array (see [RFC6901]), this has the effect of appending the value to the array.
+	// TODO: implement last point with position in array
+
+	if value == nil {
+		err := fmt.Errorf("Added value must not be nil !")
+		return nil, err
+	}
 
 	if path == "" || path == "/" {
 		if m, ok := value.(map[string]any); ok {
@@ -297,50 +309,76 @@ func treeAdd(tree map[string]any, path string, value any) (map[string]any, error
 
 	pPath := parentPath(path)
 	lChild := lastChild(path)
-
-	clone := tree
+	clone := collections.CloneMap(tree)
 	parent, err := treeLeaf[map[string]any](clone, pPath)
 	if err != nil {
 		return nil, err
 	}
 
-	switch elt := parent[lChild].(type) {
-	case []any:
-		elt = append(elt, value)
-	default:
+	if parent[lChild] != nil {
+		v := reflect.ValueOf(parent[lChild])
+		if v.Kind() == reflect.Slice {
+			// Check value not a slice nor a map (cannot add slice into slice !))!
+			if reflect.ValueOf(value).Kind() == reflect.Slice {
+				err := fmt.Errorf("Attempt to add a slice: [%s] into an array: [%s] !", value, parent[lChild])
+				return nil, err
+			}
+			// Check slice type
+			if reflect.TypeOf(parent[lChild]).Elem().Kind() != reflect.ValueOf(value).Kind() {
+				err := fmt.Errorf("Attempt to add wrong object type: [%s] into array: [%s] !", value, parent[lChild])
+				return nil, err
+			}
+			newSlice := reflect.Append(v, reflect.ValueOf(value))
+			parent[lChild] = newSlice.Interface()
+		} else {
+			parent[lChild] = value
+		}
+	} else {
 		parent[lChild] = value
 	}
 
 	return clone, nil
 }
 
-func treeRemove(tree map[string]any, path string) error {
+func treeRemove(tree map[string]any, path string) (map[string]any, error) {
 	// The target location MUST exist for the operation to be successful.
+	if path == "" || path == "/" {
+		return map[string]any{}, nil
+	}
 
-	return nil
+	pPath := parentPath(path)
+	lChild := lastChild(path)
+	clone := collections.CloneMap(tree)
+	parent, err := treeLeaf[map[string]any](clone, pPath)
+	if err != nil {
+		return nil, err
+	}
+	delete(parent, lChild)
+
+	return clone, nil
 }
 
-func treeReplace(tree map[string]any, path string, value any) error {
+func treeReplace(tree map[string]any, path string, value any) (map[string]any, error) {
 	// The operation object MUST contain a "value" member whose content specifies the replacement value.
 	// The target location MUST exist for the operation to be successful.
 
-	return nil
+	return nil, nil
 }
 
-func treeMove(tree map[string]any, from, path string) error {
+func treeMove(tree map[string]any, from, path string) (map[string]any, error) {
 	// The operation object MUST contain a "from" member, which is a string containing a JSON Pointer value that references the location in the target document to move the value from.
 	// The "from" location MUST exist for the operation to be successful.
 	// Equivalent to a remove then a add.
 
-	return nil
+	return nil, nil
 }
 
-func treeCopy(tree map[string]any, from, path string) error {
+func treeCopy(tree map[string]any, from, path string) (map[string]any, error) {
 	// The operation object MUST contain a "from" member, which is a string containing a JSON Pointer value that references the location in the target document to copy the value from.
 	// The "from" location MUST exist for the operation to be successful.
 	// Equivalent to an add.
 
-	return nil
+	return nil, nil
 }
 
 func treeTest(tree map[string]any, path string, value any) (bool, error) {
@@ -350,6 +388,6 @@ func treeTest(tree map[string]any, path string, value any) (bool, error) {
 	// 		strings: are considered equal if they contain the same number of Unicode characters and their code points are byte-by-byte equal.
 	//		numbers: are considered equal if their values are numerically equal.
 	//		arrays: are considered equal if they contain the same number of values, and if each value can be considered equal to the value at the corresponding position in the other array, using this list of type-specific rules.
-	
+
 	return false, nil
 }
