@@ -33,25 +33,49 @@ type (
 	}
 )
 
-func (o *basicOp) Transform(in map[string]any) (map[string]any, error) {
+func (o *basicOp) Transform(in map[string]any) (out map[string]any, err error) {
 	switch o.op {
 	case "add":
-		out, err := treeAdd(in, o.path, o.value)
-		return out, err
+		out, err = treeAdd(in, o.path, o.value)
 	case "remove":
-
+		out, err = treeRemove(in, o.path)
 	case "replace":
-
+		out, err = treeReplace(in, o.path, o.value)
 	case "move":
-
+		out, err = treeMove(in, o.from, o.path)
 	case "copy":
-
+		out, err = treeCopy(in, o.from, o.path)
+	default:
+		err = fmt.Errorf("Not supported patch operation: %s !", o.op)
 	}
-	return nil, nil
+	return
 }
 
-func (o *testOp) Transform(in map[string]any) (map[string]any, error) {
-	return nil, nil
+func (o *testOp) Transform(in map[string]any) (out map[string]any, err error) {
+	switch o.op {
+	case "test":
+		err = treeTest(in, o.path, o.value)
+		if err != nil {
+			// Swallow test error
+			out = in
+			for _, op := range o.elseOps {
+				out, err = op.Transform(out)
+				if err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			for _, op := range o.thenOps {
+				out, err = op.Transform(out)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	default:
+		err = fmt.Errorf("Not supported patch operation: %s !", o.op)
+	}
+	return
 }
 
 func OpAdd(path string, value any) *basicOp {
@@ -217,20 +241,26 @@ func (p *pElse) Else(ops ...operation) *patcherOrThen {
 }
 
 func PatcherMap(yamlIn map[string]any) *patcher {
-	return &patcher{mappedTree: yamlIn}
+	return &patcher{mappedTree: yamlIn, outFormat: "json"}
 }
 
 func Patcher(yamlIn []byte) *patcher {
-	return &patcher{tree: yamlIn}
+	return &patcher{tree: yamlIn, outFormat: "json"}
 }
 
 func PatcherString(yamlIn string) *patcher {
-	return &patcher{tree: []byte(yamlIn)}
+	return &patcher{tree: []byte(yamlIn), outFormat: "json"}
 }
 
 func treeLeaf[T any](tree map[string]any, path string) (res T, err error) {
-	if path == "" || path[0:1] != "/" {
-		err = fmt.Errorf("%w: path: [%s] must start with / !", ErrBatPathFormat, path)
+	if tree == nil {
+		tree = map[string]any{}
+	}
+	if path == "" {
+		path = "/"
+	}
+	if path[0:1] != "/" {
+		err = fmt.Errorf("%w: path: [%s] must start with / !", ErrBadPathFormat, path)
 		return
 	}
 	var p any
@@ -262,6 +292,23 @@ func treeLeaf[T any](tree map[string]any, path string) (res T, err error) {
 		return
 	}
 	return
+}
+
+func cloneLeaf(leaf any) any {
+	v := reflect.ValueOf(leaf)
+	switch v.Kind() {
+	case reflect.Map:
+		if m, ok := leaf.(map[string]any); ok {
+			return collections.CloneMap(m)
+		} else {
+			// FIXME: what to do ?
+			return map[string]any{}
+		}
+	case reflect.Slice:
+		return collections.CloneSliceReflect(leaf)
+	default:
+		return leaf
+	}
 }
 
 func parentPath(path string) string {
@@ -362,7 +409,13 @@ func treeReplace(tree map[string]any, path string, value any) (map[string]any, e
 	// The operation object MUST contain a "value" member whose content specifies the replacement value.
 	// The target location MUST exist for the operation to be successful.
 
-	return nil, nil
+	// Assert path exists
+	_, err := treeLeaf[any](tree, path)
+	if err != nil {
+		return nil, err
+	}
+
+	return treeAdd(tree, path, value)
 }
 
 func treeMove(tree map[string]any, from, path string) (map[string]any, error) {
@@ -370,7 +423,22 @@ func treeMove(tree map[string]any, from, path string) (map[string]any, error) {
 	// The "from" location MUST exist for the operation to be successful.
 	// Equivalent to a remove then a add.
 
-	return nil, nil
+	// Assert path exists
+	leaf, err := treeLeaf[any](tree, from)
+	if err != nil {
+		return nil, err
+	}
+
+	clone := collections.CloneMap(tree)
+
+	clone, err = treeRemove(clone, from)
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME: should clone leaf !!!
+	clone, err = treeAdd(clone, path, cloneLeaf(leaf))
+	return clone, err
 }
 
 func treeCopy(tree map[string]any, from, path string) (map[string]any, error) {
@@ -378,10 +446,19 @@ func treeCopy(tree map[string]any, from, path string) (map[string]any, error) {
 	// The "from" location MUST exist for the operation to be successful.
 	// Equivalent to an add.
 
-	return nil, nil
+	// Assert path exists
+	leaf, err := treeLeaf[any](tree, from)
+	if err != nil {
+		return nil, err
+	}
+
+	clone := collections.CloneMap(tree)
+	// FIXME: should clone leaf !!!
+	clone, err = treeAdd(clone, path, cloneLeaf(leaf))
+	return clone, err
 }
 
-func treeTest(tree map[string]any, path string, value any) (bool, error) {
+func treeTest(tree map[string]any, path string, value any) error {
 	// The operation object MUST contain a "value" member that conveys the value to be compared to the target location's value.
 	// The target location MUST be equal to the "value" value for the operation to be considered successful.
 	// Here, "equal" means that the value at the target location and the value conveyed by "value" are of the same JSON type, and that they are considered equal by the following rules for that type:
@@ -389,5 +466,15 @@ func treeTest(tree map[string]any, path string, value any) (bool, error) {
 	//		numbers: are considered equal if their values are numerically equal.
 	//		arrays: are considered equal if they contain the same number of values, and if each value can be considered equal to the value at the corresponding position in the other array, using this list of type-specific rules.
 
-	return false, nil
+	// Assert path exists
+	leaf, err := treeLeaf[any](tree, path)
+	if err != nil {
+		return err
+	}
+
+	if !reflect.DeepEqual(value, leaf) {
+		return fmt.Errorf("Value: [%s] at path: [%s] not equals expected [%s] !", leaf, path, value)
+	}
+
+	return nil
 }

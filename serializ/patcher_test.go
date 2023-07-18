@@ -68,14 +68,16 @@ func TestLastChild(t *testing.T) {
 	assert.Equal(t, "bar", res)
 }
 
-func TestTreeLeaf_BadPath(t *testing.T) {
-	_, err := treeLeaf[string](simpleMapTree, "")
-	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrBatPathFormat)
+func TestTreeLeaf_PathFormat(t *testing.T) {
+	_, err := treeLeaf[map[string]any](simpleMapTree, "")
+	require.NoError(t, err)
+
+	_, err = treeLeaf[map[string]any](simpleMapTree, "/")
+	require.NoError(t, err)
 
 	_, err = treeLeaf[string](simpleMapTree, "foo")
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrBatPathFormat)
+	assert.ErrorIs(t, err, ErrBadPathFormat)
 }
 
 func TestTreeLeaf_Success(t *testing.T) {
@@ -245,6 +247,83 @@ func TestTreeRemove(t *testing.T) {
 
 }
 
+func TestTreeReplace(t *testing.T) {
+	// Test failure if path does not exists
+	_, err := treeReplace(nil, "/foo", "")
+	require.Error(t, err)
+
+	_, err = treeReplace(emptyMapTree, "/foo", "")
+	require.Error(t, err)
+
+	_, err = treeReplace(simpleMapTree, "/foo", "")
+	require.Error(t, err)
+
+	// Test replace
+	res, err := treeReplace(simpleMapTree, "/string", "foo")
+	require.NoError(t, err)
+	assert.Equal(t, "foo", res["string"])
+	assert.NotSame(t, simpleMapTree, res)
+
+	res, err = treeReplace(simpleMapTree, "/string", "")
+	require.NoError(t, err)
+	assert.Equal(t, "", res["string"])
+	assert.NotSame(t, simpleMapTree, res)
+}
+
+func TestTreeMove(t *testing.T) {
+	// Test failure if path does not exists
+	_, err := treeMove(nil, "/foo", "/bar")
+	require.Error(t, err)
+
+	_, err = treeMove(emptyMapTree, "/foo", "/bar")
+	require.Error(t, err)
+
+	_, err = treeMove(simpleMapTree, "/foo", "")
+	require.Error(t, err)
+
+	// Test move doc root
+	res, err := treeMove(simpleMapTree, "", "/foo")
+	require.NoError(t, err)
+	assert.NotSame(t, simpleMapTree, res)
+	require.NotNil(t, res["foo"])
+	assert.Equal(t, simpleMapTree, res["foo"])
+
+	// Test move
+	res, err = treeMove(simpleMapTree, "/string", "/pif")
+	require.NoError(t, err)
+	assert.NotSame(t, simpleMapTree, res)
+	require.NotNil(t, res["pif"])
+	assert.Equal(t, "foo", res["pif"])
+
+	res, err = treeMove(complexMapTree, "/string", "/map/paf")
+	require.NoError(t, err)
+	assert.NotSame(t, complexMapTree, res)
+	require.NotNil(t, res["map"])
+	content, err := treeLeaf[string](res, "/map/paf")
+	require.NoError(t, err)
+	assert.Equal(t, "foo", content)
+}
+
+func TestTreeTest(t *testing.T) {
+	err := treeTest(nil, "", "foo")
+	assert.Error(t, err)
+
+	err = treeTest(nil, "/key", "foo")
+	assert.Error(t, err)
+
+	err = treeTest(nil, "", emptyMapTree)
+	assert.NoError(t, err)
+
+	err = treeTest(emptyMapTree, "", emptyMapTree)
+	assert.NoError(t, err)
+
+	err = treeTest(simpleMapTree, "/string", "foo")
+	assert.NoError(t, err)
+
+	err = treeTest(simpleMapTree, "/string", "bar")
+	assert.Error(t, err)
+}
+
 func TestTransform_JsonAdd(t *testing.T) {
 	op := OpAdd("/foo", 4)
 
@@ -272,4 +351,61 @@ func TestTransform_JsonAdd(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	assert.Equal(t, simpleMapTree, out)
+}
+
+// TODO: add some tests
+
+func TestTransform_Scenarios(t *testing.T) {
+	p := PatcherString("{}").Add("/ki", 4).Add("/ks", "foo")
+	require.NotNil(t, p)
+
+	res, err := p.ResolveString()
+	require.NoError(t, err)
+	require.Equal(t, res, `{"ki":4,"ks":"foo"}`)
+
+	p = PatcherString(res).Replace("/ki", "42")
+	require.NotNil(t, p)
+	res, err = p.ResolveString()
+	require.NoError(t, err)
+	require.Equal(t, res, `{"ki":"42","ks":"foo"}`)
+
+	km, err := PatcherString("{}").Add("/k1", "v1").Add("/k2", "v2").ResolveMap()
+	require.NoError(t, err)
+	p = PatcherString(res).Add("/km", km)
+	require.NotNil(t, p)
+	res, err = p.ResolveString()
+	require.NoError(t, err)
+	require.Equal(t, res, `{"ki":"42","km":{"k1":"v1","k2":"v2"},"ks":"foo"}`)
+
+	p = PatcherString(res).Move("/ks", "/km/k3")
+	require.NotNil(t, p)
+	res, err = p.ResolveString()
+	require.NoError(t, err)
+	require.Equal(t, res, `{"ki":"42","km":{"k1":"v1","k2":"v2","k3":"foo"}}`)
+
+	p = PatcherString(res).Remove("/ki").Copy("/km", "/km/copy")
+	require.NotNil(t, p)
+	res, err = p.ResolveString()
+	require.NoError(t, err)
+	require.Equal(t, res, `{"km":{"copy":{"k1":"v1","k2":"v2","k3":"foo"},"k1":"v1","k2":"v2","k3":"foo"}}`)
+
+	// Test else op
+	pt := PatcherString(res).Test("/km/k1", "badValue").Then(OpAdd("/_test", true)).Else(OpAdd("/_test", false))
+	require.NotNil(t, pt)
+	res, err = pt.ResolveString()
+	require.NoError(t, err)
+	require.Contains(t, res, "_test")
+	resMap, err := pt.ResolveMap()
+	require.NoError(t, err)
+	assert.Equal(t, false, resMap["_test"])
+
+	// Test then op
+	pt = PatcherString(res).Test("/km/k1", "v1").Then(OpAdd("/_test", true)).Else(OpAdd("/_test", false))
+	require.NotNil(t, pt)
+	res, err = pt.ResolveString()
+	require.NoError(t, err)
+	require.Contains(t, res, "_test")
+	resMap, err = pt.ResolveMap()
+	require.NoError(t, err)
+	assert.Equal(t, true, resMap["_test"])
 }

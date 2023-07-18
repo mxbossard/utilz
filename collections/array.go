@@ -60,3 +60,10 @@ func Contains[T comparable](slice *[]T, item T) bool {
 	}
 	return false
 }
+
+func CloneSliceReflect(s any) any {
+	t, v := reflect.TypeOf(s), reflect.ValueOf(s)
+	c := reflect.MakeSlice(t, v.Len(), v.Len())
+	reflect.Copy(c, v)
+	return c.Interface()
+}

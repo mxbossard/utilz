@@ -89,7 +89,7 @@ func TestJsonStringExplorer_Empty(t *testing.T) {
 	require.NotNil(t, exp)
 	_, err = exp.Resolve()
 	require.Error(t, err)
-	require.ErrorIs(t, err, ErrBatPathFormat)
+	require.ErrorIs(t, err, ErrBadPathFormat)
 
 	exp = JsonStringExplorer(jsonEmpty1).Path("/foo")
 	require.NotNil(t, exp)

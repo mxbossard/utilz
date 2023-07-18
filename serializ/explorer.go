@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	ErrBatPathFormat = errors.New("Bad path format")
-	ErrPathDontExists      = errors.New("Path don't exists")
-	ErrBadElementType      = errors.New("Bad element type")
+	ErrBadPathFormat  = errors.New("Bad path format")
+	ErrPathDontExists = errors.New("Path don't exists")
+	ErrBadElementType = errors.New("Bad element type")
 )
 
 type (
@@ -40,7 +40,7 @@ func (e *jsonExplorer) Path(path string) *jsonExplorer {
 		return e
 	}
 	if path[0:1] != "/" {
-		err := fmt.Errorf("%w: path %s does not start with / !", ErrBatPathFormat, path)
+		err := fmt.Errorf("%w: path %s does not start with / !", ErrBadPathFormat, path)
 		e.err.Add(err)
 		return e
 	}
