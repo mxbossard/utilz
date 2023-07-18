@@ -355,7 +355,7 @@ func TestTransform_JsonAdd(t *testing.T) {
 
 // TODO: add some tests
 
-func TestTransform_Scenarios(t *testing.T) {
+func TestTransform_JsonScenarios(t *testing.T) {
 	p := PatcherString("{}").Add("/ki", 4).Add("/ks", "foo")
 	require.NotNil(t, p)
 
@@ -408,4 +408,24 @@ func TestTransform_Scenarios(t *testing.T) {
 	resMap, err = pt.ResolveMap()
 	require.NoError(t, err)
 	assert.Equal(t, true, resMap["_test"])
+}
+
+func TestTransform_YamlScenarios(t *testing.T) {
+	inYaml := `
+k1: foo
+k2: bar
+`
+	p := PatcherString(inYaml).Add("/k3", 42)
+	res, err := p.ResolveString()
+	require.NoError(t, err)
+	assert.Equal(t, `{"k1":"foo","k2":"bar","k3":42}`, res)
+
+	res, err = p.OutFormat("yaml").ResolveString()
+	require.NoError(t, err)
+	expectedYaml := `k1: foo
+k2: bar
+k3: 42
+`
+	assert.Equal(t, expectedYaml, res)
+
 }

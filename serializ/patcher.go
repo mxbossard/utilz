@@ -183,6 +183,11 @@ func (p *patcher) ResolveString() (string, error) {
 	return string(res), err
 }
 
+func (p *patcher) OutFormat(format string) *patcher {
+	p.outFormat = format
+	return p
+}
+
 func (p *patcher) Add(path string, value any) *patcher {
 	p.ops = append(p.ops, OpAdd(path, value))
 	return p
