@@ -67,3 +67,23 @@ func CloneSliceReflect(s any) any {
 	reflect.Copy(c, v)
 	return c.Interface()
 }
+
+// return left items not in right
+func KeepLeft[T any](left, right *[]T) (res []T) {
+	for _, l := range *left {
+		if !ContainsAny[T](right, l) {
+			res = append(res, l)
+		}
+	}
+	return
+}
+
+// return items in left and right
+func Intersect[T any](left, right *[]T) (res []T) {
+	for _, l := range *left {
+		if ContainsAny[T](right, l) {
+			res = append(res, l)
+		}
+	}
+	return
+}

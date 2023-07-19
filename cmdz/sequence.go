@@ -128,6 +128,10 @@ func (s *serialSeq) ErrorOnFailure(enable bool) *serialSeq {
 	return s
 }
 
+func (s *serialSeq) FailOnError() Executer {
+	return s.ErrorOnFailure(true)
+}
+
 func (s *serialSeq) Add(execs ...Executer) *serialSeq {
 	s.execs = append(s.execs, execs...)
 	return s
@@ -198,6 +202,10 @@ func (s *parallelSeq) Outputs(stdout, stderr io.Writer) *parallelSeq {
 func (s *parallelSeq) ErrorOnFailure(enable bool) *parallelSeq {
 	s.config.errorOnFailure = enable
 	return s
+}
+
+func (s *parallelSeq) FailOnError() Executer {
+	return s.ErrorOnFailure(true)
 }
 
 func (s *parallelSeq) Fork(count int) *parallelSeq {

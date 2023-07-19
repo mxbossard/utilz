@@ -19,13 +19,13 @@ type execPromise = promise.Promise[int]
 type execsPromise = promise.Promise[[]int]
 
 type failure struct {
-	Rc int
+	Rc  int
 	Cmd *cmdz
 }
 
 func (f failure) Error() string {
 	stderrSummary := stringz.Summary(f.Cmd.StderrRecord(), 64)
-    return fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
+	return fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
 }
 
 type Executer interface {
@@ -38,6 +38,7 @@ type Executer interface {
 	AsyncRun() *execPromise
 	StdoutRecord() string
 	StderrRecord() string
+	FailOnError() Executer
 }
 
 type config struct {
@@ -46,7 +47,7 @@ type config struct {
 	timeout        int
 	stdout         io.Writer
 	stderr         io.Writer
-	errorOnFailure	   bool
+	errorOnFailure bool
 }
 
 // Merge lower priority config into higher priority
@@ -70,7 +71,7 @@ func mergeConfigs(higher, lower *config) *config {
 	if merged.stderr == nil {
 		merged.stderr = lower.stderr
 	}
-	if ! merged.errorOnFailure {
+	if !merged.errorOnFailure {
 		merged.errorOnFailure = lower.errorOnFailure
 	}
 	return &merged
@@ -80,7 +81,7 @@ type cmdz struct {
 	*exec.Cmd
 	config
 
-	cmdCheckpoint exec.Cmd
+	cmdCheckpoint  exec.Cmd
 	fallbackConfig *config
 
 	stdoutRecord inout.RecordingWriter
@@ -112,6 +113,10 @@ func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
 func (e *cmdz) ErrorOnFailure(enable bool) *cmdz {
 	e.config.errorOnFailure = enable
 	return e
+}
+
+func (e *cmdz) FailOnError() Executer {
+	return e.ErrorOnFailure(true)
 }
 
 func (e *cmdz) recordingOutputs(stdout, stderr io.Writer) {
