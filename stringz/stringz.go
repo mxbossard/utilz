@@ -54,6 +54,36 @@ func SummaryRatioEllipsis(s string, length int, leftRatio float32, ellipsis stri
 	return sb.String()
 }
 
+func SummaryRatioEllipsisRune(s string, length int, leftRatio float32, ellipsis string) string {
+	// FIXME: don't know if it's better
+	if leftRatio < 0 {
+		leftRatio = 0
+	} else if leftRatio > 1 {
+		leftRatio = 1
+	}
+	elipsisLen := len([]rune(ellipsis))
+	if length < 2*elipsisLen {
+		ellipsis = ""
+	}
+
+	// Clean spaces
+	s = strings.TrimSpace(s)
+	s = spacesRegexp.ReplaceAllString(s, " ")
+
+	if len([]rune(s)) <= length {
+		return s
+	}
+
+	leftCount := int(float32(length - elipsisLen) * leftRatio)
+	rightCount := length - elipsisLen - leftCount
+
+	sb := strings.Builder{}
+	sb.WriteString(string([]rune(s)[0:leftCount]))
+	sb.WriteString(ellipsis)
+	sb.WriteString(string([]rune(s)[len(s)-rightCount:len(s)]))
+	return sb.String()
+}
+
 func SummaryRatio(s string, length int, leftRatio float32) string {
 	return SummaryRatioEllipsis(s, length, leftRatio, "[...]")
 }

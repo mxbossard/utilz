@@ -24,7 +24,7 @@ type failure struct {
 }
 
 func (f failure) Error() string {
-	stderrSummary := stringz.Summary(f.Cmd.StderrRecord(), 64)
+	stderrSummary := stringz.SummaryRatio(f.Cmd.StderrRecord(), 128, 0.2)
 	return fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
 }
 

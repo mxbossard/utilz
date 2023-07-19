@@ -87,3 +87,18 @@ func Intersect[T any](left, right *[]T) (res []T) {
 	}
 	return
 }
+
+func Deduplicate[T comparable](slices ...*[]T) ([]T) {
+	mapSet := make(map[T]bool)
+	for _, slice := range slices {
+		for _, item := range *slice {
+			mapSet[item] = true
+		}
+	}
+
+	res := make([]T, len(mapSet))
+	for item, _ := range mapSet {
+		res = append(res, item)
+	}
+	return res
+}
