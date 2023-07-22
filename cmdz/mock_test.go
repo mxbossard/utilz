@@ -1,7 +1,7 @@
 package cmdz
 
 import (
-	"os/exec"
+	//"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +15,7 @@ func TestCmdzMock(t *testing.T) {
 	assert.Equal(t, 0, rc)
 	assert.Equal(t, "foo\n", c.StdoutRecord())
 
-	StartStringMock(t, func(command exec.Cmd) (int, string, string) {
+	StartStringMock(t, func(c Vcmd) (int, string, string) {
 		return 1, "bar", ""
 	})
 	rc, err = c.BlockRun()
