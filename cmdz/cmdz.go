@@ -220,20 +220,25 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 			// Wait between retries
 			time.Sleep(time.Duration(config.retryDelayInMs) * time.Millisecond)
 		}
-		err = e.Start()
-		if err != nil {
-			return
-		}
-		err = e.Wait()
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				rc = exitErr.ProcessState.ExitCode()
-				err = nil
+		if commandMock == nil {
+			err = e.Start()
+			if err != nil {
+				return
+			}
+			err = e.Wait()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					rc = exitErr.ProcessState.ExitCode()
+					err = nil
+				} else {
+					return -1, err
+				}
 			} else {
-				return -1, err
+				rc = e.ProcessState.ExitCode()
 			}
 		} else {
-			rc = e.ProcessState.ExitCode()
+			// Replace execution by mocking function
+			rc = commandMock.Mock(e.Cmd)
 		}
 		e.ResultsCodes = append(e.ResultsCodes, rc)
 		e.Executions = append(e.Executions, e.Cmd)
@@ -276,3 +281,5 @@ func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
 	e.checkpoint()
 	return &e
 }
+
+//var mockingCommand func(exec.Cmd) (int, io.Reader, io.Reader)
