@@ -3,7 +3,9 @@ package cmdz
 import (
 	//"fmt"
 	//"io"
+	"bytes"
 	"context"
+
 	//"log"
 	//"os/exec"
 	"strings"
@@ -66,6 +68,38 @@ func TestBlockRun(t *testing.T) {
 	require.NoError(t, err2, "should not error")
 	assert.Equal(t, 1, rc2)
 	assert.Equal(t, []int{1}, e2.ResultsCodes)
+}
+
+func TestBlockRun_WithInput(t *testing.T) {
+	echoBinary := "/bin/cat"
+	input1 := "foo"
+	input2 := "bar"
+	reader := bytes.NewBufferString(input1)
+	e := Cmd(echoBinary, "-").Input(reader)
+
+	rc, err := e.BlockRun()
+	require.NoError(t, err, "should not error")
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{0}, e.ResultsCodes)
+	sin := e.StdinRecord()
+	sout := e.StdoutRecord()
+	serr := e.StderrRecord()
+	assert.Equal(t, input1, sin)
+	assert.Equal(t, input1, sout)
+	assert.Equal(t, "", serr)
+
+	reader.Reset()
+	reader.WriteString(input2)
+	e.reset()
+	rc, err = e.BlockRun()
+	require.NoError(t, err, "should not error")
+	assert.Equal(t, 0, rc)
+	sin = e.StdinRecord()
+	sout = e.StdoutRecord()
+	serr = e.StderrRecord()
+	assert.Equal(t, input2, sin)
+	assert.Equal(t, input2, sout)
+	assert.Equal(t, "", serr)
 }
 
 func TestBlockRun_WithOutputs(t *testing.T) {
@@ -166,6 +200,46 @@ func TestBlockRun_ErrorOnFailure(t *testing.T) {
 	rc, err := f.BlockRun()
 	require.Error(t, err, "should error")
 	assert.Equal(t, -1, rc)
+}
+
+func TestOutput(t *testing.T) {
+	e := Cmd("echo", "-n", "foo")
+	o, err := e.Output()
+	require.NoError(t, err)
+	assert.Equal(t, "foo", o)
+	assert.Equal(t, "foo", e.StdoutRecord())
+	assert.Equal(t, "", e.StderrRecord())
+
+	e = Cmd("/bin/sh", "-c", ">&2 echo foo; echo bar")
+	o, err = e.Output()
+	require.NoError(t, err)
+	assert.Equal(t, "bar\n", o)
+	assert.Equal(t, "bar\n", e.StdoutRecord())
+	assert.Equal(t, "foo\n", e.StderrRecord())
+
+	f := Cmd("/bin/false")
+	_, err = f.Output()
+	require.Error(t, err)
+}
+
+func TestCombinedOutput(t *testing.T) {
+	e := Cmd("echo", "-n", "foo")
+	o, err := e.CombinedOutput()
+	require.NoError(t, err)
+	assert.Equal(t, "foo", o)
+	assert.Equal(t, "foo", e.StdoutRecord())
+	assert.Equal(t, "", e.StderrRecord())
+
+	e = Cmd("/bin/sh", "-c", ">&2 echo foo; sleep 0.1; echo bar")
+	o, err = e.CombinedOutput()
+	require.NoError(t, err)
+	assert.Equal(t, "foo\nbar\n", o)
+	assert.Equal(t, "bar\n", e.StdoutRecord())
+	assert.Equal(t, "foo\n", e.StderrRecord())
+
+	f := Cmd("/bin/false")
+	_, err = f.CombinedOutput()
+	require.Error(t, err)
 }
 
 func TestAsyncRun(t *testing.T) {

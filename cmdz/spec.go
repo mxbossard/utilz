@@ -8,10 +8,18 @@ type (
 		String() string
 		ReportError() string
 		BlockRun() (int, error)
+		//Output() (string, error)
+		//CombinedOutput() (string, error)
 		AsyncRun() *execPromise
+		
+		//StdinRecord() string
 		StdoutRecord() string
 		StderrRecord() string
+		
 		FailOnError() Executer
+
+		//Pipe(Executer) Executer
+		//PipeFail(Executer) Executer
 	}
 
 	Inputer interface {

@@ -3,6 +3,7 @@ package cmdz
 import (
 	//"bufio"
 
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -32,6 +33,7 @@ type config struct {
 	retries        int
 	retryDelayInMs int
 	timeout        int
+	stdin          io.Reader
 	stdout         io.Writer
 	stderr         io.Writer
 	errorOnFailure bool
@@ -71,12 +73,17 @@ type cmdz struct {
 	cmdCheckpoint  exec.Cmd
 	fallbackConfig *config
 
-	stdoutRecord inout.RecordingWriter
-	stderrRecord inout.RecordingWriter
+	stdinRecord    inout.RecordingReader
+	stdoutRecord   inout.RecordingWriter
+	stderrRecord   inout.RecordingWriter
 
-	ResultsCodes []int
+	ResultsCodes   []int
 	// FIXME: replace ResultsCodes by Executions
-	Executions []*exec.Cmd
+	Executions     []*exec.Cmd
+
+	pipedInput	   bool
+	pipedOutput	   bool
+	pipeFail	   bool
 }
 
 func (e *cmdz) Retries(count, delayInMs int) *cmdz {
@@ -90,7 +97,18 @@ func (e *cmdz) Timeout(delayInMs int) *cmdz {
 	return e
 }
 
+func (e *cmdz) Input(stdin io.Reader) *cmdz {
+	if !e.pipedInput {
+		e.config.stdin = stdin
+		e.recordingInput(stdin)
+	}
+	return e
+}
+
 func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
+	if e.pipedOutput {
+		stdout = e.config.stdout
+	}
 	e.config.stdout = stdout
 	e.config.stderr = stderr
 	e.recordingOutputs(stdout, stderr)
@@ -104,6 +122,15 @@ func (e *cmdz) ErrorOnFailure(enable bool) *cmdz {
 
 func (e *cmdz) FailOnError() Executer {
 	return e.ErrorOnFailure(true)
+}
+
+func (e *cmdz) recordingInput(stdin io.Reader) {
+	if stdin == nil {
+		stdin = strings.NewReader("")
+	}
+
+	e.stdinRecord.Nested = stdin
+	e.Cmd.Stdin = &e.stdinRecord
 }
 
 func (e *cmdz) recordingOutputs(stdout, stderr io.Writer) {
@@ -133,6 +160,10 @@ func (e *cmdz) AddArgs(args ...string) *cmdz {
 	return e
 }
 
+func (e *cmdz) StdinRecord() string {
+	return e.stdinRecord.String()
+}
+
 func (e *cmdz) StdoutRecord() string {
 	return e.stdoutRecord.String()
 }
@@ -152,6 +183,7 @@ func (e *cmdz) rollback() {
 }
 
 func (e *cmdz) reset() {
+	e.stdinRecord.Reset()
 	e.stdoutRecord.Reset()
 	e.stderrRecord.Reset()
 	e.ResultsCodes = nil
@@ -162,24 +194,6 @@ func (e *cmdz) reset() {
 func (e *cmdz) fallback(cfg *config) {
 	e.fallbackConfig = cfg
 }
-
-/*
-func (e Exec) FlushOutputs() (err error) {
-	if e.StdoutBuffer != nil {
-		err = e.StdoutBuffer.Flush()
-		if err != nil {
-			return
-		}
-	}
-	if e.StderrBuffer != nil {
-		err = e.StderrBuffer.Flush()
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-*/
 
 func (e cmdz) String() (t string) {
 	t = strings.Join(e.Args, " ")
@@ -198,6 +212,7 @@ func (e cmdz) ReportError() string {
 func (e *cmdz) BlockRun() (rc int, err error) {
 	e.reset()
 	config := mergeConfigs(&e.config, e.fallbackConfig)
+	e.recordingInput(config.stdin)
 	e.recordingOutputs(config.stdout, config.stderr)
 	e.checkpoint()
 	rc = -1
@@ -236,6 +251,50 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 		rc = -1
 	}
 	return
+}
+
+func (e *cmdz) Pipe(c *cmdz) (*cmdz) {
+	e.pipedOutput = true
+	c.pipedInput = true
+	b := bytes.Buffer{}
+	c.config.stdin = &b
+	c.stdinRecord.Nested = &b
+	c.config.stdout = &b
+	e.stdoutRecord.Nested = &b
+	return e
+}
+
+func (e *cmdz) PipeFail(c *cmdz) (*cmdz) {
+	e.pipeFail = true
+	return e
+}
+
+func (e *cmdz) Output() (string, error) {
+	rc, err := e.ErrorOnFailure(true).BlockRun()
+	if err != nil {
+		return "", err
+	}
+	if rc > 0 {
+		err = failure{rc, e}
+		return "", err
+	}
+	return e.StdoutRecord(), nil
+}
+
+func (e *cmdz) CombinedOutput() (string, error) {
+	if e.config.stdout == nil {
+		e.config.stdout = &strings.Builder{}
+	}
+	combinedWriter := inout.RecordingWriter{Nested: e.config.stdout}
+	rc, err := e.ErrorOnFailure(true).Outputs(&combinedWriter, &combinedWriter).BlockRun()
+	if err != nil {
+		return "", err
+	}
+	if rc > 0 {
+		err = failure{rc, e}
+		return "", err
+	}
+	return combinedWriter.String(), nil
 }
 
 func (e *cmdz) AsyncRun() *execPromise {
