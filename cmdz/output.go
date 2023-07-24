@@ -3,7 +3,7 @@ package cmdz
 type (
 	Processed struct {
 		Executer
-		processors []Processer
+		processors []OutputProcesser
 	}
 )
 

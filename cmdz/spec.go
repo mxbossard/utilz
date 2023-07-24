@@ -1,5 +1,9 @@
 package cmdz
 
+import (
+	"io"
+)
+
 type (
 	Executer interface {
 		reset()
@@ -8,8 +12,10 @@ type (
 		String() string
 		ReportError() string
 		BlockRun() (int, error)
-		//Output() (string, error)
-		//CombinedOutput() (string, error)
+		//Output() ([]byte, error)
+		//OutputString() (string, error)
+		//CombinedOutput() ([]byte, error)
+		//CombinedOutputString() (string, error)
 		AsyncRun() *execPromise
 		
 		//StdinRecord() string
@@ -31,9 +37,8 @@ type (
 		combinedOutput() ([]byte, error)
 	}
 
-	Processer interface {
-		Process([]byte) ([]byte, error)
-	}
+	OutputProcesser = func(int, []byte, []byte) ([]byte, error)
+	OutputStringProcesser = func(int, string, string) (string, error)
 
 	Formatter[O, E any] interface {
 		Format(Outputer) (O, E, error)
@@ -59,4 +64,18 @@ type (
 		Inputer
 		Outputer
 	}
+
+	ProcessWriter struct {
+		stdOut 	   io.Writer
+		stdErr 	   io.Writer
+		processert []OutputProcesser
+	}
 )
+
+func (w ProcessWriter) OutWriter() io.Writer {
+	return nil
+}
+
+func (w ProcessWriter) ErrWriter() io.Writer {
+	return nil
+}

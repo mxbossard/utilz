@@ -5,6 +5,7 @@ import (
 
 	"bytes"
 	"context"
+	//"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -24,9 +25,12 @@ type failure struct {
 	Cmd *cmdz
 }
 
-func (f failure) Error() string {
-	stderrSummary := stringz.SummaryRatio(f.Cmd.StderrRecord(), 128, 0.2)
-	return fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
+func (f failure) Error() (msg string) {
+	if f.Cmd != nil {
+		stderrSummary := stringz.SummaryRatio(f.Cmd.StderrRecord(), 128, 0.2)
+		msg = fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
+	}
+	return
 }
 
 type config struct {
@@ -81,9 +85,12 @@ type cmdz struct {
 	// FIXME: replace ResultsCodes by Executions
 	Executions     []*exec.Cmd
 
+	feeder		   *cmdz
 	pipedInput	   bool
 	pipedOutput	   bool
 	pipeFail	   bool
+
+	processers     []OutputProcesser
 }
 
 func (e *cmdz) Retries(count, delayInMs int) *cmdz {
@@ -209,7 +216,46 @@ func (e cmdz) ReportError() string {
 	return errorMessage
 }
 
+func (e *cmdz) Pipe(c *cmdz) (*cmdz) {
+	c.feeder = e
+	return c
+}
+
+func (e *cmdz) PipeFail(c *cmdz) (*cmdz) {
+	e.pipeFail = true
+	return e.Pipe(c)
+}
+
 func (e *cmdz) BlockRun() (rc int, err error) {
+	f := e.feeder
+	var originalStdout io.Writer
+	var originalStdin io.Reader
+	if f != nil {
+		originalStdout = f.config.stdout
+		originalStdin = f.config.stdin
+		b := bytes.Buffer{}
+
+		// Replace configured stdin / stdout temporarilly
+		f.pipedOutput = true
+		f.config.stdout = &b
+		//f.stdoutRecord.Nested = &b
+	
+		e.pipedInput = true
+		e.config.stdin = &b
+		//e.stdinRecord.Nested = &b
+
+		frc, ferr := e.feeder.BlockRun()
+		if _, ok := ferr.(failure); ferr != nil && !ok {
+			// If feeder error is not a failure{} return it immediately
+			return frc, ferr
+		}
+
+		if e.feeder.pipeFail && frc > 0 {
+			// if pipefail enabled and rc > 0 fail shortly
+			return frc, ferr
+		}
+	}
+
 	e.reset()
 	config := mergeConfigs(&e.config, e.fallbackConfig)
 	e.recordingInput(config.stdin)
@@ -250,26 +296,39 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 		err = failure{rc, e}
 		rc = -1
 	}
+	if f != nil {
+		f.config.stdout = originalStdout
+		e.config.stdin = originalStdin
+	}
 	return
 }
 
-func (e *cmdz) Pipe(c *cmdz) (*cmdz) {
-	e.pipedOutput = true
-	c.pipedInput = true
-	b := bytes.Buffer{}
-	c.config.stdin = &b
-	c.stdinRecord.Nested = &b
-	c.config.stdout = &b
-	e.stdoutRecord.Nested = &b
+// For simplicity processers only apply to Output() and OutputString()
+// FIXME: processers should be embedded in decorating Writer in front of stdout
+func (e *cmdz) Process(processers ...OutputProcesser) *cmdz {
+	e.processers = append(e.processers, processers...)
 	return e
 }
 
-func (e *cmdz) PipeFail(c *cmdz) (*cmdz) {
-	e.pipeFail = true
+func (e *cmdz) StringProcess(strProcessers ...OutputStringProcesser) *cmdz {
+	processers := make([]OutputProcesser, len(strProcessers))
+	for i, sp := range strProcessers {
+		spf := sp // Need this to update func pointer
+		processers[i] = func(rc int, stdout, stderr []byte) ([]byte, error) {
+			res, err := spf(rc, string(stdout), string(stderr))
+			return []byte(res), err
+		}
+		
+	}
+	e.Process(processers...)
 	return e
 }
 
-func (e *cmdz) Output() (string, error) {
+func (e *cmdz) Output() ([]byte, error) {
+	return nil, fmt.Errorf("cmdz.Output() not implemented yet !")
+}
+
+func (e *cmdz) OutputString() (string, error) {
 	rc, err := e.ErrorOnFailure(true).BlockRun()
 	if err != nil {
 		return "", err
@@ -278,10 +337,22 @@ func (e *cmdz) Output() (string, error) {
 		err = failure{rc, e}
 		return "", err
 	}
-	return e.StdoutRecord(), nil
+	stdout := []byte(e.StdoutRecord())
+	stderr := []byte(e.StderrRecord())
+	for _, p := range e.processers {
+		stdout, err = p(rc, stdout, stderr)
+		if err != nil {
+			return "", err
+		}
+	}
+	return string(stdout), nil
 }
 
-func (e *cmdz) CombinedOutput() (string, error) {
+func (e *cmdz) CombinedOutput() ([]byte, error) {
+	return nil, fmt.Errorf("cmdz.CombinedOutput() not implemented yet !")
+}
+
+func (e *cmdz) CombinedOutputString() (string, error) {
 	if e.config.stdout == nil {
 		e.config.stdout = &strings.Builder{}
 	}
