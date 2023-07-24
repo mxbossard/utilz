@@ -28,19 +28,6 @@ func (f failure) Error() string {
 	return fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
 }
 
-type Executer interface {
-	reset()
-	fallback(*config)
-
-	String() string
-	ReportError() string
-	BlockRun() (int, error)
-	AsyncRun() *execPromise
-	StdoutRecord() string
-	StderrRecord() string
-	FailOnError() Executer
-}
-
 type config struct {
 	retries        int
 	retryDelayInMs int
