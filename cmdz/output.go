@@ -14,12 +14,12 @@ type (
 
 // For simplicity processers only apply to Output() and OutputString()
 // FIXME: processers should be embedded in decorating Writer in front of stdout
-func (e *basicOutput) OutProcess(processers ...OutProcesser) *basicOutput {
+func (e *basicOutput) OutProcess(processers ...OutProcesser) Outputer {
 	e.outProcessers = append(e.outProcessers, processers...)
 	return e
 }
 
-func (e *basicOutput) OutStringProcess(strProcessers ...OutStringProcesser) *basicOutput {
+func (e *basicOutput) OutStringProcess(strProcessers ...OutStringProcesser) Outputer {
 	processers := make([]OutProcesser, len(strProcessers))
 	for i, sp := range strProcessers {
 		spf := sp // Need this to update func pointer
@@ -38,7 +38,7 @@ func (e *basicOutput) Output() ([]byte, error) {
 }
 
 func (e *basicOutput) OutputString() (string, error) {
-	rc, err := e.FailOnError().BlockRun()
+	rc, err := e.ErrorOnFailure(true).BlockRun()
 	if err != nil {
 		return "", err
 	}
@@ -72,4 +72,12 @@ func (e *basicOutput) CombinedOutputString() (string, error) {
 
 	e.Executer = e.CombineOutputs()
 	return e.OutputString()
+}
+
+func Output(e Executer) Outputer {
+	return &basicOutput{Executer: e}
+}
+
+func OutputCmd(binary string, args ...string) Outputer {
+	return Output(Cmd(binary, args...))
 }

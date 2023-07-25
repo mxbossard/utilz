@@ -5,8 +5,6 @@ import (
 	//"io"
 	"bytes"
 	"context"
-	"fmt"
-	"log"
 
 	//"log"
 	//"os/exec"
@@ -14,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"mby.fr/utils/collections"
 	"mby.fr/utils/promise"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +25,7 @@ func TestCmd(t *testing.T) {
 	assert.NotNil(t, c.config)
 	assert.NotNil(t, c.stdoutRecord)
 	assert.NotNil(t, c.stderrRecord)
-	assert.Len(t, c.ResultsCodes, 0)
+	assert.Len(t, c.ResultCodes(), 0)
 	assert.Len(t, c.Executions, 0)
 }
 
@@ -41,7 +38,7 @@ func TestCmdCtx(t *testing.T) {
 	assert.NotNil(t, c.config)
 	assert.NotNil(t, c.stdoutRecord)
 	assert.NotNil(t, c.stderrRecord)
-	assert.Len(t, c.ResultsCodes, 0)
+	assert.Len(t, c.ResultCodes(), 0)
 	assert.Len(t, c.Executions, 0)
 }
 
@@ -64,13 +61,13 @@ func TestBlockRun(t *testing.T) {
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, []int{0}, e.ResultCodes())
 
 	e2 := Cmd("false")
 	rc2, err2 := e2.BlockRun()
 	require.NoError(t, err2, "should not error")
 	assert.Equal(t, 1, rc2)
-	assert.Equal(t, []int{1}, e2.ResultsCodes)
+	assert.Equal(t, []int{1}, e2.ResultCodes())
 }
 
 func TestBlockRun_WithInput(t *testing.T) {
@@ -83,7 +80,7 @@ func TestBlockRun_WithInput(t *testing.T) {
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, []int{0}, e.ResultCodes())
 	sin := e.StdinRecord()
 	sout := e.StdoutRecord()
 	serr := e.StderrRecord()
@@ -115,7 +112,7 @@ func TestBlockRun_WithOutputs(t *testing.T) {
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, []int{0}, e.ResultCodes())
 	sout := stdout.String()
 	serr := stderr.String()
 	assert.Equal(t, echoArg+"\n", sout)
@@ -130,7 +127,7 @@ func TestBlockRun_RecordingOutputs(t *testing.T) {
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, []int{0}, e.ResultCodes())
 	sout := e.StdoutRecord()
 	serr := e.StderrRecord()
 	assert.Equal(t, echoArg+"\n", sout)
@@ -144,7 +141,7 @@ func TestBlockRun_AddArgs(t *testing.T) {
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, []int{0}, e.ResultCodes())
 	assert.Equal(t, "foo bar\n", e.StdoutRecord())
 	assert.Equal(t, "", e.StderrRecord())
 }
@@ -155,7 +152,7 @@ func TestBlockRun_AddEnv(t *testing.T) {
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, []int{0}, e.ResultCodes())
 	assert.Equal(t, "foo baz\n", e.StdoutRecord())
 	assert.Equal(t, "", e.StderrRecord())
 }
@@ -168,7 +165,7 @@ func TesBlockRun_ReRun(t *testing.T) {
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, []int{0}, e.ResultCodes())
 	sout := e.StdoutRecord()
 	serr := e.StderrRecord()
 	assert.Equal(t, echoArg+"\n", sout)
@@ -177,7 +174,7 @@ func TesBlockRun_ReRun(t *testing.T) {
 	rc3, err3 := e.BlockRun()
 	require.NoError(t, err3, "should not error")
 	assert.Equal(t, 0, rc3)
-	assert.Equal(t, []int{0}, e.ResultsCodes)
+	assert.Equal(t, []int{0}, e.ResultCodes())
 	sout3 := e.StdoutRecord()
 	serr3 := e.StderrRecord()
 	assert.Equal(t, echoArg+"\n", sout3)
@@ -191,7 +188,7 @@ func TestBlockRun_Retries(t *testing.T) {
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
 	assert.Equal(t, 1, rc)
-	assert.Equal(t, []int{1, 1, 1}, e.ResultsCodes)
+	assert.Equal(t, []int{1, 1, 1}, e.ResultCodes())
 	sout := e.StdoutRecord()
 	serr := e.StderrRecord()
 	assert.Equal(t, "", sout)
@@ -203,46 +200,6 @@ func TestBlockRun_ErrorOnFailure(t *testing.T) {
 	rc, err := f.BlockRun()
 	require.Error(t, err, "should error")
 	assert.Equal(t, -1, rc)
-}
-
-func TestOutputString(t *testing.T) {
-	e := Cmd("echo", "-n", "foo")
-	o, err := e.OutputString()
-	require.NoError(t, err)
-	assert.Equal(t, "foo", o)
-	assert.Equal(t, "foo", e.StdoutRecord())
-	assert.Equal(t, "", e.StderrRecord())
-
-	e = Cmd("/bin/sh", "-c", ">&2 echo foo; echo bar")
-	o, err = e.OutputString()
-	require.NoError(t, err)
-	assert.Equal(t, "bar\n", o)
-	assert.Equal(t, "bar\n", e.StdoutRecord())
-	assert.Equal(t, "foo\n", e.StderrRecord())
-
-	f := Cmd("/bin/false")
-	_, err = f.OutputString()
-	require.Error(t, err)
-}
-
-func TestCombinedOutputString(t *testing.T) {
-	e := Cmd("echo", "-n", "foo")
-	o, err := e.CombinedOutputString()
-	require.NoError(t, err)
-	assert.Equal(t, "foo", o)
-	assert.Equal(t, "foo", e.StdoutRecord())
-	assert.Equal(t, "", e.StderrRecord())
-
-	e = Cmd("/bin/sh", "-c", ">&2 echo foo; sleep 0.1; echo bar")
-	o, err = e.CombinedOutputString()
-	require.NoError(t, err)
-	assert.Equal(t, "foo\nbar\n", o)
-	assert.Equal(t, "bar\n", e.StdoutRecord())
-	assert.Equal(t, "foo\n", e.StderrRecord())
-
-	f := Cmd("/bin/false")
-	_, err = f.CombinedOutputString()
-	require.Error(t, err)
 }
 
 func TestAsyncRun(t *testing.T) {
@@ -272,8 +229,8 @@ func TestAsyncRun(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, val)
 	assert.Equal(t, []int{0, 0}, *val)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{0}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{0}, e2.ResultCodes())
 
 	assert.Equal(t, echoArg1+"\n", stdout1.String())
 	assert.Equal(t, "", stderr1.String())
@@ -286,7 +243,7 @@ func TestPipe_OutputString(t *testing.T) {
 	sed := Cmd("/bin/sed", "-e", "s/o/a/")
 	p := echo.Pipe(sed)
 
-	o, err := p.OutputString()
+	o, err := Output(p).OutputString()
 	require.NoError(t, err)
 	assert.Equal(t, "fao", o)
 	assert.Equal(t, "foo", echo.StdoutRecord())
@@ -298,7 +255,7 @@ func TestPipe_OutputString(t *testing.T) {
 	echo = Cmd("/bin/echo", "-n", "foo")
 	p = fail.Pipe(echo)
 
-	o, err = p.OutputString()
+	o, err = Output(p).OutputString()
 	require.NoError(t, err)
 	assert.Equal(t, "foo", o)
 	assert.Equal(t, "", fail.StdoutRecord())
@@ -310,7 +267,7 @@ func TestPipe_OutputString(t *testing.T) {
 	echo = Cmd("/bin/echo", "-n", "foo")
 	p = errCmd.Pipe(echo)
 
-	o, err = p.OutputString()
+	o, err = Output(p).OutputString()
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "doNotExists")
 	assert.Equal(t, "", o)
@@ -325,7 +282,7 @@ func TestPipeFail_OutputString(t *testing.T) {
 	sed := Cmd("/bin/sed", "-e", "s/o/a/")
 	p := echo.PipeFail(sed)
 
-	o, err := p.OutputString()
+	o, err := Output(p).OutputString()
 	require.NoError(t, err)
 	assert.Equal(t, "fao", o)
 	assert.Equal(t, "foo", echo.StdoutRecord())
@@ -337,7 +294,7 @@ func TestPipeFail_OutputString(t *testing.T) {
 	echo = Cmd("/bin/echo", "-n", "foo")
 	p = fail.PipeFail(echo)
 
-	o, err = p.OutputString()
+	o, err = Output(p).OutputString()
 	require.Error(t, err)
 	assert.IsType(t, err, failure{})
 	assert.Equal(t, "", o)
@@ -350,7 +307,7 @@ func TestPipeFail_OutputString(t *testing.T) {
 	echo = Cmd("/bin/echo", "-n", "foo")
 	p = errCmd.Pipe(echo)
 
-	o, err = p.OutputString()
+	o, err = Output(p).OutputString()
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "doNotExists")
 	assert.Equal(t, "", o)
@@ -358,54 +315,6 @@ func TestPipeFail_OutputString(t *testing.T) {
 	assert.Equal(t, "", echo.StdinRecord())
 	assert.Equal(t, "", echo.StdoutRecord())
 	assert.Equal(t, "", p.StdoutRecord())
-}
-
-var trimNewLineProcesser = func(rc int, stdout, stderr string) (string, error) {
-	log.Printf("trimNewLineProcesser IN: %s", stdout)
-	out := strings.ReplaceAll(stdout, "\n", "")
-	log.Printf("trimNewLineProcesser OUT: %s", stdout)
-	return out, nil
-}
-
-var appendLineStringProcesser = func(rc int, stdout, stderr string) (string, error) {
-	log.Printf("IN: %s", stdout)
-	lines := strings.Split(stdout, "\n")
-	appended := collections.Map(lines, func(in string) string {
-		return in + "END"
-	})
-	out := strings.Join(appended, "\n")
-	log.Printf("OUT: %s", out)
-	return out, nil
-}
-
-var errorProcesser = func(rc int, stdout, stderr string) (string, error) {
-	return "", fmt.Errorf("Error")
-}
-
-func TestStringProcess_OutputString(t *testing.T) {
-	echo := Cmd("/bin/echo", "-n", "foo")
-	p := echo.StringProcess(appendLineStringProcesser)
-	o, err := p.OutputString()
-	require.NoError(t, err)
-	assert.Equal(t, "fooEND", o)
-
-	echo = Cmd("/bin/echo", "foo")
-	p = echo.StringProcess(appendLineStringProcesser)
-	o, err = p.OutputString()
-	require.NoError(t, err)
-	assert.Equal(t, "fooEND\nEND", o)
-
-	echo = Cmd("/bin/echo", "foo")
-	p = echo.StringProcess(trimNewLineProcesser, appendLineStringProcesser)
-	o, err = p.OutputString()
-	require.NoError(t, err)
-	require.Equal(t, "fooEND", o)
-
-	echo = Cmd("/bin/echo", "foo")
-	p = echo.StringProcess(errorProcesser, trimNewLineProcesser)
-	o, err = p.OutputString()
-	require.Error(t, err)
-	assert.Equal(t, "", o)
 }
 
 func TestReportError(t *testing.T) {

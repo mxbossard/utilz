@@ -106,7 +106,7 @@ func (s *serialSeq) FailFast(enabled bool) *serialSeq {
 	return s
 }
 
-func (s *serialSeq) Retries(count, delayInMs int) *serialSeq {
+func (s *serialSeq) Retries(count, delayInMs int) Executer {
 	s.config.retries = count
 	s.config.retryDelayInMs = delayInMs
 	return s
@@ -123,13 +123,16 @@ func (s *serialSeq) Outputs(stdout, stderr io.Writer) *serialSeq {
 	return s
 }
 
-func (s *serialSeq) ErrorOnFailure(enable bool) *serialSeq {
-	s.config.errorOnFailure = enable
+func (s *serialSeq) CombineOutputs() Executer {
+	for _, e := range s.execs {
+		e.CombineOutputs()
+	}
 	return s
 }
 
-func (s *serialSeq) FailOnError() Executer {
-	return s.ErrorOnFailure(true)
+func (s *serialSeq) ErrorOnFailure(enable bool) Executer {
+	s.config.errorOnFailure = enable
+	return s
 }
 
 func (s *serialSeq) Add(execs ...Executer) *serialSeq {
@@ -171,6 +174,97 @@ func (s *serialSeq) AsyncRun() *execPromise {
 	return p
 }
 
+func (e *serialSeq) ResultCodes() (codes []int) {
+	for _, exec := range e.execs {
+		codes = append(codes, exec.ResultCodes()...)
+	}
+	return
+}
+
+type orSeq struct {
+	*seq
+}
+
+func (s *orSeq) FailFast(enabled bool) *orSeq {
+	s.failFast = enabled
+	return s
+}
+
+func (s *orSeq) Retries(count, delayInMs int) Executer {
+	s.config.retries = count
+	s.config.retryDelayInMs = delayInMs
+	return s
+}
+
+func (s *orSeq) Timeout(delayInMs int) *orSeq {
+	s.config.timeout = delayInMs
+	return s
+}
+
+func (s *orSeq) Outputs(stdout, stderr io.Writer) *orSeq {
+	s.config.stdout = stdout
+	s.config.stderr = stderr
+	return s
+}
+
+func (s *orSeq) CombineOutputs() Executer {
+	for _, e := range s.execs {
+		e.CombineOutputs()
+	}
+	return s
+}
+
+func (s *orSeq) ErrorOnFailure(enable bool) Executer {
+	s.config.errorOnFailure = enable
+	return s
+}
+
+func (s *orSeq) Add(execs ...Executer) *orSeq {
+	s.execs = append(s.execs, execs...)
+	return s
+}
+
+func (s orSeq) String() string {
+	return stringz.JoinStringers(s.seq.execs, " || ")
+}
+
+func (s orSeq) ReportError() string {
+	errors := collections.Map[Executer, string](s.seq.execs, func(e Executer) string {
+		return e.ReportError()
+	})
+	return strings.Join(errors, "\n")
+}
+
+func (s *orSeq) BlockRun() (rc int, err error) {
+	mergedConfig := mergeConfigs(&s.config, s.fallbackConfig)
+	for _, exec := range s.seq.execs {
+		exec.fallback(mergedConfig)
+	}
+	s.reset()
+	if len(s.seq.execs) > 0 {
+		rc, err = blockOr(s.seq.execs...)
+	}
+	return
+}
+
+func (s *orSeq) AsyncRun() *execPromise {
+	p := promise.New(func(resolve func(int), reject func(error)) {
+		rc, err := s.BlockRun()
+		if err != nil {
+			reject(err)
+		}
+		resolve(rc)
+	})
+	return p
+}
+
+func (e *orSeq) ResultCodes() (codes []int) {
+	for _, exec := range e.execs {
+		codes = append(codes, exec.ResultCodes()...)
+	}
+	return
+}
+
 type parallelSeq struct {
 	*seq
 
@@ -182,7 +276,7 @@ func (s *parallelSeq) FailFast(enabled bool) *parallelSeq {
 	return s
 }
 
-func (s *parallelSeq) Retries(count, delayInMs int) *parallelSeq {
+func (s *parallelSeq) Retries(count, delayInMs int) Executer {
 	s.config.retries = count
 	s.config.retryDelayInMs = delayInMs
 	return s
@@ -199,13 +293,16 @@ func (s *parallelSeq) Outputs(stdout, stderr io.Writer) *parallelSeq {
 	return s
 }
 
-func (s *parallelSeq) ErrorOnFailure(enable bool) *parallelSeq {
-	s.config.errorOnFailure = enable
+func (s *parallelSeq) CombineOutputs() Executer {
+	for _, e := range s.execs {
+		e.CombineOutputs()
+	}
 	return s
 }
 
-func (s *parallelSeq) FailOnError() Executer {
-	return s.ErrorOnFailure(true)
+func (s *parallelSeq) ErrorOnFailure(enable bool) Executer {
+	s.config.errorOnFailure = enable
+	return s
 }
 
 func (s *parallelSeq) Fork(count int) *parallelSeq {
@@ -250,6 +347,13 @@ func (s *parallelSeq) AsyncRun() *execPromise {
 	})
 }
 
+func (e *parallelSeq) ResultCodes() (codes []int) {
+	for _, exec := range e.execs {
+		codes = append(codes, exec.ResultCodes()...)
+	}
+	return
+}
+
 func Serial(execs ...Executer) *serialSeq {
 	s := &serialSeq{seq: &seq{config: config{}}}
 	s.Add(execs...)
@@ -258,6 +362,16 @@ func Serial(execs ...Executer) *serialSeq {
 
 func Parallel(execs ...Executer) *parallelSeq {
 	s := &parallelSeq{seq: &seq{config: config{}}}
+	s.Add(execs...)
+	return s
+}
+
+func And(execs ...Executer) *serialSeq {
+	return Serial(execs...)
+}
+
+func Or(execs ...Executer) *orSeq {
+	s := &orSeq{seq: &seq{config: config{}}}
 	s.Add(execs...)
 	return s
 }

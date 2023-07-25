@@ -31,8 +31,8 @@ func TestAsyncRunAll(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, val)
 	assert.Equal(t, []int{0, 0}, *val)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{0}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{0}, e2.ResultCodes())
 }
 
 func TestAsynkRunAll_WithFailure(t *testing.T) {
@@ -52,8 +52,8 @@ func TestAsynkRunAll_WithFailure(t *testing.T) {
 	val, err := WaitAllResults(p)
 	require.NoError(t, err)
 	assert.Equal(t, []int{0, 1}, *val)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{1, 1, 1}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{1, 1, 1}, e2.ResultCodes())
 }
 
 func TestBlockParallelRunAll(t *testing.T) {
@@ -72,8 +72,8 @@ func TestBlockParallelRunAll(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, val)
 	assert.Equal(t, []int{0, 0}, val)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{0}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{0}, e2.ResultCodes())
 }
 
 func TestBlockParallelRunAll_WithFailure(t *testing.T) {
@@ -92,8 +92,8 @@ func TestBlockParallelRunAll_WithFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, val)
 	assert.Equal(t, []int{0, 1}, val)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{1, 1, 1}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{1, 1, 1}, e2.ResultCodes())
 }
 
 func TestAsyncRunBest(t *testing.T) {
@@ -119,12 +119,12 @@ func TestAsyncRunBest(t *testing.T) {
 	val, err := br.Result(0)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, val)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
 
 	val, err = br.Result(1)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, val)
-	assert.Equal(t, []int{0}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e2.ResultCodes())
 }
 
 func TestAsyncRunBest_WithFailure(t *testing.T) {
@@ -150,12 +150,12 @@ func TestAsyncRunBest_WithFailure(t *testing.T) {
 	val, err := br.Result(0)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, val)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
 
 	val, err = br.Result(1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, val)
-	assert.Equal(t, []int{1, 1, 1}, e2.ResultsCodes)
+	assert.Equal(t, []int{1, 1, 1}, e2.ResultCodes())
 }
 
 func TestBlockSerial(t *testing.T) {

@@ -12,6 +12,9 @@ type (
 	bytesPromise  = promise.Promise[[]byte]
 	stringPromise = promise.Promise[string]
 
+	Runner interface {
+	}
+
 	Executer interface {
 		reset()
 		fallback(*config)
@@ -19,18 +22,16 @@ type (
 		String() string
 		ReportError() string
 		BlockRun() (int, error)
-		//Output() ([]byte, error)
-		//OutputString() (string, error)
-		//CombinedOutput() ([]byte, error)
-		//CombinedOutputString() (string, error)
 		AsyncRun() *execPromise
+		ResultCodes() []int
 
 		//StdinRecord() string
 		StdoutRecord() string
 		StderrRecord() string
 
-		FailOnError() Executer
+		ErrorOnFailure(bool) Executer
 		CombineOutputs() Executer
+		Retries(count, delayInMs int) Executer
 
 		//Pipe(Executer) Executer
 		//PipeFail(Executer) Executer
@@ -40,6 +41,7 @@ type (
 	}
 
 	Inputer interface {
+		Executer
 		Input([]byte) error
 	}
 
@@ -49,6 +51,7 @@ type (
 	OutStringProcesser = func(int, string, string) (string, error)
 
 	Outputer interface {
+		Executer
 		Output() ([]byte, error)
 		OutputString() (string, error)
 		//AsyncOutput() *bytesPromise
@@ -62,27 +65,24 @@ type (
 		//InProcess([]OutProcesser) Outputer
 		//InStringProcess([]OutStringProcesser) Outputer
 
-		OutProcess([]OutProcesser) Outputer
-		OutStringProcess([]OutStringProcesser) Outputer
+		OutProcess(...OutProcesser) Outputer
+		OutStringProcess(...OutStringProcesser) Outputer
 	}
 
 	Formatter[O, E any] interface {
 		Format(Outputer) (O, E, error)
 	}
 
-	Iner interface {
-		Executer
-		Inputer
-	}
-
-	Outer interface {
-		Executer
-		Outputer
-	}
-
 	Piper interface {
-		Pipe(*Iner) *Outer
-		PipeFail(*Iner) *Outer
+		Executer
+		Pipe(Executer) Piper
+		PipeFail(Executer) Piper
+	}
+
+	InOutPiper interface {
+		Executer
+		Pipe(Inputer) Outputer
+		PipeFail(Inputer) Outputer
 	}
 
 	InOuter interface {
@@ -94,7 +94,7 @@ type (
 	ProcessWriter struct {
 		stdOut     io.Writer
 		stdErr     io.Writer
-		processert []OutputProcesser
+		processert []OutProcesser
 	}
 )
 

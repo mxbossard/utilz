@@ -119,11 +119,23 @@ func blockSerial(failFast bool, execs ...Executer) (status int, err error) {
 		if err != nil {
 			return -1, err
 		}
-		
+
 		if failFast && status > 0 {
 			return
-			//execErr := exec.ReportError()
-			//return fmt.Errorf("Encountered some sequential execution failure: \n%s", execErr)
+		}
+	}
+	return
+}
+
+func blockOr(execs ...Executer) (status int, err error) {
+	for _, exec := range execs {
+		status, err = exec.BlockRun()
+		if err != nil {
+			return -1, err
+		}
+
+		if status == 0 {
+			return
 		}
 	}
 	return

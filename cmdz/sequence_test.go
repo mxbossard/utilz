@@ -101,17 +101,17 @@ func TestSerial_Retries(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{1}, f1.ResultsCodes)
-	assert.Equal(t, []int{0}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{1}, f1.ResultCodes())
+	assert.Equal(t, []int{0}, e2.ResultCodes())
 
 	s.Retries(2, 10)
 	rc, err = s.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{1, 1, 1}, f1.ResultsCodes)
-	assert.Equal(t, []int{0}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{1, 1, 1}, f1.ResultCodes())
+	assert.Equal(t, []int{0}, e2.ResultCodes())
 
 	s.Add(f1)
 	rc, err = s.BlockRun()
@@ -142,18 +142,18 @@ func TestSerial_FailFast(t *testing.T) {
 	rc, err := s.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 1, rc)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{1}, f1.ResultsCodes)
-	assert.Equal(t, []int(nil), e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{1}, f1.ResultCodes())
+	assert.Equal(t, []int(nil), e2.ResultCodes())
 	assert.Equal(t, "foo\n", s.StdoutRecord())
 
 	s.Retries(2, 10)
 	rc, err = s.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 1, rc)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{1, 1, 1}, f1.ResultsCodes)
-	assert.Equal(t, []int(nil), e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{1, 1, 1}, f1.ResultCodes())
+	assert.Equal(t, []int(nil), e2.ResultCodes())
 	assert.Equal(t, "foo\n", s.StdoutRecord())
 }
 
@@ -161,6 +161,126 @@ func TestSerial_ErrorOnFailure(t *testing.T) {
 	e1 := Cmd("echo", "foo")
 	f := Cmd("/bin/false").ErrorOnFailure(true)
 	s := Serial(e1, f)
+	rc, err := s.BlockRun()
+	require.Error(t, err, "should error")
+	assert.Equal(t, -1, rc)
+}
+
+func TestOr(t *testing.T) {
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	e3 := Cmd("echo", "baz")
+
+	s := Or(e1)
+	assert.Equal(t, "echo foo", s.String())
+
+	rc1, err1 := s.BlockRun()
+	require.NoError(t, err1)
+	assert.Equal(t, 0, rc1)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "", e2.StdoutRecord())
+	assert.Equal(t, "", e3.StdoutRecord())
+	assert.Equal(t, "foo\n", s.StdoutRecord())
+	assert.Equal(t, "", s.StderrRecord())
+
+	s2 := Or(e1, e2)
+	assert.Equal(t, "echo foo || echo bar", s2.String())
+
+	rc2, err2 := s2.BlockRun()
+	require.NoError(t, err2)
+	assert.Equal(t, 0, rc2)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "", e2.StdoutRecord())
+	assert.Equal(t, "", e3.StdoutRecord())
+	assert.Equal(t, "foo\n", s2.StdoutRecord())
+	assert.Equal(t, "", s2.StderrRecord())
+
+	s2.Add(e3)
+	assert.Equal(t, "echo foo || echo bar || echo baz", s2.String())
+
+	rc3, err3 := s2.BlockRun()
+	require.NoError(t, err3)
+	assert.Equal(t, 0, rc3)
+	assert.Equal(t, "foo\n", e1.StdoutRecord())
+	assert.Equal(t, "", e2.StdoutRecord())
+	assert.Equal(t, "", e3.StdoutRecord())
+	assert.Equal(t, "foo\n", s2.StdoutRecord())
+	assert.Equal(t, "", s2.StderrRecord())
+}
+
+func TestOr_Retries(t *testing.T) {
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	f1 := Cmd("false")
+
+	s := Or(e1, f1, e2)
+	rc, err := s.BlockRun()
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int(nil), f1.ResultCodes())
+	assert.Equal(t, []int(nil), e2.ResultCodes())
+
+	s = Or(f1, e1, e2)
+	rc, err = s.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{1}, f1.ResultCodes())
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int(nil), e2.ResultCodes())
+
+	s.Retries(2, 10)
+	rc, err = s.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{1, 1, 1}, f1.ResultCodes())
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int(nil), e2.ResultCodes())
+}
+
+func TestOr_Outputs(t *testing.T) {
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	f1 := Cmd("false")
+
+	sb := strings.Builder{}
+	s := Or(e1, f1, e2).Outputs(&sb, nil)
+	rc, err := s.BlockRun()
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo\n", sb.String())
+}
+
+func TestOr_FailFast(t *testing.T) {
+	e1 := Cmd("echo", "foo")
+	e2 := Cmd("echo", "bar")
+	f1 := Cmd("false")
+
+	s := Or(f1, e1, e2).FailFast(true).ErrorOnFailure(false)
+	rc, err := s.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{1}, f1.ResultCodes())
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int(nil), e2.ResultCodes())
+	assert.Equal(t, "foo\n", s.StdoutRecord())
+
+	s.Retries(2, 10)
+	rc, err = s.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{1, 1, 1}, f1.ResultCodes())
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int(nil), e2.ResultCodes())
+	assert.Equal(t, "foo\n", s.StdoutRecord())
+}
+
+func TestOr_ErrorOnFailure(t *testing.T) {
+	e1 := Cmd("echo", "foo")
+	f := Cmd("/bin/false").ErrorOnFailure(true)
+	s := Or(f, e1)
 	rc, err := s.BlockRun()
 	require.Error(t, err, "should error")
 	assert.Equal(t, -1, rc)
@@ -256,17 +376,17 @@ func TestParallel_Retries(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, rc)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{1}, f1.ResultsCodes)
-	assert.Equal(t, []int{0}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{1}, f1.ResultCodes())
+	assert.Equal(t, []int{0}, e2.ResultCodes())
 
 	p.Retries(2, 10)
 	rc, err = p.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 1, rc)
-	assert.Equal(t, []int{0}, e1.ResultsCodes)
-	assert.Equal(t, []int{1, 1, 1}, f1.ResultsCodes)
-	assert.Equal(t, []int{0}, e2.ResultsCodes)
+	assert.Equal(t, []int{0}, e1.ResultCodes())
+	assert.Equal(t, []int{1, 1, 1}, f1.ResultCodes())
+	assert.Equal(t, []int{0}, e2.ResultCodes())
 
 	p.Add(f2)
 	rc, err = p.BlockRun()
@@ -298,9 +418,9 @@ func TestParallel_FailFast(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, rc)
 	assert.Equal(t, "", p.StdoutRecord())
-	assert.Equal(t, []int(nil), c1.ResultsCodes)
-	assert.Equal(t, []int{1}, f1.ResultsCodes)
-	assert.Equal(t, []int(nil), c2.ResultsCodes)
+	assert.Equal(t, []int(nil), c1.ResultCodes())
+	assert.Equal(t, []int{1}, f1.ResultCodes())
+	assert.Equal(t, []int(nil), c2.ResultCodes())
 
 	c1.reset()
 	c2.reset()
@@ -309,9 +429,9 @@ func TestParallel_FailFast(t *testing.T) {
 	rc, err = p.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 1, rc)
-	assert.Equal(t, []int(nil), c1.ResultsCodes)
-	assert.Equal(t, []int{1, 1, 1}, f1.ResultsCodes)
-	assert.Equal(t, []int(nil), c2.ResultsCodes)
+	assert.Equal(t, []int(nil), c1.ResultCodes())
+	assert.Equal(t, []int{1, 1, 1}, f1.ResultCodes())
+	assert.Equal(t, []int(nil), c2.ResultCodes())
 	assert.Equal(t, "", p.StdoutRecord())
 }
 
@@ -352,18 +472,18 @@ func Test_FallbackPersitence(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, rc)
 	// Retries should be 0 by default
-	assert.Equal(t, []int{1}, f.ResultsCodes, "Bad retries defaulr")
+	assert.Equal(t, []int{1}, f.ResultCodes(), "Bad retries defaulr")
 
 	s := Serial(f).Retries(2, 0)
 	rc, err = s.BlockRun()
 	assert.NoError(t, err)
 	assert.Equal(t, 1, rc)
 	// Retries should be 2 fallback by Serial config
-	assert.Equal(t, []int{1, 1, 1}, f.ResultsCodes, "Bad retries fallback")
+	assert.Equal(t, []int{1, 1, 1}, f.ResultCodes(), "Bad retries fallback")
 
 	rc, err = f.BlockRun()
 	assert.NoError(t, err)
 	assert.Equal(t, 1, rc)
 	// Retries should be 0 by default fallback should not persist
-	assert.Equal(t, []int{1}, f.ResultsCodes, "Undesired fallback persistance")
+	assert.Equal(t, []int{1}, f.ResultCodes(), "Undesired fallback persistance")
 }

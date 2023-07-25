@@ -26,7 +26,7 @@ type failure struct {
 func (f failure) Error() (msg string) {
 	if f.Exec != nil {
 		stderrSummary := stringz.SummaryRatio(f.Exec.StderrRecord(), 128, 0.2)
-		msg = fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
+		msg = fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Exec.String(), stderrSummary)
 	}
 	return
 }
@@ -38,6 +38,7 @@ type config struct {
 	stdin          io.Reader
 	stdout         io.Writer
 	stderr         io.Writer
+	combinedOuts   bool
 	errorOnFailure bool
 }
 
@@ -79,7 +80,7 @@ type cmdz struct {
 	stdoutRecord inout.RecordingWriter
 	stderrRecord inout.RecordingWriter
 
-	ResultsCodes []int
+	resultsCodes []int
 	// FIXME: replace ResultsCodes by Executions
 	Executions []*exec.Cmd
 
@@ -91,7 +92,7 @@ type cmdz struct {
 	processers []OutProcesser
 }
 
-func (e *cmdz) Retries(count, delayInMs int) *cmdz {
+func (e *cmdz) Retries(count, delayInMs int) Executer {
 	e.config.retries = count
 	e.config.retryDelayInMs = delayInMs
 	return e
@@ -121,17 +122,13 @@ func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
 }
 
 func (e *cmdz) CombineOutputs() Executer {
-	e.config.stderr = e.config.stdout
+	e.config.combinedOuts = true
 	return e
 }
 
-func (e *cmdz) ErrorOnFailure(enable bool) *cmdz {
+func (e *cmdz) ErrorOnFailure(enable bool) Executer {
 	e.config.errorOnFailure = enable
 	return e
-}
-
-func (e *cmdz) FailOnError() Executer {
-	return e.ErrorOnFailure(true)
 }
 
 func (e *cmdz) recordingInput(stdin io.Reader) {
@@ -147,14 +144,20 @@ func (e *cmdz) recordingOutputs(stdout, stderr io.Writer) {
 	if stdout == nil {
 		stdout = &strings.Builder{}
 	}
-	if stderr == nil {
-		stderr = &strings.Builder{}
-	}
 
 	e.stdoutRecord.Nested = stdout
 	e.Cmd.Stdout = &e.stdoutRecord
-	e.stderrRecord.Nested = stderr
-	e.Cmd.Stderr = &e.stderrRecord
+
+	if e.config.combinedOuts {
+		e.stderrRecord.Nested = stdout
+		e.Cmd.Stderr = &e.stdoutRecord
+	} else {
+		if stderr == nil {
+			stderr = &strings.Builder{}
+		}
+		e.stderrRecord.Nested = stderr
+		e.Cmd.Stderr = &e.stderrRecord
+	}
 }
 
 func (e *cmdz) AddEnv(key, value string) *cmdz {
@@ -196,7 +199,7 @@ func (e *cmdz) reset() {
 	e.stdinRecord.Reset()
 	e.stdoutRecord.Reset()
 	e.stderrRecord.Reset()
-	e.ResultsCodes = nil
+	e.resultsCodes = nil
 	e.Executions = nil
 	e.rollback()
 }
@@ -212,8 +215,8 @@ func (e cmdz) String() (t string) {
 
 func (e cmdz) ReportError() string {
 	execCmdSummary := e.String()
-	attempts := len(e.ResultsCodes)
-	status := e.ResultsCodes[attempts-1]
+	attempts := len(e.resultsCodes)
+	status := e.resultsCodes[attempts-1]
 	stderr := e.stderrRecord.String()
 	errorMessage := fmt.Sprintf("Exec failed after %d attempt(s): [%s] !\nRC=%d ERR> %s", attempts, execCmdSummary, status, strings.TrimSpace(stderr))
 	return errorMessage
@@ -241,11 +244,9 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 		// Replace configured stdin / stdout temporarilly
 		f.pipedOutput = true
 		f.config.stdout = &b
-		//f.stdoutRecord.Nested = &b
 
 		e.pipedInput = true
 		e.config.stdin = &b
-		//e.stdinRecord.Nested = &b
 
 		frc, ferr := e.feeder.BlockRun()
 		if _, ok := ferr.(failure); ferr != nil && !ok {
@@ -291,7 +292,7 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 			// Replace execution by mocking function
 			rc = commandMock.Mock(e.Cmd)
 		}
-		e.ResultsCodes = append(e.ResultsCodes, rc)
+		e.resultsCodes = append(e.resultsCodes, rc)
 		e.Executions = append(e.Executions, e.Cmd)
 		e.rollback()
 	}
@@ -306,69 +307,8 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 	return
 }
 
-// For simplicity processers only apply to Output() and OutputString()
-// FIXME: processers should be embedded in decorating Writer in front of stdout
-func (e *cmdz) Process(processers ...OutputProcesser) *cmdz {
-	e.processers = append(e.processers, processers...)
-	return e
-}
-
-func (e *cmdz) StringProcess(strProcessers ...OutputStringProcesser) *cmdz {
-	processers := make([]OutputProcesser, len(strProcessers))
-	for i, sp := range strProcessers {
-		spf := sp // Need this to update func pointer
-		processers[i] = func(rc int, stdout, stderr []byte) ([]byte, error) {
-			res, err := spf(rc, string(stdout), string(stderr))
-			return []byte(res), err
-		}
-
-	}
-	e.Process(processers...)
-	return e
-}
-
-func (e *cmdz) Output() ([]byte, error) {
-	return nil, fmt.Errorf("cmdz.Output() not implemented yet !")
-}
-
-func (e *cmdz) OutputString() (string, error) {
-	rc, err := e.ErrorOnFailure(true).BlockRun()
-	if err != nil {
-		return "", err
-	}
-	if rc > 0 {
-		err = failure{rc, e}
-		return "", err
-	}
-	stdout := []byte(e.StdoutRecord())
-	stderr := []byte(e.StderrRecord())
-	for _, p := range e.processers {
-		stdout, err = p(rc, stdout, stderr)
-		if err != nil {
-			return "", err
-		}
-	}
-	return string(stdout), nil
-}
-
-func (e *cmdz) CombinedOutput() ([]byte, error) {
-	return nil, fmt.Errorf("cmdz.CombinedOutput() not implemented yet !")
-}
-
-func (e *cmdz) CombinedOutputString() (string, error) {
-	if e.config.stdout == nil {
-		e.config.stdout = &strings.Builder{}
-	}
-	combinedWriter := inout.RecordingWriter{Nested: e.config.stdout}
-	rc, err := e.ErrorOnFailure(true).Outputs(&combinedWriter, &combinedWriter).BlockRun()
-	if err != nil {
-		return "", err
-	}
-	if rc > 0 {
-		err = failure{rc, e}
-		return "", err
-	}
-	return combinedWriter.String(), nil
+func (e *cmdz) ResultCodes() []int {
+	return e.resultsCodes
 }
 
 func (e *cmdz) AsyncRun() *execPromise {
@@ -401,5 +341,3 @@ func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
 	e.checkpoint()
 	return &e
 }
-
-//var mockingCommand func(exec.Cmd) (int, io.Reader, io.Reader)
