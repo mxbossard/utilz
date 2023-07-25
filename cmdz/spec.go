@@ -2,9 +2,16 @@ package cmdz
 
 import (
 	"io"
+
+	"mby.fr/utils/promise"
 )
 
 type (
+	execPromise   = promise.Promise[int]
+	execsPromise  = promise.Promise[[]int]
+	bytesPromise  = promise.Promise[[]byte]
+	stringPromise = promise.Promise[string]
+
 	Executer interface {
 		reset()
 		fallback(*config)
@@ -17,28 +24,47 @@ type (
 		//CombinedOutput() ([]byte, error)
 		//CombinedOutputString() (string, error)
 		AsyncRun() *execPromise
-		
+
 		//StdinRecord() string
 		StdoutRecord() string
 		StderrRecord() string
-		
+
 		FailOnError() Executer
+		CombineOutputs() Executer
 
 		//Pipe(Executer) Executer
 		//PipeFail(Executer) Executer
+
+		//And(Executer) Executer
+		//Or(Exeuter) Executer
 	}
 
 	Inputer interface {
 		Input([]byte) error
 	}
 
+	InProcesser        = func([]byte) ([]byte, error)
+	InStringProcesser  = func(string) (string, error)
+	OutProcesser       = func(int, []byte, []byte) ([]byte, error)
+	OutStringProcesser = func(int, string, string) (string, error)
+
 	Outputer interface {
 		Output() ([]byte, error)
-		combinedOutput() ([]byte, error)
-	}
+		OutputString() (string, error)
+		//AsyncOutput() *bytesPromise
+		//AsyncOutputString() *stringPromise
 
-	OutputProcesser = func(int, []byte, []byte) ([]byte, error)
-	OutputStringProcesser = func(int, string, string) (string, error)
+		CombinedOutput() ([]byte, error)
+		CombinedOutputString() (string, error)
+		//AsyncCombinedOutput() *bytesPromise
+		//AsyncCombinedOutputString() *stringPromise
+
+		//InProcess([]OutProcesser) Outputer
+		//InStringProcess([]OutStringProcesser) Outputer
+
+		OutProcess([]OutProcesser) Outputer
+		OutStringProcess([]OutStringProcesser) Outputer
+	}
 
 	Formatter[O, E any] interface {
 		Format(Outputer) (O, E, error)
@@ -66,8 +92,8 @@ type (
 	}
 
 	ProcessWriter struct {
-		stdOut 	   io.Writer
-		stdErr 	   io.Writer
+		stdOut     io.Writer
+		stdErr     io.Writer
 		processert []OutputProcesser
 	}
 )

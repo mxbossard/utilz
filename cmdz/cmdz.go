@@ -5,6 +5,7 @@ import (
 
 	"bytes"
 	"context"
+
 	//"errors"
 	"fmt"
 	"io"
@@ -17,17 +18,14 @@ import (
 	"mby.fr/utils/stringz"
 )
 
-type execPromise = promise.Promise[int]
-type execsPromise = promise.Promise[[]int]
-
 type failure struct {
-	Rc  int
-	Cmd *cmdz
+	Rc   int
+	Exec Executer
 }
 
 func (f failure) Error() (msg string) {
-	if f.Cmd != nil {
-		stderrSummary := stringz.SummaryRatio(f.Cmd.StderrRecord(), 128, 0.2)
+	if f.Exec != nil {
+		stderrSummary := stringz.SummaryRatio(f.Exec.StderrRecord(), 128, 0.2)
 		msg = fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Cmd.String(), stderrSummary)
 	}
 	return
@@ -77,20 +75,20 @@ type cmdz struct {
 	cmdCheckpoint  exec.Cmd
 	fallbackConfig *config
 
-	stdinRecord    inout.RecordingReader
-	stdoutRecord   inout.RecordingWriter
-	stderrRecord   inout.RecordingWriter
+	stdinRecord  inout.RecordingReader
+	stdoutRecord inout.RecordingWriter
+	stderrRecord inout.RecordingWriter
 
-	ResultsCodes   []int
+	ResultsCodes []int
 	// FIXME: replace ResultsCodes by Executions
-	Executions     []*exec.Cmd
+	Executions []*exec.Cmd
 
-	feeder		   *cmdz
-	pipedInput	   bool
-	pipedOutput	   bool
-	pipeFail	   bool
+	feeder      *cmdz
+	pipedInput  bool
+	pipedOutput bool
+	pipeFail    bool
 
-	processers     []OutputProcesser
+	processers []OutProcesser
 }
 
 func (e *cmdz) Retries(count, delayInMs int) *cmdz {
@@ -119,6 +117,11 @@ func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
 	e.config.stdout = stdout
 	e.config.stderr = stderr
 	e.recordingOutputs(stdout, stderr)
+	return e
+}
+
+func (e *cmdz) CombineOutputs() Executer {
+	e.config.stderr = e.config.stdout
 	return e
 }
 
@@ -216,12 +219,12 @@ func (e cmdz) ReportError() string {
 	return errorMessage
 }
 
-func (e *cmdz) Pipe(c *cmdz) (*cmdz) {
+func (e *cmdz) Pipe(c *cmdz) *cmdz {
 	c.feeder = e
 	return c
 }
 
-func (e *cmdz) PipeFail(c *cmdz) (*cmdz) {
+func (e *cmdz) PipeFail(c *cmdz) *cmdz {
 	e.pipeFail = true
 	return e.Pipe(c)
 }
@@ -239,7 +242,7 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 		f.pipedOutput = true
 		f.config.stdout = &b
 		//f.stdoutRecord.Nested = &b
-	
+
 		e.pipedInput = true
 		e.config.stdin = &b
 		//e.stdinRecord.Nested = &b
@@ -318,7 +321,7 @@ func (e *cmdz) StringProcess(strProcessers ...OutputStringProcesser) *cmdz {
 			res, err := spf(rc, string(stdout), string(stderr))
 			return []byte(res), err
 		}
-		
+
 	}
 	e.Process(processers...)
 	return e
