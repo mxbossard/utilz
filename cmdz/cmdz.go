@@ -98,7 +98,7 @@ func (e *cmdz) Retries(count, delayInMs int) Executer {
 	return e
 }
 
-func (e *cmdz) Timeout(delayInMs int) *cmdz {
+func (e *cmdz) Timeout(delayInMs int) Executer {
 	e.config.timeout = delayInMs
 	return e
 }

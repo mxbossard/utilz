@@ -32,6 +32,9 @@ type (
 		ErrorOnFailure(bool) Executer
 		CombineOutputs() Executer
 		Retries(count, delayInMs int) Executer
+		Timeout(delayInMs int) Executer
+		//Input(stdin io.Reader) Executer
+		//Outputs(stdout, stderr io.Writer) Executer
 
 		//Pipe(Executer) Executer
 		//PipeFail(Executer) Executer

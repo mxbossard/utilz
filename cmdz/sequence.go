@@ -112,7 +112,7 @@ func (s *serialSeq) Retries(count, delayInMs int) Executer {
 	return s
 }
 
-func (s *serialSeq) Timeout(delayInMs int) *serialSeq {
+func (s *serialSeq) Timeout(delayInMs int) Executer {
 	s.config.timeout = delayInMs
 	return s
 }
@@ -181,14 +181,28 @@ func (e *serialSeq) ResultCodes() (codes []int) {
 	return
 }
 
+type andSeq struct {
+	serialSeq
+}
+
+func (s andSeq) String() string {
+	return stringz.JoinStringers(s.seq.execs, " && ")
+}
+
 type orSeq struct {
 	*seq
 }
 
+func (s orSeq) String() string {
+	return stringz.JoinStringers(s.seq.execs, " || ")
+}
+
+/*
 func (s *orSeq) FailFast(enabled bool) *orSeq {
 	s.failFast = enabled
 	return s
 }
+*/
 
 func (s *orSeq) Retries(count, delayInMs int) Executer {
 	s.config.retries = count
@@ -196,7 +210,7 @@ func (s *orSeq) Retries(count, delayInMs int) Executer {
 	return s
 }
 
-func (s *orSeq) Timeout(delayInMs int) *orSeq {
+func (s *orSeq) Timeout(delayInMs int) Executer {
 	s.config.timeout = delayInMs
 	return s
 }
@@ -222,10 +236,6 @@ func (s *orSeq) ErrorOnFailure(enable bool) Executer {
 func (s *orSeq) Add(execs ...Executer) *orSeq {
 	s.execs = append(s.execs, execs...)
 	return s
-}
-
-func (s orSeq) String() string {
-	return stringz.JoinStringers(s.seq.execs, " || ")
 }
 
 func (s orSeq) ReportError() string {
@@ -282,7 +292,7 @@ func (s *parallelSeq) Retries(count, delayInMs int) Executer {
 	return s
 }
 
-func (s *parallelSeq) Timeout(delayInMs int) *parallelSeq {
+func (s *parallelSeq) Timeout(delayInMs int) Executer {
 	s.config.timeout = delayInMs
 	return s
 }
@@ -366,8 +376,10 @@ func Parallel(execs ...Executer) *parallelSeq {
 	return s
 }
 
-func And(execs ...Executer) *serialSeq {
-	return Serial(execs...)
+func And(execs ...Executer) *andSeq {
+	s := &andSeq{serialSeq: *Serial(execs...)}
+	s.Add(execs...)
+	return s
 }
 
 func Or(execs ...Executer) *orSeq {
