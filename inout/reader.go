@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 )
 
 type RecordingReader struct {
@@ -43,7 +44,13 @@ func (w RecordingReader) String() string {
 	return w.Record.String()
 }
 
-type IOProcesser = func([]byte, error) ([]byte, error)
+// Processor which copy input into output and can process errors
+// Problems : copy byte arrays is bad ; not fail shortly on error is bad
+type IOProcesser = func(input []byte, inErr error) (output []byte, outErr error)
+
+// Processor which enfore the use of one byte buffer ptr only which can be replace by a taller byte buffer
+type IOProcesser2 = func(buffer []byte, sizeIn int) (sizeOut int, err error)
+type IOProcesser3 = func(buffer *[]byte, sizeIn int) (sizeOut int, err error)
 
 type ProcessingStreamReader struct {
 	Nested     io.Reader
@@ -147,4 +154,57 @@ func (r *ProcessingBufferReader) Read(buffer []byte) (int, error) {
 	r.outBuffer.Write(tmpBuffer.Bytes())
 
 	return r.outBuffer.Read(buffer)
+}
+
+func LineProcesser(proc IOProcesser3) IOProcesser3 {
+	return func(buffer *[]byte, sizeIn int) (sizeOut int, err error) {
+		var p, size int
+		clone := *buffer
+		for i, b := range *buffer {
+			if b == '\n' {
+				if i == 0 {
+					size = i
+				}
+				clone = clone[p : p+size]
+				size, err = proc(&clone, sizeOut)
+				if err != nil {
+					return 0, err
+				}
+				p = i
+				for k := 0; k < size; k++ {
+					(*buffer)[sizeOut+k] = clone[k]
+				}
+				sizeOut += size
+			}
+		}
+		return
+	}
+}
+
+func LineStringProcesser(proc func(in string) (out string, err error)) IOProcesser2 {
+	return func(buffer []byte, sizeIn int) (sizeOut int, err error) {
+		var p int
+		sb := strings.Builder{}
+		for i, b := range buffer {
+			if b == '\n' {
+				inString := string(buffer[p:i])
+				outString, err := proc(inString)
+				if err != nil {
+					return 0, err
+				}
+				_, err = sb.WriteString(outString + "\n")
+				if err != nil {
+					return 0, err
+				}
+				p = i + 1
+			}
+		}
+		sizeOut = sb.Len()
+		// Grow slice if possible
+		buffer = buffer[:sizeOut]
+		for k, b := range []byte(sb.String()) {
+			buffer[k] = b
+		}
+		return
+	}
 }

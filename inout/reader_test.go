@@ -198,3 +198,34 @@ func TestProcessingBufferReader_LongerThanBuffer(t *testing.T) {
 	assert.Equal(t, expectedBytes3, buffer[0:3])
 
 }
+
+func TestLineProcesser(t *testing.T) {
+	addEndProc := func(buffer *[]byte, sizeIn int) (sizeOut int, err error) {
+		*buffer = append(*buffer, []byte("END")...)
+		return sizeIn + 3, nil
+	}
+
+	p := LineProcesser(addEndProc)
+
+	buffer := []byte("foo\nbar\nbaz")
+	sizeOut, err := p(&buffer, 11)
+	require.NoError(t, err)
+	assert.Equal(t, 14, sizeOut)
+	assert.Equal(t, []byte("fooEND\nbarEND\n"), buffer[0:sizeOut])
+}
+func TestLineStringProcesser(t *testing.T) {
+	addEndProc := func(in string) (out string, err error) {
+		return in + "END", nil
+	}
+
+	p := LineStringProcesser(addEndProc)
+
+	message := "foo\nbar\nbaz"
+	//buffer := make([]byte, len(message), 128)
+	buffer := []byte(message)
+	copy(buffer, []byte(message))
+	sizeOut, err := p(buffer, 11)
+	require.NoError(t, err)
+	assert.Equal(t, 14, sizeOut)
+	assert.Equal(t, []byte("fooEND\nbarEND\n"), buffer[0:sizeOut])
+}
