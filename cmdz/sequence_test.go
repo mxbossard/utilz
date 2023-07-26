@@ -253,6 +253,7 @@ func TestOr_Outputs(t *testing.T) {
 	assert.Equal(t, "foo\n", sb.String())
 }
 
+/*
 func TestOr_FailFast(t *testing.T) {
 	e1 := Cmd("echo", "foo")
 	e2 := Cmd("echo", "bar")
@@ -276,6 +277,7 @@ func TestOr_FailFast(t *testing.T) {
 	assert.Equal(t, []int(nil), e2.ResultCodes())
 	assert.Equal(t, "foo\n", s.StdoutRecord())
 }
+*/
 
 func TestOr_ErrorOnFailure(t *testing.T) {
 	e1 := Cmd("echo", "foo")

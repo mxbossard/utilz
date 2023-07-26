@@ -19,14 +19,14 @@ import (
 )
 
 type failure struct {
-	Rc   int
-	Exec Executer
+	Rc       int
+	reporter Reporter
 }
 
 func (f failure) Error() (msg string) {
-	if f.Exec != nil {
-		stderrSummary := stringz.SummaryRatio(f.Exec.StderrRecord(), 128, 0.2)
-		msg = fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.Exec.String(), stderrSummary)
+	if f.reporter != nil {
+		stderrSummary := stringz.SummaryRatio(f.reporter.ReportError(), 128, 0.2)
+		msg = fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.reporter.String(), stderrSummary)
 	}
 	return
 }
@@ -92,6 +92,17 @@ type cmdz struct {
 	processers []OutProcesser
 }
 
+// ----- Configurer methods -----
+func (e *cmdz) ErrorOnFailure(enable bool) Executer {
+	e.config.errorOnFailure = enable
+	return e
+}
+
+func (e *cmdz) CombineOutputs() Executer {
+	e.config.combinedOuts = true
+	return e
+}
+
 func (e *cmdz) Retries(count, delayInMs int) Executer {
 	e.config.retries = count
 	e.config.retryDelayInMs = delayInMs
@@ -118,16 +129,6 @@ func (e *cmdz) Outputs(stdout, stderr io.Writer) *cmdz {
 	e.config.stdout = stdout
 	e.config.stderr = stderr
 	e.recordingOutputs(stdout, stderr)
-	return e
-}
-
-func (e *cmdz) CombineOutputs() Executer {
-	e.config.combinedOuts = true
-	return e
-}
-
-func (e *cmdz) ErrorOnFailure(enable bool) Executer {
-	e.config.errorOnFailure = enable
 	return e
 }
 

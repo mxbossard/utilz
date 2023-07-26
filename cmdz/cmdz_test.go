@@ -243,7 +243,7 @@ func TestPipe_OutputString(t *testing.T) {
 	sed := Cmd("/bin/sed", "-e", "s/o/a/")
 	p := echo.Pipe(sed)
 
-	o, err := Output(p).OutputString()
+	o, err := Outputted(p).OutputString()
 	require.NoError(t, err)
 	assert.Equal(t, "fao", o)
 	assert.Equal(t, "foo", echo.StdoutRecord())
@@ -255,7 +255,7 @@ func TestPipe_OutputString(t *testing.T) {
 	echo = Cmd("/bin/echo", "-n", "foo")
 	p = fail.Pipe(echo)
 
-	o, err = Output(p).OutputString()
+	o, err = Outputted(p).OutputString()
 	require.NoError(t, err)
 	assert.Equal(t, "foo", o)
 	assert.Equal(t, "", fail.StdoutRecord())
@@ -267,7 +267,7 @@ func TestPipe_OutputString(t *testing.T) {
 	echo = Cmd("/bin/echo", "-n", "foo")
 	p = errCmd.Pipe(echo)
 
-	o, err = Output(p).OutputString()
+	o, err = Outputted(p).OutputString()
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "doNotExists")
 	assert.Equal(t, "", o)
@@ -282,7 +282,7 @@ func TestPipeFail_OutputString(t *testing.T) {
 	sed := Cmd("/bin/sed", "-e", "s/o/a/")
 	p := echo.PipeFail(sed)
 
-	o, err := Output(p).OutputString()
+	o, err := Outputted(p).OutputString()
 	require.NoError(t, err)
 	assert.Equal(t, "fao", o)
 	assert.Equal(t, "foo", echo.StdoutRecord())
@@ -294,7 +294,7 @@ func TestPipeFail_OutputString(t *testing.T) {
 	echo = Cmd("/bin/echo", "-n", "foo")
 	p = fail.PipeFail(echo)
 
-	o, err = Output(p).OutputString()
+	o, err = Outputted(p).OutputString()
 	require.Error(t, err)
 	assert.IsType(t, err, failure{})
 	assert.Equal(t, "", o)
@@ -307,7 +307,7 @@ func TestPipeFail_OutputString(t *testing.T) {
 	echo = Cmd("/bin/echo", "-n", "foo")
 	p = errCmd.Pipe(echo)
 
-	o, err = Output(p).OutputString()
+	o, err = Outputted(p).OutputString()
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "doNotExists")
 	assert.Equal(t, "", o)

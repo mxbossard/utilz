@@ -1,10 +1,16 @@
 package cmdz
 
 import (
-	"io"
-
 	"mby.fr/utils/promise"
 )
+
+// []byte                       => |Executer|     => (int, []byte, []byte, error)
+// ([]byte, error)              => |InProcesser|  => ([]byte, error)
+// (int, []byte, []byte, error) => |OutProcesser| => (int, []byte, []byte, error)
+// []byte                       => |Inputer|
+//                                 |Outputer|     => ([]byte, error)
+// (int, []byte, []byte, error) => |OutFormatter| => (O, E)
+//                                 |Formatter|    => (O, E)
 
 type (
 	execPromise   = promise.Promise[int]
@@ -13,28 +19,39 @@ type (
 	stringPromise = promise.Promise[string]
 
 	Runner interface {
-	}
-
-	Executer interface {
 		reset()
 		fallback(*config)
 
-		String() string
-		ReportError() string
 		BlockRun() (int, error)
 		AsyncRun() *execPromise
 		ResultCodes() []int
+	}
 
+	Configurer[T any] interface {
+		ErrorOnFailure(bool) T
+		Retries(count, delayInMs int) T
+		Timeout(delayInMs int) T
+		CombineOutputs() T
+		//Input(stdin io.Reader) T
+		//Outputs(stdout, stderr io.Writer) T
+	}
+
+	Recorder interface {
 		//StdinRecord() string
 		StdoutRecord() string
 		StderrRecord() string
+	}
 
-		ErrorOnFailure(bool) Executer
-		CombineOutputs() Executer
-		Retries(count, delayInMs int) Executer
-		Timeout(delayInMs int) Executer
-		//Input(stdin io.Reader) Executer
-		//Outputs(stdout, stderr io.Writer) Executer
+	Reporter interface {
+		String() string
+		ReportError() string
+	}
+
+	Executer interface {
+		Configurer[Executer]
+		Runner
+		Recorder
+		Reporter
 
 		//Pipe(Executer) Executer
 		//PipeFail(Executer) Executer
@@ -48,13 +65,17 @@ type (
 		Input([]byte) error
 	}
 
+	InProcesser0       = func([]byte, error) ([]byte, error)
 	InProcesser        = func([]byte) ([]byte, error)
 	InStringProcesser  = func(string) (string, error)
 	OutProcesser       = func(int, []byte, []byte) ([]byte, error)
+	OutProcesser0      = func(int, []byte, []byte, error) (int, []byte, []byte, error)
 	OutStringProcesser = func(int, string, string) (string, error)
 
 	Outputer interface {
-		Executer
+		Configurer[Outputer]
+		Recorder
+
 		Output() ([]byte, error)
 		OutputString() (string, error)
 		//AsyncOutput() *bytesPromise
@@ -73,7 +94,8 @@ type (
 	}
 
 	Formatter[O, E any] interface {
-		Format(Outputer) (O, E, error)
+		Configurer[Formatter[O, E]]
+		Format() (O, E)
 	}
 
 	Piper interface {
@@ -87,24 +109,4 @@ type (
 		Pipe(Inputer) Outputer
 		PipeFail(Inputer) Outputer
 	}
-
-	InOuter interface {
-		Executer
-		Inputer
-		Outputer
-	}
-
-	ProcessWriter struct {
-		stdOut     io.Writer
-		stdErr     io.Writer
-		processert []OutProcesser
-	}
 )
-
-func (w ProcessWriter) OutWriter() io.Writer {
-	return nil
-}
-
-func (w ProcessWriter) ErrWriter() io.Writer {
-	return nil
-}

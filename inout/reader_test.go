@@ -1,6 +1,8 @@
 package inout
 
 import (
+	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -20,4 +22,179 @@ func TestRecordingReader(t *testing.T) {
 	assert.Equal(t, len(expectedMsg1), n)
 	assert.Equal(t, expectedMsg1, string(buffer[0:n]))
 	assert.Equal(t, expectedMsg1, rr.String())
+}
+
+func TestProcessingStreamReader_NoProcesser(t *testing.T) {
+	expectedMsg1 := "foo"
+	expecterdBytes1 := []byte(expectedMsg1)
+	nested := strings.NewReader(expectedMsg1)
+	buffer := make([]byte, len(expectedMsg1)+5)
+
+	pr := ProcessingStreamReader{Nested: nested}
+
+	n, err := pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, len(expecterdBytes1), n)
+	assert.Equal(t, expecterdBytes1, buffer[0:n])
+}
+
+func TestProcessingStreamReader(t *testing.T) {
+	expectedMsg1 := "foo"
+	expectedBytes1 := []byte(expectedMsg1)
+	expectedMsg2 := "bar"
+	expectedBytes2 := []byte(expectedMsg2)
+	expectedMsg3 := "END"
+	expectedBytes3 := []byte(expectedMsg3)
+	errProcesser := func(in []byte, err error) ([]byte, error) {
+		return nil, fmt.Errorf("errProcesserError")
+	}
+	barProcesser := func(in []byte, err error) ([]byte, error) {
+		return expectedBytes2, nil
+	}
+	endProcesser := func(in []byte, err error) ([]byte, error) {
+		out := append(in, expectedBytes3...)
+		return out, nil
+	}
+	buffer := make([]byte, len(expectedMsg1)+5)
+
+	nested := strings.NewReader(expectedMsg1)
+	pr := ProcessingStreamReader{Nested: nested}
+	pr.AddProcesser(errProcesser)
+	n, err := pr.Read(buffer)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+
+	nested = strings.NewReader(expectedMsg1)
+	pr = ProcessingStreamReader{Nested: nested}
+	pr.AddProcesser(barProcesser)
+	n, err = pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, len(expectedBytes2), n)
+	assert.Equal(t, expectedBytes2, buffer[0:n])
+
+	nested = strings.NewReader(expectedMsg1)
+	pr = ProcessingStreamReader{Nested: nested}
+	pr.AddProcesser(endProcesser)
+	n, err = pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, len(expectedBytes1)+len(expectedBytes3), n)
+	assert.Equal(t, append(expectedBytes1, expectedBytes3...), buffer[0:n])
+}
+
+func TestProcessingStreamReader_LongerThanBuffer(t *testing.T) {
+	expectedMsg1 := "foofoofoobarbarbar"
+	expectedMsg3 := "END"
+	expectedBytes3 := []byte(expectedMsg3)
+
+	endProcesser := func(in []byte, err error) ([]byte, error) {
+		out := append(in, expectedBytes3...)
+		return out, nil
+	}
+	buffer := make([]byte, 9)
+
+	nested := strings.NewReader(expectedMsg1)
+	pr := ProcessingStreamReader{Nested: nested}
+	pr.AddProcesser(endProcesser)
+	n, err := pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, 9, n)
+	assert.Equal(t, "foofoofoo", string(buffer))
+	n, err = pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, 9, n)
+	require.Equal(t, "ENDbarbar", string(buffer))
+	n, err = pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, 6, n)
+	assert.Equal(t, "barEND", string(buffer[0:n]))
+	n, err = pr.Read(buffer)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+	assert.ErrorIs(t, err, io.EOF)
+}
+
+func TestProcessingBufferReader_NoProcesser(t *testing.T) {
+	expectedMsg1 := "foo"
+	expecterdBytes1 := []byte(expectedMsg1)
+	nested := strings.NewReader(expectedMsg1)
+	buffer := make([]byte, len(expectedMsg1)+5)
+
+	pr := ProcessingBufferReader{Nested: nested}
+
+	n, err := pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, len(expecterdBytes1), n)
+	assert.Equal(t, expecterdBytes1, buffer[0:n])
+}
+
+func TestProcessingBufferReader(t *testing.T) {
+	expectedMsg1 := "foo"
+	expectedBytes1 := []byte(expectedMsg1)
+	expectedMsg2 := "bar"
+	expectedBytes2 := []byte(expectedMsg2)
+	expectedMsg3 := "END"
+	expectedBytes3 := []byte(expectedMsg3)
+	errProcesser := func(in []byte, err error) ([]byte, error) {
+		return nil, fmt.Errorf("errProcesserError")
+	}
+	barProcesser := func(in []byte, err error) ([]byte, error) {
+		return expectedBytes2, nil
+	}
+	endProcesser := func(in []byte, err error) ([]byte, error) {
+		out := append(in, expectedBytes3...)
+		return out, nil
+	}
+	buffer := make([]byte, len(expectedMsg1)+16)
+
+	nested := strings.NewReader(expectedMsg1)
+	pr := ProcessingBufferReader{Nested: nested}
+	pr.AddProcesser(errProcesser)
+	n, err := pr.Read(buffer)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+
+	nested = strings.NewReader(expectedMsg1)
+	pr = ProcessingBufferReader{Nested: nested}
+	pr.AddProcesser(barProcesser)
+	n, err = pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, len(expectedBytes2), n)
+	assert.Equal(t, expectedBytes2, buffer[0:n])
+
+	nested = strings.NewReader(expectedMsg1)
+	pr = ProcessingBufferReader{Nested: nested}
+	pr.AddProcesser(endProcesser)
+	n, err = pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, len(expectedBytes1)+len(expectedBytes3), n)
+	assert.Equal(t, append(expectedBytes1, expectedBytes3...), buffer[0:n])
+}
+
+func TestProcessingBufferReader_LongerThanBuffer(t *testing.T) {
+	expectedMsg1 := "foofoofoobarbarbar"
+	expectedMsg3 := "END"
+	expectedBytes3 := []byte(expectedMsg3)
+
+	endProcesser := func(in []byte, err error) ([]byte, error) {
+		out := append(in, expectedBytes3...)
+		return out, nil
+	}
+	buffer := make([]byte, 9)
+
+	nested := strings.NewReader(expectedMsg1)
+	pr := ProcessingBufferReader{Nested: nested}
+	pr.AddProcesser(endProcesser)
+	n, err := pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, 9, n)
+	assert.Equal(t, expectedMsg1[0:9], string(buffer))
+	n, err = pr.Read(buffer)
+	require.NoError(t, err)
+	assert.Equal(t, 9, n)
+	assert.Equal(t, expectedMsg1[9:18], string(buffer))
+	n, err = pr.Read(buffer)
+	require.NoError(t, err)
+	require.Equal(t, len(expectedBytes3), n)
+	assert.Equal(t, expectedBytes3, buffer[0:3])
+
 }

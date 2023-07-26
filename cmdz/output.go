@@ -38,7 +38,7 @@ func (e *basicOutput) Output() ([]byte, error) {
 }
 
 func (e *basicOutput) OutputString() (string, error) {
-	rc, err := e.ErrorOnFailure(true).BlockRun()
+	rc, err := e.Executer.ErrorOnFailure(true).BlockRun()
 	if err != nil {
 		return "", err
 	}
@@ -69,15 +69,34 @@ func (e *basicOutput) CombinedOutputString() (string, error) {
 		combinedWriter := inout.RecordingWriter{Nested: e.config.stdout}
 		rc, err := e.FailOnError().Outputs(&combinedWriter, &combinedWriter).BlockRun()
 	*/
-
-	e.Executer = e.CombineOutputs()
-	return e.OutputString()
+	return e.CombineOutputs().OutputString()
 }
 
-func Output(e Executer) Outputer {
+// ----- Override Configurer methods -----
+func (e *basicOutput) ErrorOnFailure(ok bool) Outputer {
+	e.Executer = e.Executer.ErrorOnFailure(ok)
+	return e
+}
+
+func (e *basicOutput) CombineOutputs() Outputer {
+	e.Executer = e.Executer.CombineOutputs()
+	return e
+}
+
+func (e *basicOutput) Retries(count, delayInMs int) Outputer {
+	e.Executer = e.Executer.Retries(count, delayInMs)
+	return e
+}
+
+func (e *basicOutput) Timeout(delayInMs int) Outputer {
+	e.Executer = e.Executer.Timeout(delayInMs)
+	return e
+}
+
+func Outputted(e Executer) Outputer {
 	return &basicOutput{Executer: e}
 }
 
-func OutputCmd(binary string, args ...string) Outputer {
-	return Output(Cmd(binary, args...))
+func OutputtedCmd(binary string, args ...string) Outputer {
+	return Outputted(Cmd(binary, args...))
 }
