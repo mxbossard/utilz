@@ -15,7 +15,7 @@ type Flusher interface {
 
 type CallbackLineWriter struct {
 	sync.Mutex
-	Flusher
+	//Flusher
 	Callback func(string)
 	buffer   bytes.Buffer
 }
@@ -91,35 +91,59 @@ func (w RecordingWriter) String() string {
 	return w.Record.String()
 }
 
-type ProcessingStreamWriter struct {
+type processingWriter struct {
 	Nested     io.Writer
 	Processers []IOProcesser
-	outBuffer  *bytes.Buffer
 }
 
-func (w *ProcessingStreamWriter) AddProcesser(p IOProcesser) *ProcessingStreamWriter {
-	w.Processers = append(w.Processers, p)
-	return w
+func (w *processingWriter) Nest(n io.Writer) {
+	w.Nested = n
+}
+
+func (w *processingWriter) Add(p ...IOProcesser) {
+	w.Processers = append(w.Processers, p...)
+}
+
+// Flush all buffered bytes into nested writer
+func (w *processingWriter) Flush() error {
+	// TODO
+	return nil
+}
+
+// Return all buffered bytes
+func (w *processingWriter) AvailableBuffer() ([]byte, error) {
+	// TODO
+	return nil, nil
+}
+
+// Reinit Writer
+func (w *processingWriter) Reset() error {
+	for _, p := range w.Processers {
+		p.Reset()
+	}
+	return nil
+}
+
+type ProcessingStreamWriter struct {
+	processingWriter
+	//outBuffer bytes.Buffer
 }
 
 // Naively apply each IOProcessor on buffer successively
 func (w *ProcessingStreamWriter) Write(buffer []byte) (int, error) {
 	if w.Nested == nil {
-		log.Fatalf("No nested writer configured in ProcessingStreamWriter !")
+		log.Fatalf("No nested writer configured in processingStreamWriter !")
 	}
 
-	if w.outBuffer == nil {
-		w.outBuffer = &bytes.Buffer{}
-	}
 	var err error
 	tmpBuffer := buffer
 	n := len(buffer)
 	if n > 0 {
 		for _, prc := range w.Processers {
-			var res []byte
-			res, err = prc(tmpBuffer, err)
-			n = len(res)
-			tmpBuffer = res
+			n, err = prc.Process(&tmpBuffer, n)
+			if err != nil {
+				return 0, err
+			}
 		}
 		if err != nil {
 			return 0, err
@@ -130,24 +154,15 @@ func (w *ProcessingStreamWriter) Write(buffer []byte) (int, error) {
 }
 
 type ProcessingBufferWriter struct {
-	Nested     io.Writer
-	Processers []IOProcesser
-	inBuffer   *bytes.Buffer
-	delimiter  *byte
-}
-
-func (w *ProcessingBufferWriter) AddProcesser(p IOProcesser) *ProcessingBufferWriter {
-	w.Processers = append(w.Processers, p)
-	return w
+	processingWriter
+	inBuffer  bytes.Buffer
+	delimiter *byte
 }
 
 // Buffer all writes until delimiter if present before processing and then writing to nested
 func (w *ProcessingBufferWriter) Write(buffer []byte) (int, error) {
 	if w.Nested == nil {
-		log.Fatalf("No nested writer configured in ProcessingBufferWriter !")
-	}
-	if w.inBuffer == nil {
-		w.inBuffer = &bytes.Buffer{}
+		log.Fatalf("No nested writer configured in processingBufferWriter !")
 	}
 
 	_, err := w.inBuffer.Write(buffer)
@@ -175,13 +190,10 @@ func (w *ProcessingBufferWriter) Write(buffer []byte) (int, error) {
 			n := len(tmpBuffer)
 			if n > 0 {
 				for _, prc := range w.Processers {
-					var res []byte
-					res, err = prc(tmpBuffer, err)
+					n, err = prc.Process(&tmpBuffer, n)
 					if err != nil {
 						return 0, err
 					}
-					n = len(res)
-					tmpBuffer = res
 				}
 			}
 			outBuffer.Write(tmpBuffer[0:n])
@@ -202,4 +214,16 @@ func (w *ProcessingBufferWriter) Write(buffer []byte) (int, error) {
 	}
 
 	return 0, nil
+}
+
+func NewProcessingStreamWriter(nested io.Writer) *ProcessingStreamWriter {
+	return &ProcessingStreamWriter{
+		processingWriter: processingWriter{Nested: nested},
+	}
+}
+
+func NewProcessingBufferWriter(nested io.Writer) *ProcessingBufferWriter {
+	return &ProcessingBufferWriter{
+		processingWriter: processingWriter{Nested: nested},
+	}
 }

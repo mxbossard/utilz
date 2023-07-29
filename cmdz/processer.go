@@ -1,76 +1,89 @@
 package cmdz
 
-import "io"
+import (
+	"io"
 
-type IOProcesser = func([]byte, error) ([]byte, error)
+	"mby.fr/utils/inout"
+)
 
-type ProcessedReader struct {
-	io.Reader
-	processers []IOProcesser
-}
+type IOProcesser = inout.IOProcesser
+type IOProcesserCallback = inout.IOProcesserCallback
+type StringIOProcesserCallback = inout.StringIOProcesserCallback
 
-func (r ProcessedReader) Read(p []byte) (int, error) {
-	buffer := make([]byte, 256)
-	n, err := r.Reader.Read(buffer)
-	for _, prc := range r.processers {
-		buffer, err = prc(buffer[0:n], err)
+/*
+	type basicOutWriter struct {
+		stdout     io.Writer
+		stderr     io.Writer
+		processers []OutProcesser0
 	}
-	p = buffer
-	return len(p), err
-}
 
-type ProccessedWriter struct {
-	io.Writer
-	processers []IOProcesser
-}
-
-func (w ProccessedWriter) Write(p []byte) (int, error) {
-	buffer := p
-	var err error
-	for _, prc := range w.processers {
-		buffer, err = prc(buffer, err)
+	func (w basicOutWriter) OutWriter() io.Writer {
+		return nil
 	}
-	return w.Writer.Write(buffer)
-}
 
-type basicOutWriter struct {
-	stdout     io.Writer
-	stderr     io.Writer
-	processers []OutProcesser0
-}
-
-func (w basicOutWriter) OutWriter() io.Writer {
-	return nil
-}
-
-func (w basicOutWriter) ErrWriter() io.Writer {
-	return nil
-}
+	func (w basicOutWriter) ErrWriter() io.Writer {
+		return nil
+	}
 
 func (w basicOutWriter) Flush() error {
 
 }
+*/
 
 type basicProcesser struct {
 	Executer
-	inProcessers  []InProcesser
-	outProcessers []OutProcesser
+	inProcesser  inout.IOProcesserReader
+	outProcesser inout.IOProcesserWriter
+	errProcesser inout.IOProcesserWriter
 }
 
-func (e *basicProcesser) ProcessIn(pcrs ...InProcesser) Executer {
-	e.inProcessers = append(e.inProcessers, pcrs...)
+func (e *basicProcesser) init() {
+	if e.inProcesser == nil {
+		e.inProcesser = inout.NewProcessingStreamReader(e.Executer.Stdin())
+	}
+	if e.outProcesser == nil {
+		e.outProcesser = inout.NewProcessingStreamWriter(e.Executer.Stdout())
+	}
+	if e.errProcesser == nil {
+		e.errProcesser = inout.NewProcessingStreamWriter(e.Executer.Stderr())
+	}
+}
+
+func (e *basicProcesser) Input(stdin io.Reader) Executer {
+	e.init()
+	e.inProcesser.Nest(stdin)
+	e.Executer.Input(e.inProcesser)
 	return e
 }
 
-func (e *basicProcesser) ProcessOut(pcrs ...OutProcesser) Executer {
-	e.outProcessers = append(e.outProcessers, pcrs...)
+func (e *basicProcesser) Outputs(stdout, stderr io.Writer) Executer {
+	e.init()
+	e.outProcesser.Nest(stdout)
+	e.errProcesser.Nest(stderr)
+	e.Executer.Outputs(e.outProcesser, e.errProcesser)
+	return e
+}
+
+func (e *basicProcesser) ProcessIn(pcrs ...IOProcesser) *basicProcesser {
+	e.init()
+	e.inProcesser.Add(pcrs...)
+	return e
+}
+
+func (e *basicProcesser) ProcessOut(pcrs ...IOProcesser) *basicProcesser {
+	e.init()
+	e.outProcesser.Add(pcrs...)
+	return e
+}
+
+func (e *basicProcesser) ProcessErr(pcrs ...IOProcesser) *basicProcesser {
+	e.init()
+	e.errProcesser.Add(pcrs...)
 	return e
 }
 
 func (e *basicProcesser) BlockRun() (int, error) {
-
 	rc, err := e.Executer.BlockRun()
-
 	return rc, err
 }
 

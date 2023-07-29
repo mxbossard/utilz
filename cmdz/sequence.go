@@ -2,6 +2,7 @@ package cmdz
 
 import (
 	"io"
+	"log"
 	"strings"
 
 	"mby.fr/utils/collections"
@@ -65,6 +66,9 @@ Serial()
 type seq struct {
 	config
 
+	inners []Executer
+	outers []Executer
+
 	// TODO describe a sequence of // and serial Exec to execute
 	execs          []Executer
 	failFast       bool
@@ -73,15 +77,34 @@ type seq struct {
 	status int
 }
 
+// ----- InOuter methods -----
+func (e *seq) Stdin() io.Reader {
+	return e.config.stdin
+}
+func (e *seq) Stdout() io.Writer {
+	return e.config.stdout
+}
+func (e *seq) Stderr() io.Writer {
+	return e.config.stdout
+}
+
+// ----- Recorder methods -----
+func (s *seq) StdinRecord() string {
+	stdins := collections.Map[Executer, string](s.inners, func(e Executer) string {
+		return e.StdinRecord()
+	})
+	return strings.Join(stdins, "")
+}
+
 func (s *seq) StdoutRecord() string {
-	stdouts := collections.Map[Executer, string](s.execs, func(e Executer) string {
+	stdouts := collections.Map[Executer, string](s.outers, func(e Executer) string {
 		return e.StdoutRecord()
 	})
 	return strings.Join(stdouts, "")
 }
 
 func (s *seq) StderrRecord() string {
-	stderrs := collections.Map[Executer, string](s.execs, func(e Executer) string {
+	stderrs := collections.Map[Executer, string](s.outers, func(e Executer) string {
 		return e.StderrRecord()
 	})
 	return strings.Join(stderrs, "")
@@ -101,6 +124,29 @@ type serialSeq struct {
 	*seq
 }
 
+func (e *serialSeq) Input(stdin io.Reader) Executer {
+	if e.pipedInput {
+		log.Fatal("Input is piped cannot change it !")
+	}
+	e.config.stdin = stdin
+	for _, i := range e.inners {
+		i.Input(stdin)
+	}
+	return e
+}
+
+func (e *serialSeq) Outputs(stdout, stderr io.Writer) Executer {
+	if e.pipedOutput {
+		log.Fatal("Output is piped cannot change it !")
+	}
+	e.config.stdout = stdout
+	e.config.stderr = stderr
+	for _, o := range e.outers {
+		o.Outputs(stdout, stderr)
+	}
+	return e
+}
+
 func (s *serialSeq) FailFast(enabled bool) *serialSeq {
 	s.failFast = enabled
 	return s
@@ -117,15 +163,9 @@ func (s *serialSeq) Timeout(delayInMs int) Executer {
 	return s
 }
 
-func (s *serialSeq) Outputs(stdout, stderr io.Writer) *serialSeq {
-	s.config.stdout = stdout
-	s.config.stderr = stderr
-	return s
-}
-
-func (s *serialSeq) CombineOutputs() Executer {
-	for _, e := range s.execs {
-		e.CombineOutputs()
+func (s *serialSeq) CombinedOutputs() Executer {
+	for _, e := range s.outers {
+		e.CombinedOutputs()
 	}
 	return s
 }
@@ -137,6 +177,10 @@ func (s *serialSeq) ErrorOnFailure(enable bool) Executer {
 
 func (s *serialSeq) Add(execs ...Executer) *serialSeq {
 	s.execs = append(s.execs, execs...)
+	if len(s.execs) > 0 {
+		s.inners = []Executer{s.execs[0]}
+	}
+	s.outers = s.execs
 	return s
 }
 
@@ -193,6 +237,29 @@ type orSeq struct {
 	*seq
 }
 
+func (e *orSeq) Input(stdin io.Reader) Executer {
+	if e.pipedInput {
+		log.Fatal("Input is piped cannot change it !")
+	}
+	e.config.stdin = stdin
+	for _, i := range e.inners {
+		i.Input(stdin)
+	}
+	return e
+}
+
+func (e *orSeq) Outputs(stdout, stderr io.Writer) Executer {
+	if e.pipedOutput {
+		log.Fatal("Output is piped cannot change it !")
+	}
+	e.config.stdout = stdout
+	e.config.stderr = stderr
+	for _, o := range e.outers {
+		o.Outputs(stdout, stderr)
+	}
+	return e
+}
+
 func (s orSeq) String() string {
 	return stringz.JoinStringers(s.seq.execs, " || ")
 }
@@ -215,15 +282,9 @@ func (s *orSeq) Timeout(delayInMs int) Executer {
 	return s
 }
 
-func (s *orSeq) Outputs(stdout, stderr io.Writer) *orSeq {
-	s.config.stdout = stdout
-	s.config.stderr = stderr
-	return s
-}
-
-func (s *orSeq) CombineOutputs() Executer {
+func (s *orSeq) CombinedOutputs() Executer {
 	for _, e := range s.execs {
-		e.CombineOutputs()
+		e.CombinedOutputs()
 	}
 	return s
 }
@@ -235,6 +296,8 @@ func (s *orSeq) ErrorOnFailure(enable bool) Executer {
 
 func (s *orSeq) Add(execs ...Executer) *orSeq {
 	s.execs = append(s.execs, execs...)
+	s.inners = s.execs
+	s.outers = s.execs
 	return s
 }
 
@@ -281,8 +344,33 @@ type parallelSeq struct {
 	forkCount int
 }
 
-func (s *parallelSeq) FailFast(enabled bool) *parallelSeq {
-	s.failFast = enabled
+func (e *parallelSeq) Input(stdin io.Reader) Executer {
+	if e.pipedInput {
+		log.Fatal("Input is piped cannot change it !")
+	}
+	e.config.stdin = stdin
+	for _, i := range e.execs {
+		i.Input(stdin)
+	}
+	return e
+}
+
+func (e *parallelSeq) Outputs(stdout, stderr io.Writer) Executer {
+	if e.pipedOutput {
+		log.Fatal("Output is piped cannot change it !")
+	}
+	e.config.stdout = stdout
+	e.config.stderr = stderr
+	for _, o := range e.execs {
+		o.Outputs(stdout, stderr)
+	}
+	return e
+}
+
+// ----- Configurer methods -----
+
+func (s *parallelSeq) ErrorOnFailure(enable bool) Executer {
+	s.config.errorOnFailure = enable
 	return s
 }
 
@@ -297,21 +385,15 @@ func (s *parallelSeq) Timeout(delayInMs int) Executer {
 	return s
 }
 
-func (s *parallelSeq) Outputs(stdout, stderr io.Writer) *parallelSeq {
-	s.config.stdout = stdout
-	s.config.stderr = stderr
+func (s *parallelSeq) FailFast(enabled bool) *parallelSeq {
+	s.failFast = enabled
 	return s
 }
 
-func (s *parallelSeq) CombineOutputs() Executer {
+func (s *parallelSeq) CombinedOutputs() Executer {
 	for _, e := range s.execs {
-		e.CombineOutputs()
+		e.CombinedOutputs()
 	}
-	return s
-}
-
-func (s *parallelSeq) ErrorOnFailure(enable bool) Executer {
-	s.config.errorOnFailure = enable
 	return s
 }
 
@@ -322,6 +404,8 @@ func (s *parallelSeq) Fork(count int) *parallelSeq {
 
 func (s *parallelSeq) Add(execs ...Executer) *parallelSeq {
 	s.execs = append(s.execs, execs...)
+	s.inners = s.execs
+	s.outers = s.execs
 	return s
 }
 

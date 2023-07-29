@@ -62,14 +62,7 @@ func (e *basicOutput) CombinedOutput() ([]byte, error) {
 }
 
 func (e *basicOutput) CombinedOutputString() (string, error) {
-	/*
-		if e.config.stdout == nil {
-			e.config.stdout = &strings.Builder{}
-		}
-		combinedWriter := inout.RecordingWriter{Nested: e.config.stdout}
-		rc, err := e.FailOnError().Outputs(&combinedWriter, &combinedWriter).BlockRun()
-	*/
-	return e.CombineOutputs().OutputString()
+	return e.CombinedOutputs().OutputString()
 }
 
 // ----- Override Configurer methods -----
@@ -78,8 +71,8 @@ func (e *basicOutput) ErrorOnFailure(ok bool) Outputer {
 	return e
 }
 
-func (e *basicOutput) CombineOutputs() Outputer {
-	e.Executer = e.Executer.CombineOutputs()
+func (e *basicOutput) CombinedOutputs() Outputer {
+	e.Executer = e.Executer.CombinedOutputs()
 	return e
 }
 

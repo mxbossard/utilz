@@ -320,3 +320,42 @@ func TestPipeFail_OutputString(t *testing.T) {
 func TestReportError(t *testing.T) {
 	// TODO
 }
+
+func TestSh(t *testing.T) {
+	c := Sh(`echo -e "foo\nbar\nbaz" | grep 'bar'`)
+	rc, err := c.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "bar\n", c.StdoutRecord())
+
+	c = Sh(`true || echo "foo"`)
+	rc, err = c.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "", c.StdoutRecord())
+
+	c = Sh(`false || echo "foo"`)
+	rc, err = c.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo\n", c.StdoutRecord())
+
+	c = Sh(`true && echo "bar"`)
+	rc, err = c.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "bar\n", c.StdoutRecord())
+
+	c = Sh(`false && echo "bar"`)
+	rc, err = c.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc)
+	assert.Equal(t, "", c.StdoutRecord())
+
+	c = Sh(`>&2 echo "bar"`)
+	rc, err = c.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "", c.StdoutRecord())
+	assert.Equal(t, "bar\n", c.StderrRecord())
+}

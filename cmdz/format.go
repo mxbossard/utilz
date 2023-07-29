@@ -21,8 +21,8 @@ func (e *basicFormat[O, E]) ErrorOnFailure(ok bool) Formatter[O, E] {
 	return e
 }
 
-func (e *basicFormat[O, E]) CombineOutputs() Formatter[O, E] {
-	e.Executer = e.Executer.CombineOutputs()
+func (e *basicFormat[O, E]) CombinedOutputs() Formatter[O, E] {
+	e.Executer = e.Executer.CombinedOutputs()
 	return e
 }
 

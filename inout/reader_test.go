@@ -30,7 +30,7 @@ func TestProcessingStreamReader_NoProcesser(t *testing.T) {
 	nested := strings.NewReader(expectedMsg1)
 	buffer := make([]byte, len(expectedMsg1)+5)
 
-	pr := ProcessingStreamReader{Nested: nested}
+	pr := NewProcessingStreamReader(nested)
 
 	n, err := pr.Read(buffer)
 	require.NoError(t, err)
@@ -45,36 +45,38 @@ func TestProcessingStreamReader(t *testing.T) {
 	expectedBytes2 := []byte(expectedMsg2)
 	expectedMsg3 := "END"
 	expectedBytes3 := []byte(expectedMsg3)
-	errProcesser := func(in []byte, err error) ([]byte, error) {
-		return nil, fmt.Errorf("errProcesserError")
-	}
-	barProcesser := func(in []byte, err error) ([]byte, error) {
-		return expectedBytes2, nil
-	}
-	endProcesser := func(in []byte, err error) ([]byte, error) {
-		out := append(in, expectedBytes3...)
-		return out, nil
-	}
+	errProcesser := BasicProcesser(func(b *[]byte, i int) (o int, err error) {
+		return 0, fmt.Errorf("errProcesserError")
+	})
+	barProcesser := BasicProcesser(func(b *[]byte, i int) (o int, err error) {
+		copy(*b, expectedBytes2)
+		return len(expectedBytes2), nil
+	})
+	endProcesser := BasicProcesser(func(b *[]byte, i int) (o int, err error) {
+		*b = (*b)[:i+3]
+		copy((*b)[i:], expectedBytes3)
+		return i + 3, nil
+	})
 	buffer := make([]byte, len(expectedMsg1)+5)
 
 	nested := strings.NewReader(expectedMsg1)
-	pr := ProcessingStreamReader{Nested: nested}
-	pr.AddProcesser(errProcesser)
+	pr := NewProcessingStreamReader(nested)
+	pr.Add(errProcesser)
 	n, err := pr.Read(buffer)
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
 
 	nested = strings.NewReader(expectedMsg1)
-	pr = ProcessingStreamReader{Nested: nested}
-	pr.AddProcesser(barProcesser)
+	pr = NewProcessingStreamReader(nested)
+	pr.Add(barProcesser)
 	n, err = pr.Read(buffer)
 	require.NoError(t, err)
 	assert.Equal(t, len(expectedBytes2), n)
 	assert.Equal(t, expectedBytes2, buffer[0:n])
 
 	nested = strings.NewReader(expectedMsg1)
-	pr = ProcessingStreamReader{Nested: nested}
-	pr.AddProcesser(endProcesser)
+	pr = NewProcessingStreamReader(nested)
+	pr.Add(endProcesser)
 	n, err = pr.Read(buffer)
 	require.NoError(t, err)
 	assert.Equal(t, len(expectedBytes1)+len(expectedBytes3), n)
@@ -86,15 +88,17 @@ func TestProcessingStreamReader_LongerThanBuffer(t *testing.T) {
 	expectedMsg3 := "END"
 	expectedBytes3 := []byte(expectedMsg3)
 
-	endProcesser := func(in []byte, err error) ([]byte, error) {
-		out := append(in, expectedBytes3...)
-		return out, nil
-	}
-	buffer := make([]byte, 9)
+	endProcesser := BasicProcesser(func(b *[]byte, i int) (o int, err error) {
+		// set buffer length
+		*b = (*b)[:i+3]
+		copy((*b)[i:], expectedBytes3)
+		return i + 3, nil
+	})
+	buffer := make([]byte, 9, 32)
 
 	nested := strings.NewReader(expectedMsg1)
-	pr := ProcessingStreamReader{Nested: nested}
-	pr.AddProcesser(endProcesser)
+	pr := NewProcessingStreamReader(nested)
+	pr.Add(endProcesser)
 	n, err := pr.Read(buffer)
 	require.NoError(t, err)
 	assert.Equal(t, 9, n)
@@ -119,7 +123,7 @@ func TestProcessingBufferReader_NoProcesser(t *testing.T) {
 	nested := strings.NewReader(expectedMsg1)
 	buffer := make([]byte, len(expectedMsg1)+5)
 
-	pr := ProcessingBufferReader{Nested: nested}
+	pr := NewProcessingBufferReader(nested)
 
 	n, err := pr.Read(buffer)
 	require.NoError(t, err)
@@ -134,37 +138,39 @@ func TestProcessingBufferReader(t *testing.T) {
 	expectedBytes2 := []byte(expectedMsg2)
 	expectedMsg3 := "END"
 	expectedBytes3 := []byte(expectedMsg3)
-	errProcesser := func(in []byte, err error) ([]byte, error) {
-		return nil, fmt.Errorf("errProcesserError")
-	}
-	barProcesser := func(in []byte, err error) ([]byte, error) {
-		return expectedBytes2, nil
-	}
-	endProcesser := func(in []byte, err error) ([]byte, error) {
-		out := append(in, expectedBytes3...)
-		return out, nil
-	}
+	errProcesser := BasicProcesser(func(b *[]byte, i int) (o int, err error) {
+		return 0, fmt.Errorf("errProcesserError")
+	})
+	barProcesser := BasicProcesser(func(b *[]byte, i int) (o int, err error) {
+		copy(*b, expectedBytes2)
+		return len(expectedBytes2), nil
+	})
+	endProcesser := BasicProcesser(func(b *[]byte, i int) (o int, err error) {
+		*b = (*b)[:i+3]
+		copy((*b)[i:], expectedBytes3)
+		return i + 3, nil
+	})
 	buffer := make([]byte, len(expectedMsg1)+16)
 
 	nested := strings.NewReader(expectedMsg1)
-	pr := ProcessingBufferReader{Nested: nested}
-	pr.AddProcesser(errProcesser)
+	pr := NewProcessingBufferReader(nested)
+	pr.Add(errProcesser)
 	n, err := pr.Read(buffer)
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
 
 	nested = strings.NewReader(expectedMsg1)
-	pr = ProcessingBufferReader{Nested: nested}
-	pr.AddProcesser(barProcesser)
+	pr = NewProcessingBufferReader(nested)
+	pr.Add(barProcesser)
 	n, err = pr.Read(buffer)
 	require.NoError(t, err)
 	assert.Equal(t, len(expectedBytes2), n)
 	assert.Equal(t, expectedBytes2, buffer[0:n])
 
 	nested = strings.NewReader(expectedMsg1)
-	pr = ProcessingBufferReader{Nested: nested}
-	pr.AddProcesser(endProcesser)
-	n, err = pr.Read(buffer)
+	pr = NewProcessingBufferReader(nested)
+	pr.Add(endProcesser)
+	n, err = pr.Read(buffer[0:16])
 	require.NoError(t, err)
 	assert.Equal(t, len(expectedBytes1)+len(expectedBytes3), n)
 	assert.Equal(t, append(expectedBytes1, expectedBytes3...), buffer[0:n])
@@ -175,15 +181,17 @@ func TestProcessingBufferReader_LongerThanBuffer(t *testing.T) {
 	expectedMsg3 := "END"
 	expectedBytes3 := []byte(expectedMsg3)
 
-	endProcesser := func(in []byte, err error) ([]byte, error) {
-		out := append(in, expectedBytes3...)
-		return out, nil
-	}
+	endProcesser := BasicProcesser(func(b *[]byte, i int) (o int, err error) {
+		// set buffer length
+		*b = (*b)[:i+3]
+		copy((*b)[i:], expectedBytes3)
+		return i + 3, nil
+	})
 	buffer := make([]byte, 9)
 
 	nested := strings.NewReader(expectedMsg1)
-	pr := ProcessingBufferReader{Nested: nested}
-	pr.AddProcesser(endProcesser)
+	pr := NewProcessingBufferReader(nested)
+	pr.Add(endProcesser)
 	n, err := pr.Read(buffer)
 	require.NoError(t, err)
 	assert.Equal(t, 9, n)
@@ -197,35 +205,4 @@ func TestProcessingBufferReader_LongerThanBuffer(t *testing.T) {
 	require.Equal(t, len(expectedBytes3), n)
 	assert.Equal(t, expectedBytes3, buffer[0:3])
 
-}
-
-func TestLineProcesser(t *testing.T) {
-	addEndProc := func(buffer *[]byte, sizeIn int) (sizeOut int, err error) {
-		*buffer = append(*buffer, []byte("END")...)
-		return sizeIn + 3, nil
-	}
-
-	p := LineProcesser(addEndProc)
-
-	buffer := []byte("foo\nbar\nbaz")
-	sizeOut, err := p(&buffer, 11)
-	require.NoError(t, err)
-	assert.Equal(t, 14, sizeOut)
-	assert.Equal(t, []byte("fooEND\nbarEND\n"), buffer[0:sizeOut])
-}
-func TestLineStringProcesser(t *testing.T) {
-	addEndProc := func(in string) (out string, err error) {
-		return in + "END", nil
-	}
-
-	p := LineStringProcesser(addEndProc)
-
-	message := "foo\nbar\nbaz"
-	//buffer := make([]byte, len(message), 128)
-	buffer := []byte(message)
-	copy(buffer, []byte(message))
-	sizeOut, err := p(buffer, 11)
-	require.NoError(t, err)
-	assert.Equal(t, 14, sizeOut)
-	assert.Equal(t, []byte("fooEND\nbarEND\n"), buffer[0:sizeOut])
 }

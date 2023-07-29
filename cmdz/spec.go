@@ -1,6 +1,8 @@
 package cmdz
 
 import (
+	"io"
+
 	"mby.fr/utils/promise"
 )
 
@@ -18,26 +20,31 @@ type (
 	bytesPromise  = promise.Promise[[]byte]
 	stringPromise = promise.Promise[string]
 
-	Runner interface {
-		reset()
-		fallback(*config)
+	Inner[T any] interface {
+		Stdin() io.Reader
+		Input(stdin io.Reader) T
+	}
 
-		BlockRun() (int, error)
-		AsyncRun() *execPromise
-		ResultCodes() []int
+	Outer[T any] interface {
+		Stdout() io.Writer
+		Stderr() io.Writer
+		Outputs(stdout, stderr io.Writer) T
+	}
+
+	InOuter[T any] interface {
+		Inner[T]
+		Outer[T]
 	}
 
 	Configurer[T any] interface {
 		ErrorOnFailure(bool) T
 		Retries(count, delayInMs int) T
 		Timeout(delayInMs int) T
-		CombineOutputs() T
-		//Input(stdin io.Reader) T
-		//Outputs(stdout, stderr io.Writer) T
+		CombinedOutputs() T
 	}
 
 	Recorder interface {
-		//StdinRecord() string
+		StdinRecord() string
 		StdoutRecord() string
 		StderrRecord() string
 	}
@@ -47,11 +54,27 @@ type (
 		ReportError() string
 	}
 
-	Executer interface {
-		Configurer[Executer]
+	Runner interface {
+		reset()
+		fallback(*config)
+
+		BlockRun() (int, error)
+		AsyncRun() *execPromise
+		ResultCodes() []int
+	}
+
+	Commander interface {
+		InOuter[Commander]
+		Configurer[Commander]
 		Runner
+	}
+
+	Executer interface {
+		InOuter[Executer]
+		Configurer[Executer]
 		Recorder
 		Reporter
+		Runner
 
 		//Pipe(Executer) Executer
 		//PipeFail(Executer) Executer
@@ -61,7 +84,7 @@ type (
 	}
 
 	Inputer interface {
-		Executer
+		//Executer
 		Input([]byte) error
 	}
 

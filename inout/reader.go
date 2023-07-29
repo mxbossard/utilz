@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strings"
 )
 
 type RecordingReader struct {
@@ -44,23 +43,65 @@ func (w RecordingReader) String() string {
 	return w.Record.String()
 }
 
-// Processor which copy input into output and can process errors
-// Problems : copy byte arrays is bad ; not fail shortly on error is bad
-type IOProcesser = func(input []byte, inErr error) (output []byte, outErr error)
-
-// Processor which enfore the use of one byte buffer ptr only which can be replace by a taller byte buffer
-type IOProcesser2 = func(buffer []byte, sizeIn int) (sizeOut int, err error)
-type IOProcesser3 = func(buffer *[]byte, sizeIn int) (sizeOut int, err error)
-
-type ProcessingStreamReader struct {
+type processingReader struct {
 	Nested     io.Reader
 	Processers []IOProcesser
-	outBuffer  *bytes.Buffer
 }
 
-func (r *ProcessingStreamReader) AddProcesser(p IOProcesser) *ProcessingStreamReader {
-	r.Processers = append(r.Processers, p)
-	return r
+func (r *processingReader) Nest(n io.Reader) {
+	r.Nested = n
+}
+
+func (r *processingReader) Add(p ...IOProcesser) {
+	r.Processers = append(r.Processers, p...)
+}
+
+// Return all buffered bytes
+func (r *processingReader) AvailableBuffer() ([]byte, error) {
+	// TODO
+	return nil, nil
+}
+
+// Return all buffered bytes processed
+/*
+func (r *processingReader) ProcessedAvailableBuffer() ([]byte, error) {
+	// FIXME: bad implementation probably a bad id to process data which was not processed
+	if len(r.Processers) == 0 {
+		return nil, nil
+	}
+	buffer, err := r.Processers[0].AvailableBuffer()
+	if err != nil {
+		return nil, err
+	}
+	var n int
+	for _, p := range r.Processers[1:] {
+		n, err = p.Process(&buffer, len(buffer))
+		if err != nil {
+			return nil, err
+		}
+		remains, err := p.AvailableBuffer()
+		k := len(remains)
+		if err != nil {
+			return nil, err
+		}
+		GrowOrCopy(&buffer, n+k)
+		copy(buffer[n:n+k], remains)
+	}
+	return buffer, err
+}
+*/
+
+// Reinit Writer
+func (r *processingReader) Reset() error {
+	for _, p := range r.Processers {
+		p.Reset()
+	}
+	return nil
+}
+
+type ProcessingStreamReader struct {
+	processingReader
+	outBuffer bytes.Buffer
 }
 
 // buffer length controll the amount of bytes read from Nester reader.
@@ -68,23 +109,16 @@ func (r *ProcessingStreamReader) Read(buffer []byte) (int, error) {
 	if r.Nested == nil {
 		log.Fatalf("No nested reader configured in ProcessingStreamReader !")
 	}
-	if r.outBuffer == nil {
-		r.outBuffer = &bytes.Buffer{}
-	}
 
 	var n int
 	var err error
 	if n, err = r.Nested.Read(buffer); n > 0 && n <= len(buffer) && err != io.EOF {
 		tmpBuffer := buffer
 		for _, prc := range r.Processers {
-			var res []byte
-			res, err = prc(tmpBuffer[0:n], err)
-			n = len(res)
-			tmpBuffer = res
-			// tmpBuffer = make([]byte, n)
-			// for k := 0; k < n; k++ {
-			// 	tmpBuffer[k] = res[k]
-			// }
+			n, err = prc.Process(&tmpBuffer, n)
+			if err != nil {
+				return 0, err
+			}
 		}
 		r.outBuffer.Write(tmpBuffer[0:n])
 	}
@@ -99,14 +133,8 @@ func (r *ProcessingStreamReader) Read(buffer []byte) (int, error) {
 }
 
 type ProcessingBufferReader struct {
-	Nested     io.Reader
-	Processers []IOProcesser
-	outBuffer  *bytes.Buffer
-}
-
-func (r *ProcessingBufferReader) AddProcesser(p IOProcesser) *ProcessingBufferReader {
-	r.Processers = append(r.Processers, p)
-	return r
+	processingReader
+	outBuffer bytes.Buffer
 }
 
 // Buffer nested reader until nothing left to read before processing
@@ -117,10 +145,6 @@ func (r *ProcessingBufferReader) Read(buffer []byte) (int, error) {
 
 	var err error
 	var n int
-	if r.outBuffer == nil {
-		r.outBuffer = &bytes.Buffer{}
-	}
-
 	tmpBuffer := bytes.Buffer{}
 	for {
 		if tmpBuffer.Len() > 10000000 {
@@ -140,71 +164,32 @@ func (r *ProcessingBufferReader) Read(buffer []byte) (int, error) {
 		}
 	}
 
-	if tmpBuffer.Len() > 0 {
+	n = tmpBuffer.Len()
+	if n > 0 {
+		allBytes := make([]byte, n, n+32)
+		copy(allBytes, tmpBuffer.Bytes())
 		for _, prc := range r.Processers {
-			var res []byte
-			res, err = prc(tmpBuffer.Bytes(), err)
-			tmpBuffer.Reset()
-			tmpBuffer.Write(res)
+			n, err = prc.Process(&allBytes, n)
+			if err != nil {
+				return 0, err
+			}
+		}
+		_, err = r.outBuffer.Write(allBytes)
+		if err != nil {
+			return 0, err
 		}
 	}
-	if err != nil {
-		return 0, err
-	}
-	r.outBuffer.Write(tmpBuffer.Bytes())
-
 	return r.outBuffer.Read(buffer)
 }
 
-func LineProcesser(proc IOProcesser3) IOProcesser3 {
-	return func(buffer *[]byte, sizeIn int) (sizeOut int, err error) {
-		var p, size int
-		clone := *buffer
-		for i, b := range *buffer {
-			if b == '\n' {
-				if i == 0 {
-					size = i
-				}
-				clone = clone[p : p+size]
-				size, err = proc(&clone, sizeOut)
-				if err != nil {
-					return 0, err
-				}
-				p = i
-				for k := 0; k < size; k++ {
-					(*buffer)[sizeOut+k] = clone[k]
-				}
-				sizeOut += size
-			}
-		}
-		return
+func NewProcessingStreamReader(nested io.Reader) *ProcessingStreamReader {
+	return &ProcessingStreamReader{
+		processingReader: processingReader{Nested: nested},
 	}
 }
 
-func LineStringProcesser(proc func(in string) (out string, err error)) IOProcesser2 {
-	return func(buffer []byte, sizeIn int) (sizeOut int, err error) {
-		var p int
-		sb := strings.Builder{}
-		for i, b := range buffer {
-			if b == '\n' {
-				inString := string(buffer[p:i])
-				outString, err := proc(inString)
-				if err != nil {
-					return 0, err
-				}
-				_, err = sb.WriteString(outString + "\n")
-				if err != nil {
-					return 0, err
-				}
-				p = i + 1
-			}
-		}
-		sizeOut = sb.Len()
-		// Grow slice if possible
-		buffer = buffer[:sizeOut]
-		for k, b := range []byte(sb.String()) {
-			buffer[k] = b
-		}
-		return
+func NewProcessingBufferReader(nested io.Reader) *ProcessingBufferReader {
+	return &ProcessingBufferReader{
+		processingReader: processingReader{Nested: nested},
 	}
 }
