@@ -23,13 +23,17 @@ type CmdMock struct {
 
 func (m CmdMock) Mock(c *exec.Cmd) int {
 	mockedRc, stdout, stderr := m.callback(*c)
-
 	outBuffer := strings.Builder{}
 	errBuffer := strings.Builder{}
-	_, err := io.Copy(&outBuffer, stdout)
-	assert.NoError(m.t, err, "cmdz mock cannot copy stdout !")
-	_, err = io.Copy(&errBuffer, stderr)
-	assert.NoError(m.t, err, "cmdz mock cannot copy stderr !")
+	var err error
+	if stdout != nil {
+		_, err = io.Copy(&outBuffer, stdout)
+		assert.NoError(m.t, err, "cmdz mock cannot copy stdout !")
+	}
+	if stderr != nil {
+		_, err = io.Copy(&errBuffer, stderr)
+		assert.NoError(m.t, err, "cmdz mock cannot copy stderr !")
+	}
 
 	outSummary := stringz.SummaryRatio(outBuffer.String(), 128, .2)
 	errSummary := stringz.SummaryRatio(errBuffer.String(), 128, .2)
@@ -47,17 +51,24 @@ func (m CmdMock) Mock(c *exec.Cmd) int {
 	return mockedRc
 }
 
-func StartMock(t *testing.T, callback func(Vcmd) (int, io.Reader, io.Reader)) {
+func StartMock(t *testing.T, callback func(c Vcmd) (rc int, stdout, stderr io.Reader)) {
 	//mockingCommand = callback
 	commandMock = &CmdMock{t, callback}
 }
 
-func StartStringMock(t *testing.T, callback func(Vcmd) (int, string, string)) {
+func StartStringMock(t *testing.T, callback func(c Vcmd) (rc int, stdout, stderr string)) {
 	m := func(c exec.Cmd) (int, io.Reader, io.Reader) {
 		rc, stdout, stderr := callback(c)
 		return rc, strings.NewReader(stdout), strings.NewReader(stderr)
 	}
 	StartMock(t, m)
+}
+
+func StartSimpleMock(t *testing.T, rc int, stdout, stderr string) {
+	callback := func(c Vcmd) (int, string, string) {
+		return rc, stdout, stderr
+	}
+	StartStringMock(t, callback)
 }
 
 func StopMock() {
