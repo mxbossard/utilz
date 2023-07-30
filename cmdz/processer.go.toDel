@@ -51,6 +51,7 @@ func (e *basicProcesser) init() {
 
 func (e *basicProcesser) Input(stdin io.Reader) Executer {
 	e.init()
+	// Read() => ProcessingReader => RecordingReader => stdin
 	e.inProcesser.Nest(stdin)
 	e.Executer.Input(e.inProcesser)
 	return e
@@ -58,6 +59,7 @@ func (e *basicProcesser) Input(stdin io.Reader) Executer {
 
 func (e *basicProcesser) Outputs(stdout, stderr io.Writer) Executer {
 	e.init()
+	// Write() => ProcessingWriter => RecordingWriter => stdout
 	e.outProcesser.Nest(stdout)
 	e.errProcesser.Nest(stderr)
 	e.Executer.Outputs(e.outProcesser, e.errProcesser)

@@ -138,6 +138,7 @@ func (w *ProcessingStreamWriter) Write(buffer []byte) (int, error) {
 	var err error
 	tmpBuffer := buffer
 	n := len(buffer)
+	written := n // FIXME: how to count number of bytes written ?
 	if n > 0 {
 		for _, prc := range w.Processers {
 			n, err = prc.Process(&tmpBuffer, n)
@@ -150,7 +151,7 @@ func (w *ProcessingStreamWriter) Write(buffer []byte) (int, error) {
 		}
 		w.Nested.Write(tmpBuffer[0:n])
 	}
-	return n, err
+	return written, err
 }
 
 type ProcessingBufferWriter struct {
@@ -210,6 +211,7 @@ func (w *ProcessingBufferWriter) Write(buffer []byte) (int, error) {
 	}
 
 	if outBuffer.Len() > 0 {
+		// FIXME: should return number of buffer bytes written instead of nested writer bytes written
 		return w.Nested.Write(outBuffer.Bytes())
 	}
 

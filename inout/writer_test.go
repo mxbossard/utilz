@@ -134,8 +134,24 @@ func TestProcessingStreamWriter(t *testing.T) {
 	pr.Add(endProcesser)
 	n, err = pr.Write(expectedBytes1)
 	require.NoError(t, err)
-	assert.Equal(t, len(expectedBytes1)+len(expectedBytes3), n)
+	assert.Equal(t, len(expectedBytes1), n)
 	assert.Equal(t, append(expectedBytes1, expectedBytes3...), nested.Bytes())
+}
+
+func TestProcessingStreamWriter_LineProcesser(t *testing.T) {
+	expectedMsg1 := "foo\n"
+	expectedBytes1 := []byte(expectedMsg1)
+	prefixProcessor := StringLineProcesser(func(in string) (out string, err error) {
+		return "PREFIX" + in, nil
+	})
+
+	nested := &strings.Builder{}
+	pr := NewProcessingStreamWriter(nested)
+	pr.Add(prefixProcessor)
+	n, err := pr.Write(expectedBytes1)
+	require.NoError(t, err)
+	assert.Equal(t, 4, n)
+	assert.Equal(t, "PREFIXfoo\n", nested.String())
 }
 
 func TestProcessingStreamWriter_LongerThanBuffer(t *testing.T) {
@@ -157,11 +173,11 @@ func TestProcessingStreamWriter_LongerThanBuffer(t *testing.T) {
 	pr.Add(endProcesser)
 	n, err := pr.Write(expectedBytes1)
 	require.NoError(t, err)
-	assert.Equal(t, 12, n)
+	assert.Equal(t, len(expectedBytes1), n)
 	assert.Equal(t, "foofoofooEND", nested.String())
 	n, err = pr.Write(expectedBytes2)
 	require.NoError(t, err)
-	assert.Equal(t, 12, n)
+	assert.Equal(t, len(expectedBytes2), n)
 	require.Equal(t, "foofoofooENDbarbarbarEND", nested.String())
 	n, err = pr.Write(nil)
 	require.NoError(t, err)

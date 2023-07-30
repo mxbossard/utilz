@@ -4,7 +4,6 @@ import (
 	//"bufio"
 
 	"bytes"
-	"context"
 	"log"
 
 	//"errors"
@@ -86,9 +85,17 @@ type cmdz struct {
 	stdoutRecord inout.RecordingWriter
 	stderrRecord inout.RecordingWriter
 
+	inProcesser  inout.ProcessingReader
+	outProcesser inout.ProcessingWriter
+	errProcesser inout.ProcessingWriter
+
 	resultsCodes []int
 	// FIXME: replace ResultsCodes by Executions
 	Executions []*exec.Cmd
+}
+
+func (e *cmdz) getConfig() config {
+	return e.config
 }
 
 // ----- InOuter methods -----
@@ -102,22 +109,105 @@ func (e *cmdz) Stderr() io.Writer {
 	return e.Cmd.Stdout
 }
 
-func (e *cmdz) Input(stdin io.Reader) Executer {
+func (e *cmdz) SetInput(stdin io.Reader) Executer {
 	if e.pipedInput {
 		log.Fatal("Input is piped cannot change it !")
 	}
-	e.config.stdin = stdin
-	e.recordingInput(stdin)
+	e.setupStdin(stdin)
 	return e
 }
 
-func (e *cmdz) Outputs(stdout, stderr io.Writer) Executer {
+func (e *cmdz) SetStdout(stdout io.Writer) Executer {
 	if e.pipedOutput {
 		log.Fatal("Output is piped cannot change it !")
 	}
+	e.setupStdout(stdout)
+	return e
+}
+
+func (e *cmdz) SetStderr(stderr io.Writer) Executer {
+	e.setupStderr(stderr)
+	return e
+}
+
+func (e *cmdz) SetOutputs(stdout, stderr io.Writer) Executer {
+	e.SetStdout(stdout)
+	e.SetStderr(stderr)
+	return e
+}
+
+func (e *cmdz) initProcessers() {
+	if e.inProcesser == nil {
+		e.inProcesser = inout.NewProcessingStreamReader(nil)
+	}
+	if e.outProcesser == nil {
+		e.outProcesser = inout.NewProcessingStreamWriter(nil)
+	}
+	if e.errProcesser == nil {
+		e.errProcesser = inout.NewProcessingStreamWriter(nil)
+	}
+}
+
+func (e *cmdz) setupStdin(stdin io.Reader) {
+	if stdin == nil {
+		stdin = bytes.NewReader(nil)
+	}
+	// Save supplied stdin in config
+	// Decorate reader: ProcessingReader => RecordingReader => stdin
+	e.initProcessers()
+	e.config.stdin = stdin
+	e.inProcesser.Nest(stdin)
+	e.stdinRecord.Nested = e.inProcesser
+	e.Cmd.Stdin = &e.stdinRecord
+}
+
+func (e *cmdz) setupStdout(stdout io.Writer) {
+	if stdout == nil {
+		stdout = &bytes.Buffer{}
+	}
+	// Save supplied stdout in config
+	// Decorate writer: ProcessingWriter => RecordingWriter => stdout
+	e.initProcessers()
 	e.config.stdout = stdout
+	e.stdoutRecord.Nested = stdout
+	e.outProcesser.Nest(&e.stdoutRecord)
+	e.Cmd.Stdout = e.outProcesser
+	if e.config.combinedOuts {
+		e.Cmd.Stderr = e.outProcesser
+	}
+}
+
+func (e *cmdz) setupStderr(stderr io.Writer) {
+	if e.config.combinedOuts {
+		return
+	}
+	if stderr == nil {
+		stderr = &strings.Builder{}
+	}
+	// Save supplied stderr in config
+	// Decorate writer: ProcessingWriter => RecordingWriter => stderr
+	e.initProcessers()
 	e.config.stderr = stderr
-	e.recordingOutputs(stdout, stderr)
+	e.stderrRecord.Nested = stderr
+	e.errProcesser.Nest(&e.stderrRecord)
+	e.Cmd.Stderr = e.errProcesser
+}
+
+func (e *cmdz) ProcessIn(pcrs ...IOProcesser) *cmdz {
+	e.initProcessers()
+	e.inProcesser.Add(pcrs...)
+	return e
+}
+
+func (e *cmdz) ProcessOut(pcrs ...IOProcesser) *cmdz {
+	e.initProcessers()
+	e.outProcesser.Add(pcrs...)
+	return e
+}
+
+func (e *cmdz) ProcessErr(pcrs ...IOProcesser) *cmdz {
+	e.initProcessers()
+	e.errProcesser.Add(pcrs...)
 	return e
 }
 
@@ -215,8 +305,9 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 
 	e.reset()
 	config := mergeConfigs(&e.config, e.fallbackConfig)
-	e.recordingInput(config.stdin)
-	e.recordingOutputs(config.stdout, config.stderr)
+	e.setupStdin(config.stdin)
+	e.setupStdout(config.stdout)
+	e.setupStderr(config.stderr)
 	e.checkpoint()
 	rc = -1
 	for i := 0; i <= config.retries && rc != 0; i++ {
@@ -290,35 +381,6 @@ func (e *cmdz) PipeFail(c *cmdz) *cmdz {
 	return e.Pipe(c)
 }
 
-func (e *cmdz) recordingInput(stdin io.Reader) {
-	if stdin == nil {
-		stdin = strings.NewReader("")
-	}
-
-	e.stdinRecord.Nested = stdin
-	e.Cmd.Stdin = &e.stdinRecord
-}
-
-func (e *cmdz) recordingOutputs(stdout, stderr io.Writer) {
-	if stdout == nil {
-		stdout = &strings.Builder{}
-	}
-
-	e.stdoutRecord.Nested = stdout
-	e.Cmd.Stdout = &e.stdoutRecord
-
-	if e.config.combinedOuts {
-		e.stderrRecord.Nested = stdout
-		e.Cmd.Stderr = &e.stdoutRecord
-	} else {
-		if stderr == nil {
-			stderr = &strings.Builder{}
-		}
-		e.stderrRecord.Nested = stderr
-		e.Cmd.Stderr = &e.stderrRecord
-	}
-}
-
 func (e *cmdz) AddEnv(key, value string) *cmdz {
 	entry := fmt.Sprintf("%s=%s", key, value)
 	e.Cmd.Env = append(e.Env, entry)
@@ -340,24 +402,4 @@ func (e *cmdz) rollback() {
 	// Clone checkpoint
 	newClone := e.cmdCheckpoint
 	e.Cmd = &newClone
-}
-
-func Cmd(binary string, args ...string) *cmdz {
-	cmd := exec.Command(binary, args...)
-	cmd.Env = make([]string, 8)
-	e := cmdz{Cmd: cmd}
-	e.checkpoint()
-	return &e
-}
-
-func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
-	cmd := exec.CommandContext(ctx, binary, args...)
-	cmd.Env = make([]string, 8)
-	e := cmdz{Cmd: cmd}
-	e.checkpoint()
-	return &e
-}
-
-func Sh(cmd string) *cmdz {
-	return Cmd("sh", "-c", cmd)
 }

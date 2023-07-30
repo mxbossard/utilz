@@ -1,0 +1,90 @@
+package cmdz
+
+import (
+	//"bufio"
+
+	"log"
+
+	//"errors"
+
+	"io"
+	"strings"
+
+	"mby.fr/utils/inout"
+)
+
+type basicRecorder[T any] struct {
+	nested       InOuter[T]
+	stdinRecord  inout.RecordingReader
+	stdoutRecord inout.RecordingWriter
+	stderrRecord inout.RecordingWriter
+}
+
+// ----- InOuter methods -----
+func (e *basicRecorder[T]) Stdin() io.Reader {
+	return &e.stdinRecord
+}
+func (e *basicRecorder[T]) Stdout() io.Writer {
+	return &e.stdoutRecord
+}
+func (e *basicRecorder[T]) Stderr() io.Writer {
+	return &e.stderrRecord
+}
+
+func (e *basicRecorder[T]) Input(stdin io.Reader) T {
+	e.stdinRecord.Nested = stdin
+	e.nested.Input(&e.stdinRecord)
+	return e.(T)
+}
+
+func (e *basicRecorder[T]) Outputs(stdout, stderr io.Writer) Executer {
+	if e.pipedOutput {
+		log.Fatal("Output is piped cannot change it !")
+	}
+	e.config.stdout = stdout
+	e.config.stderr = stderr
+	//e.recordingOutputs(stdout, stderr)
+	return e
+}
+
+func (e *basicRecorder[T]) recordingInput(stdin io.Reader) {
+	if stdin == nil {
+		stdin = strings.NewReader("")
+	}
+
+	e.stdinRecord.Nested = stdin
+	e.Cmd.Stdin = &e.stdinRecord
+}
+
+func (e *basicRecorder[T]) recordingOutputs(stdout, stderr io.Writer) {
+	if stdout == nil {
+		stdout = &strings.Builder{}
+	}
+
+	e.stdoutRecord.Nested = stdout
+	e.Cmd.Stdout = &e.stdoutRecord
+
+	if e.config.combinedOuts {
+		e.stderrRecord.Nested = stdout
+		e.Cmd.Stderr = &e.stdoutRecord
+	} else {
+		if stderr == nil {
+			stderr = &strings.Builder{}
+		}
+		e.stderrRecord.Nested = stderr
+		e.Cmd.Stderr = &e.stderrRecord
+	}
+}
+
+// ----- Recorder methods -----
+func (e *basicRecorder[T]) StdinRecord() string {
+	return e.stdinRecord.String()
+}
+
+func (e *basicRecorder[T]) StdoutRecord() string {
+	return e.stdoutRecord.String()
+}
+
+func (e *basicRecorder[T]) StderrRecord() string {
+	return e.stderrRecord.String()
+}

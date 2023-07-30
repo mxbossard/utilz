@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"log"
-	"strings"
 	"sync"
 )
 
@@ -30,14 +29,14 @@ type (
 		Reset() error
 	}
 
-	IOProcesserReader interface {
+	ProcessingReader interface {
 		io.Reader
 		Nest(io.Reader)
 		Add(...IOProcesser)
 		Reset() error
 	}
 
-	IOProcesserWriter interface {
+	ProcessingWriter interface {
 		io.Writer
 		Nest(io.Writer)
 		Add(...IOProcesser)
@@ -129,31 +128,6 @@ func (p *LineIOProcesser) Process(buffer *[]byte, sizeIn int) (sizeOut int, err 
 	return
 }
 
-func LineStringProcesser0(proc func(in string) (out string, err error)) IOProcesserCallback {
-	return func(buffer *[]byte, sizeIn int) (sizeOut int, err error) {
-		var p int
-		sb := strings.Builder{}
-		for i, b := range *buffer {
-			if b == '\n' {
-				inString := string((*buffer)[p:i])
-				outString, err := proc(inString)
-				if err != nil {
-					return 0, err
-				}
-				_, err = sb.WriteString(outString + "\n")
-				if err != nil {
-					return 0, err
-				}
-				p = i + 1
-			}
-		}
-		sizeOut = sb.Len()
-		GrowOrCopy(buffer, sizeOut)
-		copy(*buffer, []byte(sb.String()))
-		return
-	}
-}
-
 func BasicProcesser(callback IOProcesserCallback) IOProcesser {
 	return &BasicIOProcesser{callback}
 }
@@ -170,10 +144,10 @@ func StringLineProcesser(callback StringIOProcesserCallback) IOProcesser {
 			return 0, err
 		}
 		n := len(out)
-		log.Printf("str callback ouy: [%s]", out)
+		log.Printf("StringLineProcesser: str callback out: [%s]", out)
 		GrowOrCopy(buffer, n)
 		copy((*buffer)[0:n], []byte(out))
-		log.Printf("bytes callback out: [%v]", *buffer)
+		log.Printf("StringLineProcesser: bytes callback out: [%v]", *buffer)
 		return n, nil
 	}
 	return &LineIOProcesser{Callback: wrapper}

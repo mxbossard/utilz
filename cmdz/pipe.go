@@ -1,5 +1,10 @@
 package cmdz
 
+import (
+	"bytes"
+	"fmt"
+)
+
 type (
 	basicPipe struct {
 		Executer
@@ -8,17 +13,16 @@ type (
 	}
 )
 
-func (e *basicPipe) Pipe(c Executer) Piper {
+func (e *basicPipe) Pipe(c Executer) Executer {
 	e.Executer = c
 	return e
 }
 
-func (e *basicPipe) PipeFail(c Executer) Piper {
+func (e *basicPipe) PipeFail(c Executer) Executer {
 	e.pipeFail = true
 	return e.Pipe(c)
 }
 
-/*
 func (e *basicPipe) BlockRun() (int, error) {
 	if e.Executer == nil {
 		return -1, fmt.Errorf("basicPipe don't have a sink !")
@@ -28,18 +32,15 @@ func (e *basicPipe) BlockRun() (int, error) {
 	}
 
 	f := e.feeder
-	originalStdout := f.config.stdout
-	originalStdin := f.config.stdin
+	originalStdout := f.getConfig().stdout
+	originalStdin := f.getConfig().stdin
 	b := bytes.Buffer{}
 
 	// Replace configured stdin / stdout temporarilly
-	f.pipedOutput = true
-	f.config.stdout = &b
-	//f.stdoutRecord.Nested = &b
-
-	e.pipedInput = true
-	e.config.stdin = &b
-	//e.stdinRecord.Nested = &b
+	f.SetStdout(&b)
+	e.SetInput(&b)
+	defer f.SetStdout(originalStdout)
+	defer e.SetInput(originalStdin)
 
 	frc, ferr := e.feeder.BlockRun()
 	if _, ok := ferr.(failure); ferr != nil && !ok {
@@ -54,23 +55,5 @@ func (e *basicPipe) BlockRun() (int, error) {
 
 	rc, err := e.Executer.BlockRun()
 
-	f.config.stdout = originalStdout
-	e.config.stdin = originalStdin
-
 	return rc, err
 }
-*/
-
-func Pipable(i Executer) Piper {
-	return &basicPipe{feeder: i}
-}
-
-func Pipe(i, o Executer) Piper {
-	return &basicPipe{Executer: o, feeder: i}
-}
-
-/*
-func InOutPipe(i Inputer, o Outputer) Piper {
-	return &basicPipe{Executer: o, feeder: i}
-}
-*/

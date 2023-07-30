@@ -125,7 +125,7 @@ func TestSerial_Outputs(t *testing.T) {
 	f1 := Cmd("false")
 
 	sb := strings.Builder{}
-	s := Serial(e1, f1, e2).Outputs(&sb, nil)
+	s := Serial(e1, f1, e2).SetOutputs(&sb, nil)
 	rc, err := s.BlockRun()
 
 	require.NoError(t, err)
@@ -245,39 +245,13 @@ func TestOr_Outputs(t *testing.T) {
 	f1 := Cmd("false")
 
 	sb := strings.Builder{}
-	s := Or(e1, f1, e2).Outputs(&sb, nil)
+	s := Or(e1, f1, e2).SetOutputs(&sb, nil)
 	rc, err := s.BlockRun()
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, rc)
 	assert.Equal(t, "foo\n", sb.String())
 }
-
-/*
-func TestOr_FailFast(t *testing.T) {
-	e1 := Cmd("echo", "foo")
-	e2 := Cmd("echo", "bar")
-	f1 := Cmd("false")
-
-	s := Or(f1, e1, e2).FailFast(true).ErrorOnFailure(false)
-	rc, err := s.BlockRun()
-	require.NoError(t, err)
-	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{1}, f1.ResultCodes())
-	assert.Equal(t, []int{0}, e1.ResultCodes())
-	assert.Equal(t, []int(nil), e2.ResultCodes())
-	assert.Equal(t, "foo\n", s.StdoutRecord())
-
-	s.Retries(2, 10)
-	rc, err = s.BlockRun()
-	require.NoError(t, err)
-	assert.Equal(t, 0, rc)
-	assert.Equal(t, []int{1, 1, 1}, f1.ResultCodes())
-	assert.Equal(t, []int{0}, e1.ResultCodes())
-	assert.Equal(t, []int(nil), e2.ResultCodes())
-	assert.Equal(t, "foo\n", s.StdoutRecord())
-}
-*/
 
 func TestOr_ErrorOnFailure(t *testing.T) {
 	e1 := Cmd("echo", "foo")
@@ -402,7 +376,7 @@ func TestParallel_Outputs(t *testing.T) {
 	f1 := Cmd("false")
 
 	sb := strings.Builder{}
-	p := Parallel(c1, f1, c2).Outputs(&sb, nil)
+	p := Parallel(c1, f1, c2).SetOutputs(&sb, nil)
 	rc, err := p.BlockRun()
 
 	require.NoError(t, err)

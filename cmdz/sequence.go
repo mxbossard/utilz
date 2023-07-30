@@ -77,6 +77,37 @@ type seq struct {
 	status int
 }
 
+func (e *seq) getConfig() config {
+	return e.config
+}
+
+func (e *seq) setStdin(stdin io.Reader) {
+	if e.pipedInput {
+		log.Fatal("Input is piped cannot change it !")
+	}
+	e.config.stdin = stdin
+	for _, i := range e.execs {
+		i.SetInput(stdin)
+	}
+}
+
+func (e *seq) setStdout(stdout io.Writer) {
+	if e.pipedOutput {
+		log.Fatal("Output is piped cannot change it !")
+	}
+	e.config.stdout = stdout
+	for _, o := range e.outers {
+		o.SetStdout(stdout)
+	}
+}
+
+func (e *seq) setStderr(stderr io.Writer) {
+	e.config.stderr = stderr
+	for _, o := range e.outers {
+		o.SetStderr(stderr)
+	}
+}
+
 // ----- InOuter methods -----
 func (e *seq) Stdin() io.Reader {
 	return e.config.stdin
@@ -124,26 +155,24 @@ type serialSeq struct {
 	*seq
 }
 
-func (e *serialSeq) Input(stdin io.Reader) Executer {
-	if e.pipedInput {
-		log.Fatal("Input is piped cannot change it !")
-	}
-	e.config.stdin = stdin
-	for _, i := range e.inners {
-		i.Input(stdin)
-	}
+func (e *serialSeq) SetInput(stdin io.Reader) Executer {
+	e.seq.setStdin(stdin)
 	return e
 }
 
-func (e *serialSeq) Outputs(stdout, stderr io.Writer) Executer {
-	if e.pipedOutput {
-		log.Fatal("Output is piped cannot change it !")
-	}
-	e.config.stdout = stdout
-	e.config.stderr = stderr
-	for _, o := range e.outers {
-		o.Outputs(stdout, stderr)
-	}
+func (e *serialSeq) SetStdout(stdout io.Writer) Executer {
+	e.seq.setStdout(stdout)
+	return e
+}
+
+func (e *serialSeq) SetStderr(stderr io.Writer) Executer {
+	e.seq.setStderr(stderr)
+	return e
+}
+
+func (e *serialSeq) SetOutputs(stdout, stderr io.Writer) Executer {
+	e.SetStdout(stdout)
+	e.SetStderr(stderr)
 	return e
 }
 
@@ -237,25 +266,29 @@ type orSeq struct {
 	*seq
 }
 
-func (e *orSeq) Input(stdin io.Reader) Executer {
-	if e.pipedInput {
-		log.Fatal("Input is piped cannot change it !")
-	}
-	e.config.stdin = stdin
-	for _, i := range e.inners {
-		i.Input(stdin)
-	}
+func (e *orSeq) SetInput(stdin io.Reader) Executer {
+	e.seq.setStdin(stdin)
 	return e
 }
 
-func (e *orSeq) Outputs(stdout, stderr io.Writer) Executer {
+func (e *orSeq) SetStdout(stdout io.Writer) Executer {
+	e.seq.setStdout(stdout)
+	return e
+}
+
+func (e *orSeq) SetStderr(stderr io.Writer) Executer {
+	e.seq.setStderr(stderr)
+	return e
+}
+
+func (e *orSeq) SetOutputs(stdout, stderr io.Writer) Executer {
 	if e.pipedOutput {
 		log.Fatal("Output is piped cannot change it !")
 	}
 	e.config.stdout = stdout
 	e.config.stderr = stderr
 	for _, o := range e.outers {
-		o.Outputs(stdout, stderr)
+		o.SetOutputs(stdout, stderr)
 	}
 	return e
 }
@@ -263,13 +296,6 @@ func (e *orSeq) Outputs(stdout, stderr io.Writer) Executer {
 func (s orSeq) String() string {
 	return stringz.JoinStringers(s.seq.execs, " || ")
 }
-
-/*
-func (s *orSeq) FailFast(enabled bool) *orSeq {
-	s.failFast = enabled
-	return s
-}
-*/
 
 func (s *orSeq) Retries(count, delayInMs int) Executer {
 	s.config.retries = count
@@ -344,25 +370,29 @@ type parallelSeq struct {
 	forkCount int
 }
 
-func (e *parallelSeq) Input(stdin io.Reader) Executer {
-	if e.pipedInput {
-		log.Fatal("Input is piped cannot change it !")
-	}
-	e.config.stdin = stdin
-	for _, i := range e.execs {
-		i.Input(stdin)
-	}
+func (e *parallelSeq) SetInput(stdin io.Reader) Executer {
+	e.seq.setStdin(stdin)
 	return e
 }
 
-func (e *parallelSeq) Outputs(stdout, stderr io.Writer) Executer {
+func (e *parallelSeq) SetStdout(stdout io.Writer) Executer {
+	e.seq.setStdout(stdout)
+	return e
+}
+
+func (e *parallelSeq) SetStderr(stderr io.Writer) Executer {
+	e.seq.setStderr(stderr)
+	return e
+}
+
+func (e *parallelSeq) SetOutputs(stdout, stderr io.Writer) Executer {
 	if e.pipedOutput {
 		log.Fatal("Output is piped cannot change it !")
 	}
 	e.config.stdout = stdout
 	e.config.stderr = stderr
 	for _, o := range e.execs {
-		o.Outputs(stdout, stderr)
+		o.SetOutputs(stdout, stderr)
 	}
 	return e
 }
@@ -446,28 +476,4 @@ func (e *parallelSeq) ResultCodes() (codes []int) {
 		codes = append(codes, exec.ResultCodes()...)
 	}
 	return
-}
-
-func Serial(execs ...Executer) *serialSeq {
-	s := &serialSeq{seq: &seq{config: config{}}}
-	s.Add(execs...)
-	return s
-}
-
-func Parallel(execs ...Executer) *parallelSeq {
-	s := &parallelSeq{seq: &seq{config: config{}}}
-	s.Add(execs...)
-	return s
-}
-
-func And(execs ...Executer) *andSeq {
-	s := &andSeq{serialSeq: *Serial(execs...)}
-	s.Add(execs...)
-	return s
-}
-
-func Or(execs ...Executer) *orSeq {
-	s := &orSeq{seq: &seq{config: config{}}}
-	s.Add(execs...)
-	return s
 }

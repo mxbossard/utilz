@@ -7,31 +7,8 @@ import (
 type (
 	basicOutput struct {
 		Executer
-		inProcessers  []InProcesser
-		outProcessers []OutProcesser
 	}
 )
-
-// For simplicity processers only apply to Output() and OutputString()
-// FIXME: processers should be embedded in decorating Writer in front of stdout
-func (e *basicOutput) OutProcess(processers ...OutProcesser) Outputer {
-	e.outProcessers = append(e.outProcessers, processers...)
-	return e
-}
-
-func (e *basicOutput) OutStringProcess(strProcessers ...OutStringProcesser) Outputer {
-	processers := make([]OutProcesser, len(strProcessers))
-	for i, sp := range strProcessers {
-		spf := sp // Need this to update func pointer
-		processers[i] = func(rc int, stdout, stderr []byte) ([]byte, error) {
-			res, err := spf(rc, string(stdout), string(stderr))
-			return []byte(res), err
-		}
-
-	}
-	e.OutProcess(processers...)
-	return e
-}
 
 func (e *basicOutput) Output() ([]byte, error) {
 	return nil, fmt.Errorf("basicOutput.Output() not implemented yet !")
@@ -47,13 +24,6 @@ func (e *basicOutput) OutputString() (string, error) {
 		return "", err
 	}
 	stdout := []byte(e.StdoutRecord())
-	stderr := []byte(e.StderrRecord())
-	for _, p := range e.outProcessers {
-		stdout, err = p(rc, stdout, stderr)
-		if err != nil {
-			return "", err
-		}
-	}
 	return string(stdout), nil
 }
 
@@ -84,12 +54,4 @@ func (e *basicOutput) Retries(count, delayInMs int) Outputer {
 func (e *basicOutput) Timeout(delayInMs int) Outputer {
 	e.Executer = e.Executer.Timeout(delayInMs)
 	return e
-}
-
-func Outputted(e Executer) Outputer {
-	return &basicOutput{Executer: e}
-}
-
-func OutputtedCmd(binary string, args ...string) Outputer {
-	return Outputted(Cmd(binary, args...))
 }

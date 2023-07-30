@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"mby.fr/utils/inout"
 	"mby.fr/utils/promise"
 
 	"github.com/stretchr/testify/assert"
@@ -75,7 +76,7 @@ func TestBlockRun_WithInput(t *testing.T) {
 	input1 := "foo"
 	input2 := "bar"
 	reader := bytes.NewBufferString(input1)
-	e := Cmd(echoBinary, "-").Input(reader)
+	e := Cmd(echoBinary, "-").SetInput(reader)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -107,7 +108,7 @@ func TestBlockRun_WithOutputs(t *testing.T) {
 	echoArg := "foobar"
 	stdout := strings.Builder{}
 	stderr := strings.Builder{}
-	e := Cmd(echoBinary, echoArg).Outputs(&stdout, &stderr)
+	e := Cmd(echoBinary, echoArg).SetOutputs(&stdout, &stderr)
 
 	rc, err := e.BlockRun()
 	require.NoError(t, err, "should not error")
@@ -202,17 +203,26 @@ func TestBlockRun_ErrorOnFailure(t *testing.T) {
 	assert.Equal(t, -1, rc)
 }
 
+func TestBlockRun_CombinedOutputs(t *testing.T) {
+	f := Sh("echo foo ; sleep 0.1 ; >&2 echo bar").CombinedOutputs()
+	rc, err := f.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo\nbar\n", f.StdoutRecord())
+	assert.Equal(t, "", f.StderrRecord())
+}
+
 func TestAsyncRun(t *testing.T) {
 	echoBinary := "/bin/echo"
 	echoArg1 := "foobar"
 	stdout1 := strings.Builder{}
 	stderr1 := strings.Builder{}
-	e1 := Cmd(echoBinary, echoArg1).Outputs(&stdout1, &stderr1).Retries(2, 100)
+	e1 := Cmd(echoBinary, echoArg1).SetOutputs(&stdout1, &stderr1).Retries(2, 100)
 
 	echoArg2 := "foobaz"
 	stdout2 := strings.Builder{}
 	stderr2 := strings.Builder{}
-	e2 := Cmd(echoBinary, echoArg2).Outputs(&stdout2, &stderr2).Retries(3, 100)
+	e2 := Cmd(echoBinary, echoArg2).SetOutputs(&stdout2, &stderr2).Retries(3, 100)
 
 	p1 := e1.AsyncRun()
 	p2 := e2.AsyncRun()
@@ -358,4 +368,160 @@ func TestSh(t *testing.T) {
 	assert.Equal(t, 0, rc)
 	assert.Equal(t, "", c.StdoutRecord())
 	assert.Equal(t, "bar\n", c.StderrRecord())
+}
+
+func TestInputProcesser(t *testing.T) {
+	// No input processer
+	c := Cmd("cat")
+	r := strings.NewReader("foo")
+	c.SetInput(r)
+	rc, err := c.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo", c.StdinRecord())
+	assert.Equal(t, "foo", c.StdoutRecord())
+	assert.Equal(t, "", c.StderrRecord())
+
+	// No input processer
+	p := Cmd("cat")
+	r = strings.NewReader("foo")
+	p.SetInput(r)
+	rc, err = p.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "foo", p.StdinRecord())
+	assert.Equal(t, "foo", p.StdoutRecord())
+	assert.Equal(t, "", p.StderrRecord())
+
+	// Simple prefix processer
+	prefixProcessor := inout.StringLineProcesser(func(in string) (out string, err error) {
+		return "PREFIX" + in, nil
+	})
+	p = Cmd("cat")
+	r = strings.NewReader("foo\n")
+	p.ProcessIn(prefixProcessor)
+	p.SetInput(r)
+	rc, err = p.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "PREFIXfoo\n", p.StdinRecord())
+	assert.Equal(t, "PREFIXfoo\n", p.StdoutRecord())
+	assert.Equal(t, "", p.StderrRecord())
+
+	// Reverse config order
+	prefixProcessor = inout.StringLineProcesser(func(in string) (out string, err error) {
+		return "PREFIX" + in, nil
+	})
+	p = Cmd("cat")
+	r = strings.NewReader("foo\n")
+	p.SetInput(r)
+	p.ProcessIn(prefixProcessor)
+	rc, err = p.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "PREFIXfoo\n", p.StdinRecord())
+	assert.Equal(t, "PREFIXfoo\n", p.StdoutRecord())
+	assert.Equal(t, "", p.StderrRecord())
+}
+
+func TestOutputProcesser(t *testing.T) {
+	// No input processer
+	c := Sh("echo foo")
+	wout := strings.Builder{}
+	werr := strings.Builder{}
+	c.SetOutputs(&wout, &werr)
+	rc, err := c.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "", c.StdinRecord())
+	assert.Equal(t, "foo\n", c.StdoutRecord())
+	assert.Equal(t, "", c.StderrRecord())
+	assert.Equal(t, "foo\n", wout.String())
+	assert.Equal(t, "", werr.String())
+
+	// No output processer
+	p := Sh("echo foo")
+	wout = strings.Builder{}
+	werr = strings.Builder{}
+	p.SetOutputs(&wout, &werr)
+	rc, err = p.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "", p.StdinRecord())
+	assert.Equal(t, "foo\n", p.StdoutRecord())
+	assert.Equal(t, "", p.StderrRecord())
+	assert.Equal(t, "foo\n", wout.String())
+	assert.Equal(t, "", werr.String())
+
+	// Simple prefix processer
+	prefixProcessor := inout.StringLineProcesser(func(in string) (out string, err error) {
+		return "PREFIX" + in, nil
+	})
+	p = Sh("echo bar; >&2 echo baz")
+	wout = strings.Builder{}
+	werr = strings.Builder{}
+	p.ProcessOut(prefixProcessor)
+	p.SetOutputs(&wout, &werr)
+	rc, err = p.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "", p.StdinRecord())
+	assert.Equal(t, "PREFIXbar\n", p.StdoutRecord())
+	assert.Equal(t, "baz\n", p.StderrRecord())
+	assert.Equal(t, "PREFIXbar\n", wout.String())
+	assert.Equal(t, "baz\n", werr.String())
+
+	// Reverse config order
+	prefixProcessor = inout.StringLineProcesser(func(in string) (out string, err error) {
+		return "PREFIX" + in, nil
+	})
+	p = Sh("echo bar")
+	wout = strings.Builder{}
+	werr = strings.Builder{}
+	p.SetOutputs(&wout, &werr)
+	p.ProcessOut(prefixProcessor)
+	rc, err = p.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "", p.StdinRecord())
+	assert.Equal(t, "PREFIXbar\n", p.StdoutRecord())
+	assert.Equal(t, "", p.StderrRecord())
+	assert.Equal(t, "PREFIXbar\n", wout.String())
+	assert.Equal(t, "", werr.String())
+
+	// Simple prefix processer
+	prefixProcessor = inout.StringLineProcesser(func(in string) (out string, err error) {
+		return "PREFIX" + in, nil
+	})
+	p = Sh(">&2 echo baz")
+	wout = strings.Builder{}
+	werr = strings.Builder{}
+	p.ProcessErr(prefixProcessor)
+	p.SetOutputs(&wout, &werr)
+	rc, err = p.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "", p.StdinRecord())
+	assert.Equal(t, "", p.StdoutRecord())
+	assert.Equal(t, "PREFIXbaz\n", p.StderrRecord())
+	assert.Equal(t, "", wout.String())
+	assert.Equal(t, "PREFIXbaz\n", werr.String())
+
+	// Reverse config order
+	prefixProcessor = inout.StringLineProcesser(func(in string) (out string, err error) {
+		return "PREFIX" + in, nil
+	})
+	p = Sh(">&2 echo baz")
+	wout = strings.Builder{}
+	werr = strings.Builder{}
+	p.SetOutputs(&wout, &werr)
+	p.ProcessErr(prefixProcessor)
+	rc, err = p.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "", p.StdinRecord())
+	assert.Equal(t, "", p.StdoutRecord())
+	assert.Equal(t, "PREFIXbaz\n", p.StderrRecord())
+	assert.Equal(t, "", wout.String())
+	assert.Equal(t, "PREFIXbaz\n", werr.String())
 }

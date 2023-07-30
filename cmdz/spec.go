@@ -3,6 +3,7 @@ package cmdz
 import (
 	"io"
 
+	"mby.fr/utils/inout"
 	"mby.fr/utils/promise"
 )
 
@@ -20,15 +21,21 @@ type (
 	bytesPromise  = promise.Promise[[]byte]
 	stringPromise = promise.Promise[string]
 
+	IOProcesser               = inout.IOProcesser
+	IOProcesserCallback       = inout.IOProcesserCallback
+	StringIOProcesserCallback = inout.StringIOProcesserCallback
+
 	Inner[T any] interface {
 		Stdin() io.Reader
-		Input(stdin io.Reader) T
+		SetInput(stdin io.Reader) T
 	}
 
 	Outer[T any] interface {
 		Stdout() io.Writer
 		Stderr() io.Writer
-		Outputs(stdout, stderr io.Writer) T
+		SetStdout(io.Writer) T
+		SetStderr(io.Writer) T
+		SetOutputs(stdout, stderr io.Writer) T
 	}
 
 	InOuter[T any] interface {
@@ -63,11 +70,13 @@ type (
 		ResultCodes() []int
 	}
 
-	Commander interface {
-		InOuter[Commander]
-		Configurer[Commander]
-		Runner
-	}
+	/*
+		Commander interface {
+			InOuter[Commander]
+			Configurer[Commander]
+			Runner
+		}
+	*/
 
 	Executer interface {
 		InOuter[Executer]
@@ -76,16 +85,13 @@ type (
 		Reporter
 		Runner
 
+		getConfig() config
+
 		//Pipe(Executer) Executer
 		//PipeFail(Executer) Executer
 
 		//And(Executer) Executer
 		//Or(Exeuter) Executer
-	}
-
-	Inputer interface {
-		//Executer
-		Input([]byte) error
 	}
 
 	InProcesser0       = func([]byte, error) ([]byte, error)
@@ -108,12 +114,6 @@ type (
 		CombinedOutputString() (string, error)
 		//AsyncCombinedOutput() *bytesPromise
 		//AsyncCombinedOutputString() *stringPromise
-
-		//InProcess([]OutProcesser) Outputer
-		//InStringProcess([]OutStringProcesser) Outputer
-
-		OutProcess(...OutProcesser) Outputer
-		OutStringProcess(...OutStringProcesser) Outputer
 	}
 
 	Formatter[O, E any] interface {
@@ -122,14 +122,16 @@ type (
 	}
 
 	Piper interface {
-		Executer
-		Pipe(Executer) Piper
-		PipeFail(Executer) Piper
+		//Executer
+		Pipe(Executer) Executer
+		PipeFail(Executer) Executer
 	}
 
-	InOutPiper interface {
-		Executer
-		Pipe(Inputer) Outputer
-		PipeFail(Inputer) Outputer
-	}
+	/*
+		InOutPiper[T any] interface {
+			Executer
+			Pipe(Inner[T]) Outer[T]
+			PipeFail(Inner[T]) Outer[T]
+		}
+	*/
 )
