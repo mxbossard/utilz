@@ -3,6 +3,7 @@ package cmdz
 import (
 	"context"
 	"os/exec"
+	"strings"
 )
 
 // ----- Commands -----
@@ -22,8 +23,8 @@ func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
 	return &e
 }
 
-func Sh(cmd string) *cmdz {
-	return Cmd("sh", "-c", cmd)
+func Sh(cmd ...string) *cmdz {
+	return Cmd("sh", "-c", strings.Join(cmd, " "))
 }
 
 // ----- Executions -----
