@@ -1,4 +1,4 @@
-package serializ
+package structz
 
 import (
 	_ "io"

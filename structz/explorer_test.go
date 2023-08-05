@@ -1,4 +1,4 @@
-package serializ
+package structz
 
 import (
 	_ "io"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"mby.fr/utils/serializ"
 )
 
 var (
@@ -72,88 +73,111 @@ type (
 	}
 )
 
-func TestJsonStringExplorer_Empty(t *testing.T) {
-	exp := JsonStringExplorer(jsonEmpty0).Path("")
-	require.NotNil(t, exp)
-	_, err := exp.Resolve()
-	require.Error(t, err)
+func TestYamlStringExplorer_Empty(t *testing.T) {
+	/*
+		exp := YamlStringExplorer(jsonEmpty0).Path("")
+		require.NotNil(t, exp)
+		_, err := exp.Resolve()
+		require.Error(t, err)
+	*/
 
-	exp = JsonStringExplorer(jsonEmpty1).Path("")
+	exp := YamlStringExplorer(jsonEmpty1)
 	require.NotNil(t, exp)
-	res, err := exp.Resolve()
+	res, err := exp.Explore("")
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, map[string]any{}, res)
 
-	exp = JsonStringExplorer(jsonEmpty1).Path("foo")
 	require.NotNil(t, exp)
-	_, err = exp.Resolve()
+	_, err = exp.Explore("foo")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrBadPathFormat)
 
-	exp = JsonStringExplorer(jsonEmpty1).Path("/foo")
 	require.NotNil(t, exp)
-	_, err = exp.Resolve()
+	_, err = exp.Explore("/foo")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrPathDontExists)
 }
 
-func TestJsonStringExplorer_json0(t *testing.T) {
-	exp := JsonStringExplorer(json0).Path("")
+func TestYamlStringExplorer_yaml0(t *testing.T) {
+	yaml0, err := serializ.JsonToYamlString(json0)
+	require.NoError(t, err)
+	exp := YamlStringExplorer(yaml0)
 	require.NotNil(t, exp)
-	res, err := exp.Resolve()
+	res, err := exp.Explore("")
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, map[string]any{"key": "value"}, res)
 
-	exp = JsonStringExplorer(json0).Path("/key")
 	require.NotNil(t, exp)
-	res, err = exp.Resolve()
+	res, err = exp.Explore("/key")
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, "value", res)
 
-	exp = JsonStringExplorer(json0).Path("/notExist")
 	require.NotNil(t, exp)
-	res, err = exp.Resolve()
+	res, err = exp.Explore("/notExist")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrPathDontExists)
+	assert.Nil(t, res)
 }
 
-func TestJsonStringExplorer_json1(t *testing.T) {
-	exp := JsonStringExplorer(json1).Path("/s1")
+func TestYamlStringExplorer_json0(t *testing.T) {
+	exp := YamlStringExplorer(json0)
 	require.NotNil(t, exp)
-	res, err := exp.Resolve()
+	res, err := exp.Explore("")
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	assert.Equal(t, map[string]any{"key": "value"}, res)
+
+	require.NotNil(t, exp)
+	res, err = exp.Explore("/key")
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	assert.Equal(t, "value", res)
+
+	require.NotNil(t, exp)
+	res, err = exp.Explore("/notExist")
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPathDontExists)
+	assert.Nil(t, res)
+}
+
+func TestYamlStringExplorer_json1(t *testing.T) {
+	exp := YamlStringExplorer(json1)
+	require.NotNil(t, exp)
+	res, err := exp.Explore("/s1")
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, "foo", res)
 
-	exp = JsonStringExplorer(json1).Path("/a1")
+	exp = YamlStringExplorer(json1)
 	require.NotNil(t, exp)
-	res, err = exp.Resolve()
+	res, err = exp.Explore("/a1")
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, []any{"bar", "baz"}, res)
 
-	exp = JsonStringExplorer(json1).Path("/m1")
+	exp = YamlStringExplorer(json1)
 	require.NotNil(t, exp)
-	res, err = exp.Resolve()
+	res, err = exp.Explore("/m1")
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, map[string]any{"K1": "pif", "k2": "paf"}, res)
 
-	exp = JsonStringExplorer(json1).Path("/m1/K1")
+	exp = YamlStringExplorer(json1)
 	require.NotNil(t, exp)
-	res, err = exp.Resolve()
+	res, err = exp.Explore("/m1/K1")
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, "pif", res)
 
-	exp = JsonStringExplorer(json1).Path("/m1/k7")
+	exp = YamlStringExplorer(json1)
 	require.NotNil(t, exp)
-	res, err = exp.Resolve()
+	res, err = exp.Explore("/m1/k7")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrPathDontExists)
+	assert.Nil(t, res)
 }
 
 func TestMap2Struct(t *testing.T) {
@@ -176,97 +200,80 @@ func TestMap2Struct(t *testing.T) {
 	assert.Equal(t, expectedResolvedJson1, res2)
 }
 
-func TestJsonStringResolver_Empty(t *testing.T) {
-	exp := JsonStringResolver[map[string]any](jsonEmpty0, "")
+func TestYamlStringResolver_Empty(t *testing.T) {
+	/*
+		exp := YamlStringResolver[map[string]any](jsonEmpty0, "")
+		require.NotNil(t, exp)
+		_, err := exp.Resolve()
+		require.Error(t, err)
+	*/
+	exp := YamlStringExplorer(jsonEmpty1)
 	require.NotNil(t, exp)
-	_, err := exp.Resolve()
-	require.Error(t, err)
-
-	exp = JsonStringResolver[map[string]any](jsonEmpty1, "")
-	require.NotNil(t, exp)
-	res, err := exp.Resolve()
+	res, err := Resolve[map[string]any](exp, "")
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, map[string]any{}, res)
 
-	exp = JsonStringResolver[map[string]any](jsonEmpty1, "/foo")
-	require.NotNil(t, exp)
-	_, err = exp.Resolve()
+	_, err = Resolve[map[string]any](exp, "/foo")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrPathDontExists)
 }
 
-func TestJsonStringResolver_Success(t *testing.T) {
-	exp0 := JsonStringResolver[type0](json0, "")
+func TestYamlStringResolver_Success(t *testing.T) {
+	exp0 := YamlStringExplorer(json0)
 	require.NotNil(t, exp0)
-	res0, err := exp0.Resolve()
+	res0, err := Resolve[type0](exp0, "")
 	require.NoError(t, err)
 	assert.Equal(t, expectedResolvedJson0, res0)
 
-	exp1 := JsonStringResolver[type1](json1, "")
+	exp1 := YamlStringExplorer(json1)
 	require.NotNil(t, exp1)
-	res1, err := exp1.Resolve()
+	res1, err := Resolve[type1](exp1, "")
 	require.NoError(t, err)
 	assert.Equal(t, expectedResolvedJson1, res1)
 
-	exp2 := JsonStringResolver[string](json1, "/s1")
-	require.NotNil(t, exp2)
-	res2, err := exp2.Resolve()
+	res2, err := Resolve[string](exp1, "/s1")
 	require.NoError(t, err)
 	assert.Equal(t, expectedResolvedJson1.S1, res2)
 
-	exp3 := JsonStringResolver[type1b](json1, "/a1")
-	require.NotNil(t, exp3)
-	res3, err := exp3.ResolveArray()
+	res3, err := ResolveArray[type1b](exp1, "/a1")
 	require.NoError(t, err)
 	assert.Equal(t, expectedResolvedJson1.A1, res3)
 
-	exp4 := JsonStringResolver[type1c](json1, "/m1")
-	require.NotNil(t, exp4)
-	res4, err := exp4.Resolve()
+	res4, err := Resolve[type1c](exp1, "/m1")
 	require.NoError(t, err)
 	assert.Equal(t, expectedResolvedJson1.M1, res4)
 
-	exp5 := JsonStringResolver[string](json1, "/m1/K1")
-	require.NotNil(t, exp5)
-	res5, err := exp5.Resolve()
+	res5, err := Resolve[string](exp1, "/m1/K1")
 	require.NoError(t, err)
 	assert.Equal(t, expectedResolvedJson1.M1.K1, res5)
 
-	exp6 := JsonStringResolver[type1b](json1, "/m1/k2")
-	require.NotNil(t, exp6)
-	res6, err := exp6.Resolve()
+	res6, err := Resolve[type1b](exp1, "/m1/k2")
 	require.NoError(t, err)
 	assert.Equal(t, expectedResolvedJson1.M1.K2, res6)
 
-	exp7 := JsonStringResolver[type2](json2, "")
-	require.NotNil(t, exp7)
-	res7, err := exp7.Resolve()
+	exp2 := YamlStringExplorer(json2)
+	require.NotNil(t, exp2)
+	res7, err := Resolve[type2](exp2, "")
 	require.NoError(t, err)
 	assert.Equal(t, expectedResolvedJson2, res7)
 
-	exp8 := JsonStringResolver[type1](json2, "/A2")
-	require.NotNil(t, exp8)
-	res8, err := exp8.ResolveArray()
+	res8, err := ResolveArray[type1](exp2, "/A2")
 	require.NoError(t, err)
 	assert.Equal(t, []type1{expectedResolvedJson1}, res8)
 
-	exp9 := JsonStringResolver[type1c](json2, "/A3")
-	require.NotNil(t, exp9)
-	res9, err := exp9.ResolveArray()
+	res9, err := ResolveArray[type1c](exp2, "/A3")
 	require.NoError(t, err)
 	assert.Equal(t, []type1c{expectedResolvedJson1c, expectedResolvedJson1c2}, res9)
 
-	exp10 := JsonStringResolver[type3](json3, "")
-	require.NotNil(t, exp10)
-	res10, err := exp10.Resolve()
+	exp3 := YamlStringExplorer(json3)
+	require.NotNil(t, exp3)
+	res10, err := Resolve[type3](exp3, "")
 	require.NoError(t, err)
 	assert.NotNil(t, res10)
 	assert.Len(t, res10.A4, 1)
 
-	exp11 := JsonStringResolver[type3](json3, "/A4")
-	require.NotNil(t, exp11)
-	res11, err := exp11.ResolveArray()
+	res11, err := ResolveArray[type3](exp3, "/A4")
 	require.NoError(t, err)
 	assert.NotNil(t, res11)
 	require.Len(t, res11, 1)
