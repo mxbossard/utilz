@@ -62,11 +62,11 @@ func OutputtedCmd(binary string, args ...string) Outputer {
 }
 
 // ----- Formatters -----
-func Formatted[O, E any](e Executer, f func(int, []byte, []byte, error) (O, E)) *basicFormat[O, E] {
-	return &basicFormat[O, E]{Executer: e, outFormatter: f}
+func Formatted[O any](e Executer, f func(int, []byte, []byte) (O, error)) *basicFormat[O] {
+	return &basicFormat[O]{Executer: e, outFormatter: f}
 }
 
-func FormattedCmd[O, E any](f func(int, []byte, []byte, error) (O, E), binary string, args ...string) *basicFormat[O, E] {
+func FormattedCmd[O any](f func(int, []byte, []byte) (O, error), binary string, args ...string) *basicFormat[O] {
 	c := Cmd(binary, args...)
 	return Formatted(c, f)
 }

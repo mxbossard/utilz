@@ -116,9 +116,9 @@ type (
 		//AsyncCombinedOutputString() *stringPromise
 	}
 
-	Formatter[O, E any] interface {
-		Configurer[Formatter[O, E]]
-		Format() (O, E)
+	Formatter[O any] interface {
+		Configurer[Formatter[O]]
+		Format() (O, error)
 	}
 
 	Piper interface {

@@ -1,37 +1,40 @@
 package cmdz
 
 type (
-	basicFormat[O, E any] struct {
+	basicFormat[O any] struct {
 		Executer
-		outFormatter func(int, []byte, []byte, error) (O, E)
+		outFormatter func(int, []byte, []byte) (O, error)
 	}
 )
 
-func (f *basicFormat[O, E]) Format() (O, E) {
+func (f *basicFormat[O]) Format() (out O, err error) {
 	rc, err := f.Executer.BlockRun()
+	if err != nil {
+		return out, err
+	}
 	stdout := []byte(f.Executer.StdoutRecord())
 	stderr := []byte(f.Executer.StderrRecord())
-	o, e := f.outFormatter(rc, stdout, stderr, err)
-	return o, e
+	o, err := f.outFormatter(rc, stdout, stderr)
+	return o, err
 }
 
 // ----- Override Configurer methods -----
-func (e *basicFormat[O, E]) ErrorOnFailure(ok bool) Formatter[O, E] {
+func (e *basicFormat[O]) ErrorOnFailure(ok bool) Formatter[O] {
 	e.Executer = e.Executer.ErrorOnFailure(ok)
 	return e
 }
 
-func (e *basicFormat[O, E]) CombinedOutputs() Formatter[O, E] {
+func (e *basicFormat[O]) CombinedOutputs() Formatter[O] {
 	e.Executer = e.Executer.CombinedOutputs()
 	return e
 }
 
-func (e *basicFormat[O, E]) Retries(count, delayInMs int) Formatter[O, E] {
+func (e *basicFormat[O]) Retries(count, delayInMs int) Formatter[O] {
 	e.Executer = e.Executer.Retries(count, delayInMs)
 	return e
 }
 
-func (e *basicFormat[O, E]) Timeout(delayInMs int) Formatter[O, E] {
+func (e *basicFormat[O]) Timeout(delayInMs int) Formatter[O] {
 	e.Executer = e.Executer.Timeout(delayInMs)
 	return e
 }

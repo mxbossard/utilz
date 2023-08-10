@@ -16,18 +16,18 @@ import (
 
 func TestFormat(t *testing.T) {
 	c := Cmd("echo", "-n", "foo")
-	barFormatter := func(rc int, stdout, stderr []byte, err error) (string, error) {
+	barFormatter := func(rc int, stdout, stderr []byte) (string, error) {
 		return "bar", nil
 	}
-	f := Formatted[string, error](c, barFormatter)
+	f := Formatted[string](c, barFormatter)
 	o, err := f.Format()
 	require.NoError(t, err)
 	assert.Equal(t, "bar", o)
 
-	errFormatter := func(rc int, stdout, stderr []byte, err error) (string, error) {
+	errFormatter := func(rc int, stdout, stderr []byte) (string, error) {
 		return "", fmt.Errorf("errFromFormatter")
 	}
-	f = Formatted[string, error](c, errFormatter)
+	f = Formatted[string](c, errFormatter)
 	o, err = f.Format()
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "errFromFormatter")
