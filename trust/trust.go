@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
@@ -17,7 +18,8 @@ func signString(s string) (sign string, err error) {
 		return "", err
 	}
 	ba := hash.Sum(nil)
-	sign = string(ba[:])
+	//sign = string(ba[:])
+	sign = fmt.Sprintf("%x", ba)
 	return
 }
 
