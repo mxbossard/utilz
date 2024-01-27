@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,17 +13,22 @@ import (
 
 var _ = fmt.Printf
 
-type Cache interface {
+type Cache[T any] interface {
+	Load(key string) (value T, ok bool, err error)
+	Store(key string, value T) (err error)
+}
+
+type StringCache interface {
 	LoadString(key string) (value string, ok bool, err error)
 	StoreString(key, value string) (err error)
 }
 
-type persistentCache struct {
+type persistentCache[T any] struct {
 	mutex *sync.Mutex
 	path  string
 }
 
-func NewPersistentCache(path string) (cache Cache, err error) {
+func NewPersistentCache[T any](path string) (cache Cache[T], err error) {
 	path, err = filepath.Abs(path)
 	if err != nil {
 		return
@@ -32,11 +38,11 @@ func NewPersistentCache(path string) (cache Cache, err error) {
 		return
 	}
 	var mutex sync.Mutex
-	cache = persistentCache{&mutex, path}
+	cache = persistentCache[T]{&mutex, path}
 	return
 }
 
-func (c persistentCache) bucketFilepath(key string) (dir, path string) {
+func (c persistentCache[T]) bucketFilepath(key string) (dir, path string) {
 	hashedKey := hashKey(key)
 	level1 := hashedKey[:2]
 	level2 := hashedKey[2:4]
@@ -45,7 +51,7 @@ func (c persistentCache) bucketFilepath(key string) (dir, path string) {
 	return
 }
 
-func (c persistentCache) LoadString(key string) (value string, ok bool, err error) {
+func (c persistentCache[T]) Load(key string) (value T, ok bool, err error) {
 	_, bucketPath := c.bucketFilepath(key)
 	//fmt.Printf("Loading value from bucket: %s\n", bucketPath)
 	c.mutex.Lock()
@@ -59,11 +65,16 @@ func (c persistentCache) LoadString(key string) (value string, ok bool, err erro
 	}
 
 	ok = true
-	value = string(content)
+	switch t := any(value).(type) {
+	case string:
+		value = any(string(content)).(T)
+	default:
+		log.Fatalf("Cannot Load value of type: %v ! Not supported yet.", t)
+	}
 	return
 }
 
-func (c persistentCache) StoreString(key, value string) (err error) {
+func (c persistentCache[T]) Store(key string, value T) (err error) {
 	dir, path := c.bucketFilepath(key)
 	c.mutex.Lock()
 	// FIXME: always atempt to create dir
@@ -72,7 +83,12 @@ func (c persistentCache) StoreString(key, value string) (err error) {
 		return
 	}
 	//fmt.Printf("Storing value: %s in bucket: %s ...\n", value, bucket)
-	err = os.WriteFile(path, []byte(value), 0644)
+	switch t := any(value).(type) {
+	case string:
+		err = os.WriteFile(path, []byte(any(value).(string)), 0644)
+	default:
+		log.Fatalf("Cannot Store value of type: %v ! Not supported yet.", t)
+	}
 	c.mutex.Unlock()
 	return
 }
