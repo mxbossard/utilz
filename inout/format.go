@@ -1,8 +1,8 @@
 package inout
 
 import (
+	"fmt"
 	"io"
-	//"fmt"
 	"strings"
 
 	"mby.fr/utils/ansi"
@@ -15,29 +15,29 @@ type Formatter interface {
 }
 
 // OneLineFormatter should not be called with "\n" inside input.
-type OneLineFormatter func (string) string
+type OneLineFormatter func(string) string
 
 func formatLines(in string, formatter OneLineFormatter, formatEmptyLines bool) (out string) {
-        lines := strings.Split(in, "\n")
+	lines := strings.Split(in, "\n")
 	//fmt.Println("in:", in, "lines:", lines, "len:", len(lines))
 
-        // Write formatted lines with ending by \n
-        for _, line := range lines[:len(lines) - 1] {
-                if line != "" || formatEmptyLines {
-                        formatted := formatter(line)
+	// Write formatted lines with ending by \n
+	for _, line := range lines[:len(lines)-1] {
+		if line != "" || formatEmptyLines {
+			formatted := formatter(line)
 			//fmt.Println("line", line, "=>", formatted)
-                        out += formatted
-                }
+			out += formatted
+		}
 		out += "\n"
-        }
+	}
 
-        // Write last formatted line
-        lastLine := lines[len(lines) - 1]
-        if lastLine != "" || formatEmptyLines && len(lines) == 1 {
-                formatted := formatter(lastLine)
+	// Write last formatted line
+	lastLine := lines[len(lines)-1]
+	if lastLine != "" || formatEmptyLines && len(lines) == 1 {
+		formatted := formatter(lastLine)
 		//fmt.Println("lastLine", lastLine, "=>", formatted)
-                out += formatted
-        }
+		out += formatted
+	}
 
 	//fmt.Println("formatLines:", in, "=>", out)
 	return
@@ -52,41 +52,41 @@ func (f LineFormatter) Format(in string) string {
 }
 
 type AnsiFormatter struct {
-        AnsiFormat string
+	AnsiFormat ansi.Color
 }
 
 func (f AnsiFormatter) Format(in string) string {
-	var olf OneLineFormatter = func (line string) string {
-		line = strings.ReplaceAll(line, ansi.Reset, ansi.Reset + f.AnsiFormat)
-		return f.AnsiFormat + line + ansi.Reset
+	var olf OneLineFormatter = func(line string) string {
+		line = strings.ReplaceAll(line, string(ansi.Reset), fmt.Sprintf("%v%v", ansi.Reset, f.AnsiFormat))
+		return fmt.Sprintf("%v%s%v", f.AnsiFormat, line, ansi.Reset)
 	}
 	return formatLines(in, olf, false)
 }
 
 type LeftPadFormatter struct {
-        Pad int
+	Pad int
 }
 
 func (f LeftPadFormatter) Format(in string) string {
-        var olf OneLineFormatter = func (line string) (out string) {
+	var olf OneLineFormatter = func(line string) (out string) {
 		spaceCount := f.Pad - len(line)
 		if spaceCount > 0 {
 			out += strings.Repeat(" ", spaceCount)
 		}
 		out += line
 		return
-        }
-        return formatLines(in, olf, false)
+	}
+	return formatLines(in, olf, false)
 }
 
 type PrefixFormatter struct {
-	Prefix string
-        LeftPad int
-        RightPad int
+	Prefix   string
+	LeftPad  int
+	RightPad int
 }
 
 func (f PrefixFormatter) Format(in string) string {
-        var olf OneLineFormatter = func (line string) (out string) {
+	var olf OneLineFormatter = func(line string) (out string) {
 		if f.LeftPad > 0 {
 			spaceCount := f.LeftPad - len(f.Prefix)
 			if spaceCount > 0 {
@@ -106,12 +106,12 @@ func (f PrefixFormatter) Format(in string) string {
 		out += line
 
 		return
-        }
-        return formatLines(in, olf, false)
+	}
+	return formatLines(in, olf, false)
 }
 
 type FormattingWriter struct {
-	out io.Writer
+	out       io.Writer
 	formatter Formatter
 }
 

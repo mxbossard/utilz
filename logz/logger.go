@@ -35,7 +35,7 @@ type Basic struct {
 	loggingLevel   int
 }
 
-func (l Basic) log(kind, color, f string, a ...interface{}) {
+func (l Basic) log(kind string, color ansi.Color, f string, a ...interface{}) {
 	f = strings.TrimSpace(f) + "\n"
 	var prefix string
 	if l.timed {
