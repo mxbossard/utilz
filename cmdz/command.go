@@ -89,9 +89,11 @@ type cmdz struct {
 	outProcesser inout.ProcessingWriter
 	errProcesser inout.ProcessingWriter
 
-	resultsCodes []int
-	// FIXME: replace ResultsCodes by Executions
-	Executions []*exec.Cmd
+	exitCodes []int
+	// FIXME: replace exitCodes by Executions
+	executions []*exec.Cmd
+	startTimes []time.Time
+	durations  []time.Duration
 }
 
 func (e *cmdz) getConfig() config {
@@ -254,8 +256,8 @@ func (e cmdz) String() (t string) {
 
 func (e cmdz) ReportError() string {
 	execCmdSummary := e.String()
-	attempts := len(e.resultsCodes)
-	status := e.resultsCodes[attempts-1]
+	attempts := len(e.exitCodes)
+	status := e.exitCodes[attempts-1]
 	stderr := e.stderrRecord.String()
 	errorMessage := fmt.Sprintf("Exec failed after %d attempt(s): [%s] !\nRC=%d ERR> %s", attempts, execCmdSummary, status, strings.TrimSpace(stderr))
 	return errorMessage
@@ -266,8 +268,10 @@ func (e *cmdz) reset() {
 	e.stdinRecord.Reset()
 	e.stdoutRecord.Reset()
 	e.stderrRecord.Reset()
-	e.resultsCodes = nil
-	e.Executions = nil
+	e.exitCodes = nil
+	e.executions = nil
+	e.startTimes = nil
+	e.durations = nil
 	e.rollback()
 }
 
@@ -311,17 +315,21 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 	e.checkpoint()
 	rc = -1
 	for i := 0; i <= config.retries && rc != 0; i++ {
-
+		var startTime time.Time
+		var duration time.Duration
 		if i > 0 {
 			// Wait between retries
 			time.Sleep(time.Duration(config.retryDelayInMs) * time.Millisecond)
 		}
 		if commandMock == nil {
+			startTime = time.Now()
+			e.startTimes = append(e.startTimes, startTime)
 			err = e.Start()
 			if err != nil {
 				return
 			}
 			err = e.Wait()
+			duration = time.Since(startTime)
 			if err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					rc = exitErr.ProcessState.ExitCode()
@@ -336,8 +344,9 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 			// Replace execution by mocking function
 			rc = commandMock.Mock(e.Cmd)
 		}
-		e.resultsCodes = append(e.resultsCodes, rc)
-		e.Executions = append(e.Executions, e.Cmd)
+		e.exitCodes = append(e.exitCodes, rc)
+		e.executions = append(e.executions, e.Cmd)
+		e.durations = append(e.durations, duration)
 		e.rollback()
 	}
 	if e.errorOnFailure && rc > 0 {
@@ -367,7 +376,36 @@ func (e *cmdz) AsyncRun() *execPromise {
 }
 
 func (e *cmdz) ResultCodes() []int {
-	return e.resultsCodes
+	return e.exitCodes
+}
+
+func (e *cmdz) ExitCode() int {
+	return e.exitCodes[len(e.exitCodes)-1]
+}
+
+func (e *cmdz) StartTimes() []time.Time {
+	return e.startTimes
+}
+
+func (e *cmdz) StartTime() time.Time {
+	return e.startTimes[len(e.startTimes)-1]
+}
+
+func (e *cmdz) Durations() []time.Duration {
+	return e.durations
+}
+
+func (e *cmdz) Duration() time.Duration {
+	return e.durations[len(e.durations)-1]
+}
+
+func (e *cmdz) Executions() []*exec.Cmd {
+	// FIXME: do not return pointers
+	return e.executions
+}
+
+func (e *cmdz) Execution() exec.Cmd {
+	return *e.executions[len(e.executions)-1]
 }
 
 // ----- Piper methods -----

@@ -27,7 +27,7 @@ func TestCmd(t *testing.T) {
 	assert.NotNil(t, c.stdoutRecord)
 	assert.NotNil(t, c.stderrRecord)
 	assert.Len(t, c.ResultCodes(), 0)
-	assert.Len(t, c.Executions, 0)
+	assert.Len(t, c.Executions(), 0)
 }
 
 func TestCmdCtx(t *testing.T) {
@@ -40,7 +40,7 @@ func TestCmdCtx(t *testing.T) {
 	assert.NotNil(t, c.stdoutRecord)
 	assert.NotNil(t, c.stderrRecord)
 	assert.Len(t, c.ResultCodes(), 0)
-	assert.Len(t, c.Executions, 0)
+	assert.Len(t, c.Executions(), 0)
 }
 
 func TestString(t *testing.T) {
