@@ -106,65 +106,6 @@ func SignFsContents(pathes ...string) (sign string, err error) {
 	return
 }
 
-/*
-func sortArray(objects []interface{}) error {
-	if len(objects) == 0 {
-		return
-	}
-	switch o := objects[0].(type) {
-	case string:
-		sort.Strings(objects.([]string))
-	default:
-		return fmt.Errorf("Not supported type: %T", o)
-	}
-}
-*/
-
-/*
-func SignObject0(object interface{}) (sign string, err error) {
-	v := reflect.ValueOf(object)
-	switch v.Kind() {
-	case reflect.String:
-		sign, err = SignStrings(v.String())
-
-	case reflect.Slice:
-		concat := ""
-		for i := 0; i < v.Len(); i++ {
-			item := v.Index(i)
-			s, err := SignObject(item.Interface())
-			if err != nil {
-				return "", err
-			}
-			concat += s + ";"
-		}
-		return SignObject(concat)
-
-	case reflect.Map:
-		concat := ""
-		// FIXME: Must sort map key for a consistent map hash
-		//sortedKeys := sortArray(v.MapKeys())
-		sortedKeys := v.MapKeys()
-		for _, key := range sortedKeys {
-			val := v.MapIndex(key)
-			s1, err := SignObject(key.Interface())
-			if err != nil {
-				return "", err
-			}
-			s2, err := SignObject(val.Interface())
-			if err != nil {
-				return "", err
-			}
-			concat += s1 + ":" + s2 + ";"
-		}
-		return SignObject(concat)
-
-	default:
-		err = fmt.Errorf("Not support object type: %T", object)
-	}
-	return
-}
-*/
-
 func SignObject(object interface{}) (sign string, err error) {
 	b, err := json.Marshal(object)
 	if err != nil {
