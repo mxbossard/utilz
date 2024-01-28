@@ -426,6 +426,14 @@ func (e *cmdz) AddEnv(key, value string) *cmdz {
 	return e
 }
 
+func (e *cmdz) AddEnviron(environ []string) *cmdz {
+	for _, env := range environ {
+		e.Cmd.Env = append(e.Cmd.Env, env)
+	}
+	e.checkpoint()
+	return e
+}
+
 func (e *cmdz) AddArgs(args ...string) *cmdz {
 	e.Cmd.Args = append(e.Args, args...)
 	e.checkpoint()
