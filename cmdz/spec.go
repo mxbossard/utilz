@@ -2,6 +2,7 @@ package cmdz
 
 import (
 	"io"
+	"time"
 
 	"mby.fr/utils/inout"
 	"mby.fr/utils/promise"
@@ -68,6 +69,15 @@ type (
 		BlockRun() (int, error)
 		AsyncRun() *execPromise
 		ResultCodes() []int
+		//ResultCode() int
+		ExitCode() int
+
+		StartTimes() []time.Time
+		StartTime() time.Time
+		Durations() []time.Duration
+		Duration() time.Duration
+		//Executions() []Executer
+		//Execution() Executer
 	}
 
 	/*

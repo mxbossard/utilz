@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"time"
 
 	"mby.fr/utils/collections"
 	"mby.fr/utils/promise"
@@ -254,6 +255,37 @@ func (e *serialSeq) ResultCodes() (codes []int) {
 	return
 }
 
+func (e *serialSeq) ExitCode() int {
+	codes := e.ResultCodes()
+	return codes[len(codes)-1]
+}
+
+func (e *serialSeq) StartTimes() (times []time.Time) {
+	for _, exec := range e.execs {
+		times = append(times, exec.StartTime())
+	}
+	return
+}
+
+func (e *serialSeq) StartTime() time.Time {
+	return e.StartTimes()[0]
+}
+
+func (e *serialSeq) Durations() (durations []time.Duration) {
+	for _, exec := range e.execs {
+		durations = append(durations, exec.Duration())
+	}
+	return
+}
+
+func (e *serialSeq) Duration() time.Duration {
+	startTimes := e.StartTimes()
+	lastStart := startTimes[len(startTimes)-1]
+	lastDuration := e.Durations()[len(startTimes)-1]
+	totalDuration := lastStart.Add(lastDuration).Sub(startTimes[0])
+	return totalDuration
+}
+
 type andSeq struct {
 	serialSeq
 }
@@ -362,6 +394,37 @@ func (e *orSeq) ResultCodes() (codes []int) {
 		codes = append(codes, exec.ResultCodes()...)
 	}
 	return
+}
+
+func (e *orSeq) ExitCode() int {
+	codes := e.ResultCodes()
+	return codes[len(codes)-1]
+}
+
+func (e *orSeq) StartTimes() (times []time.Time) {
+	for _, exec := range e.execs {
+		times = append(times, exec.StartTime())
+	}
+	return
+}
+
+func (e *orSeq) StartTime() time.Time {
+	return e.StartTimes()[0]
+}
+
+func (e *orSeq) Durations() (durations []time.Duration) {
+	for _, exec := range e.execs {
+		durations = append(durations, exec.Duration())
+	}
+	return
+}
+
+func (e *orSeq) Duration() time.Duration {
+	startTimes := e.StartTimes()
+	lastStart := startTimes[len(startTimes)-1]
+	lastDuration := e.Durations()[len(startTimes)-1]
+	totalDuration := lastStart.Add(lastDuration).Sub(startTimes[0])
+	return totalDuration
 }
 
 type parallelSeq struct {
@@ -476,4 +539,37 @@ func (e *parallelSeq) ResultCodes() (codes []int) {
 		codes = append(codes, exec.ResultCodes()...)
 	}
 	return
+}
+
+func (e *parallelSeq) ExitCode() int {
+	codes := e.ResultCodes()
+	return codes[len(codes)-1]
+}
+
+func (e *parallelSeq) StartTimes() (times []time.Time) {
+	for _, exec := range e.execs {
+		times = append(times, exec.StartTime())
+	}
+	return
+}
+
+func (e *parallelSeq) StartTime() time.Time {
+	return e.StartTimes()[0]
+}
+
+func (e *parallelSeq) Durations() (durations []time.Duration) {
+	for _, exec := range e.execs {
+		durations = append(durations, exec.Duration())
+	}
+	return
+}
+
+func (e *parallelSeq) Duration() time.Duration {
+	var d time.Duration
+	for _, exec := range e.execs {
+		if exec.Duration().Nanoseconds() > d.Nanoseconds() {
+			d = exec.Duration()
+		}
+	}
+	return d
 }
