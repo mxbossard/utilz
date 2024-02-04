@@ -188,8 +188,8 @@ func (s *serialSeq) Retries(count, delayInMs int) Executer {
 	return s
 }
 
-func (s *serialSeq) Timeout(delayInMs int) Executer {
-	s.config.timeout = delayInMs
+func (s *serialSeq) Timeout(duration time.Duration) Executer {
+	s.config.timeout = duration
 	return s
 }
 
@@ -223,6 +223,12 @@ func (s serialSeq) ReportError() string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
+}
+
+func (s *serialSeq) init() {
+	for _, exec := range s.seq.execs {
+		exec.init()
+	}
 }
 
 func (s *serialSeq) BlockRun() (rc int, err error) {
@@ -335,8 +341,8 @@ func (s *orSeq) Retries(count, delayInMs int) Executer {
 	return s
 }
 
-func (s *orSeq) Timeout(delayInMs int) Executer {
-	s.config.timeout = delayInMs
+func (s *orSeq) Timeout(duration time.Duration) Executer {
+	s.config.timeout = duration
 	return s
 }
 
@@ -364,6 +370,12 @@ func (s orSeq) ReportError() string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
+}
+
+func (s *orSeq) init() {
+	for _, exec := range s.seq.execs {
+		exec.init()
+	}
 }
 
 func (s *orSeq) BlockRun() (rc int, err error) {
@@ -473,8 +485,8 @@ func (s *parallelSeq) Retries(count, delayInMs int) Executer {
 	return s
 }
 
-func (s *parallelSeq) Timeout(delayInMs int) Executer {
-	s.config.timeout = delayInMs
+func (s *parallelSeq) Timeout(duration time.Duration) Executer {
+	s.config.timeout = duration
 	return s
 }
 
@@ -511,6 +523,12 @@ func (s parallelSeq) ReportError() string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
+}
+
+func (s *parallelSeq) init() {
+	for _, exec := range s.seq.execs {
+		exec.init()
+	}
 }
 
 func (s *parallelSeq) BlockRun() (rc int, err error) {

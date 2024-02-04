@@ -4,6 +4,7 @@ import (
 	//"bufio"
 
 	"bytes"
+	"context"
 	"log"
 
 	//"errors"
@@ -34,7 +35,7 @@ func (f failure) Error() (msg string) {
 type config struct {
 	retries        int
 	retryDelayInMs int
-	timeout        int
+	timeout        time.Duration
 	stdin          io.Reader
 	stdout         io.Writer
 	stderr         io.Writer
@@ -75,7 +76,18 @@ func mergeConfigs(higher, lower *config) *config {
 }
 
 type cmdz struct {
-	*exec.Cmd
+	cmd    *exec.Cmd
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	binary      string
+	args        []string
+	environ     []string
+	initialized bool
+	stdin       io.Reader
+	stdout      io.Writer
+	stderr      io.Writer
+
 	config
 
 	cmdCheckpoint  exec.Cmd
@@ -102,20 +114,22 @@ func (e *cmdz) getConfig() config {
 
 // ----- InOuter methods -----
 func (e *cmdz) Stdin() io.Reader {
-	return e.Cmd.Stdin
+	return e.stdin
 }
 func (e *cmdz) Stdout() io.Writer {
-	return e.Cmd.Stdout
+	return e.stdout
 }
 func (e *cmdz) Stderr() io.Writer {
-	return e.Cmd.Stdout
+	return e.stderr
 }
 
 func (e *cmdz) SetInput(stdin io.Reader) Executer {
 	if e.pipedInput {
 		log.Fatal("Input is piped cannot change it !")
 	}
-	e.setupStdin(stdin)
+	//e.setupStdin(stdin)
+	e.stdin = stdin
+	e.config.stdin = stdin
 	return e
 }
 
@@ -123,12 +137,16 @@ func (e *cmdz) SetStdout(stdout io.Writer) Executer {
 	if e.pipedOutput {
 		log.Fatal("Output is piped cannot change it !")
 	}
-	e.setupStdout(stdout)
+	//e.setupStdout(stdout)
+	e.stdout = stdout
+	e.config.stdout = stdout
 	return e
 }
 
 func (e *cmdz) SetStderr(stderr io.Writer) Executer {
-	e.setupStderr(stderr)
+	//e.setupStderr(stderr)
+	e.stderr = stderr
+	e.config.stderr = stderr
 	return e
 }
 
@@ -152,7 +170,11 @@ func (e *cmdz) initProcessers() {
 
 func (e *cmdz) setupStdin(stdin io.Reader) {
 	if stdin == nil {
-		stdin = bytes.NewReader(nil)
+		if e.stdin != nil {
+			stdin = e.stdin
+		} else {
+			stdin = bytes.NewReader(nil)
+		}
 	}
 	// Save supplied stdin in config
 	// Decorate reader: ProcessingReader => RecordingReader => stdin
@@ -160,12 +182,16 @@ func (e *cmdz) setupStdin(stdin io.Reader) {
 	e.config.stdin = stdin
 	e.inProcesser.Nest(stdin)
 	e.stdinRecord.Nested = e.inProcesser
-	e.Cmd.Stdin = &e.stdinRecord
+	e.cmd.Stdin = &e.stdinRecord
 }
 
 func (e *cmdz) setupStdout(stdout io.Writer) {
 	if stdout == nil {
-		stdout = &bytes.Buffer{}
+		if e.stdout != nil {
+			stdout = e.stdout
+		} else {
+			stdout = &bytes.Buffer{}
+		}
 	}
 	// Save supplied stdout in config
 	// Decorate writer: ProcessingWriter => RecordingWriter => stdout
@@ -173,9 +199,9 @@ func (e *cmdz) setupStdout(stdout io.Writer) {
 	e.config.stdout = stdout
 	e.stdoutRecord.Nested = stdout
 	e.outProcesser.Nest(&e.stdoutRecord)
-	e.Cmd.Stdout = e.outProcesser
+	e.cmd.Stdout = e.outProcesser
 	if e.config.combinedOuts {
-		e.Cmd.Stderr = e.outProcesser
+		e.cmd.Stderr = e.outProcesser
 	}
 }
 
@@ -184,7 +210,11 @@ func (e *cmdz) setupStderr(stderr io.Writer) {
 		return
 	}
 	if stderr == nil {
-		stderr = &strings.Builder{}
+		if e.stderr != nil {
+			stderr = e.stderr
+		} else {
+			stderr = &strings.Builder{}
+		}
 	}
 	// Save supplied stderr in config
 	// Decorate writer: ProcessingWriter => RecordingWriter => stderr
@@ -192,7 +222,7 @@ func (e *cmdz) setupStderr(stderr io.Writer) {
 	e.config.stderr = stderr
 	e.stderrRecord.Nested = stderr
 	e.errProcesser.Nest(&e.stderrRecord)
-	e.Cmd.Stderr = e.errProcesser
+	e.cmd.Stderr = e.errProcesser
 }
 
 func (e *cmdz) ProcessIn(pcrs ...IOProcesser) *cmdz {
@@ -225,8 +255,9 @@ func (e *cmdz) Retries(count, delayInMs int) Executer {
 	return e
 }
 
-func (e *cmdz) Timeout(delayInMs int) Executer {
-	e.config.timeout = delayInMs
+func (e *cmdz) Timeout(duration time.Duration) Executer {
+	e.config.timeout = duration
+	e.ctx, e.cancel = context.WithTimeout(context.Background(), duration)
 	return e
 }
 
@@ -250,7 +281,7 @@ func (e *cmdz) StderrRecord() string {
 
 // ----- Reporter methods -----
 func (e cmdz) String() (t string) {
-	t = strings.Join(e.Args, " ")
+	t = e.binary + " " + strings.Join(e.args, " ")
 	return
 }
 
@@ -277,6 +308,18 @@ func (e *cmdz) reset() {
 
 func (e *cmdz) fallback(cfg *config) {
 	e.fallbackConfig = cfg
+}
+
+func (e *cmdz) init() {
+	// Init internal exec.Cmd
+	if !e.initialized {
+		e.cmd = exec.CommandContext(e.ctx, e.binary, e.args...)
+		e.cmd.Env = e.environ
+	}
+	//e.setupStdin(e.stdin)
+	//e.setupStdout(e.stdout)
+	//e.setupStderr(e.stderr)
+	e.initialized = true
 }
 
 func (e *cmdz) BlockRun() (rc int, err error) {
@@ -308,11 +351,15 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 	}
 
 	e.reset()
+
+	e.init()
+
 	config := mergeConfigs(&e.config, e.fallbackConfig)
 	e.setupStdin(config.stdin)
 	e.setupStdout(config.stdout)
 	e.setupStderr(config.stderr)
 	e.checkpoint()
+
 	rc = -1
 	for i := 0; i <= config.retries && rc != 0; i++ {
 		var startTime time.Time
@@ -324,11 +371,11 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 		if commandMock == nil {
 			startTime = time.Now()
 			e.startTimes = append(e.startTimes, startTime)
-			err = e.Start()
+			err = e.cmd.Start()
 			if err != nil {
 				return
 			}
-			err = e.Wait()
+			err = e.cmd.Wait()
 			duration = time.Since(startTime)
 			if err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
@@ -338,14 +385,14 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 					return -1, err
 				}
 			} else {
-				rc = e.ProcessState.ExitCode()
+				rc = e.cmd.ProcessState.ExitCode()
 			}
 		} else {
 			// Replace execution by mocking function
-			rc = commandMock.Mock(e.Cmd)
+			rc = commandMock.Mock(e.cmd)
 		}
 		e.exitCodes = append(e.exitCodes, rc)
-		e.executions = append(e.executions, e.Cmd)
+		e.executions = append(e.executions, e.cmd)
 		e.durations = append(e.durations, duration)
 		e.rollback()
 	}
@@ -421,31 +468,31 @@ func (e *cmdz) PipeFail(c *cmdz) *cmdz {
 
 func (e *cmdz) AddEnv(key, value string) *cmdz {
 	entry := fmt.Sprintf("%s=%s", key, value)
-	e.Cmd.Env = append(e.Env, entry)
+	e.environ = append(e.environ, entry)
 	e.checkpoint()
 	return e
 }
 
 func (e *cmdz) AddEnviron(environ []string) *cmdz {
-	for _, env := range environ {
-		e.Cmd.Env = append(e.Cmd.Env, env)
-	}
+	e.environ = append(e.environ, environ...)
 	e.checkpoint()
 	return e
 }
 
 func (e *cmdz) AddArgs(args ...string) *cmdz {
-	e.Cmd.Args = append(e.Args, args...)
+	e.args = append(e.args, args...)
 	e.checkpoint()
 	return e
 }
 
 func (e *cmdz) checkpoint() {
-	e.cmdCheckpoint = *e.Cmd
+	if e.cmd != nil {
+		e.cmdCheckpoint = *e.cmd
+	}
 }
 
 func (e *cmdz) rollback() {
 	// Clone checkpoint
 	newClone := e.cmdCheckpoint
-	e.Cmd = &newClone
+	e.cmd = &newClone
 }

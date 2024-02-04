@@ -32,6 +32,7 @@ func (e *basicPipe) BlockRun() (int, error) {
 	}
 
 	f := e.feeder
+	//f.init()
 	originalStdout := f.getConfig().stdout
 	originalStdin := f.getConfig().stdin
 	b := bytes.Buffer{}

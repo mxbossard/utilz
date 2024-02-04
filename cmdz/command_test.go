@@ -22,7 +22,7 @@ import (
 func TestCmd(t *testing.T) {
 	c := Cmd("echo", "foo")
 	assert.NotNil(t, c)
-	assert.NotNil(t, c.Cmd)
+	//assert.NotNil(t, c.cmd)
 	assert.NotNil(t, c.config)
 	assert.NotNil(t, c.stdoutRecord)
 	assert.NotNil(t, c.stderrRecord)
@@ -35,7 +35,7 @@ func TestCmdCtx(t *testing.T) {
 	defer cancel()
 	c := CmdCtx(ctx, "echo", "foo")
 	assert.NotNil(t, c)
-	assert.NotNil(t, c.Cmd)
+	//assert.NotNil(t, c.cmd)
 	assert.NotNil(t, c.config)
 	assert.NotNil(t, c.stdoutRecord)
 	assert.NotNil(t, c.stderrRecord)
@@ -118,6 +118,16 @@ func TestBlockRun_WithOutputs(t *testing.T) {
 	serr := stderr.String()
 	assert.Equal(t, echoArg+"\n", sout)
 	assert.Equal(t, "", serr)
+
+	// Re run
+	rc, err = e.BlockRun()
+	require.NoError(t, err, "should not error")
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{0}, e.ResultCodes())
+	sout = stdout.String()
+	serr = stderr.String()
+	assert.Equal(t, echoArg+"\n"+echoArg+"\n", sout)
+	assert.Equal(t, "", serr)
 }
 
 func TestBlockRun_RecordingOutputs(t *testing.T) {
@@ -131,6 +141,16 @@ func TestBlockRun_RecordingOutputs(t *testing.T) {
 	assert.Equal(t, []int{0}, e.ResultCodes())
 	sout := e.StdoutRecord()
 	serr := e.StderrRecord()
+	assert.Equal(t, echoArg+"\n", sout)
+	assert.Equal(t, "", serr)
+
+	// Re run
+	rc, err = e.BlockRun()
+	require.NoError(t, err, "should not error")
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, []int{0}, e.ResultCodes())
+	sout = e.StdoutRecord()
+	serr = e.StderrRecord()
 	assert.Equal(t, echoArg+"\n", sout)
 	assert.Equal(t, "", serr)
 }

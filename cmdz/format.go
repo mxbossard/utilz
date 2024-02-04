@@ -1,5 +1,7 @@
 package cmdz
 
+import "time"
+
 type (
 	basicFormat[O any] struct {
 		Executer
@@ -34,7 +36,7 @@ func (e *basicFormat[O]) Retries(count, delayInMs int) Formatter[O] {
 	return e
 }
 
-func (e *basicFormat[O]) Timeout(delayInMs int) Formatter[O] {
-	e.Executer = e.Executer.Timeout(delayInMs)
+func (e *basicFormat[O]) Timeout(duration time.Duration) Formatter[O] {
+	e.Executer = e.Executer.Timeout(duration)
 	return e
 }

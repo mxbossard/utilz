@@ -2,25 +2,25 @@ package cmdz
 
 import (
 	"context"
-	"os/exec"
 	"strings"
 )
 
 // ----- Commands -----
 func Cmd(binary string, args ...string) *cmdz {
-	cmd := exec.Command(binary, args...)
-	cmd.Env = make([]string, 8)
-	e := cmdz{Cmd: cmd}
+	//cmd := exec.Command(binary, args...)
+	//cmd.Env = make([]string, 8)
+	e := cmdz{binary: binary, args: args, ctx: context.Background()}
 	e.checkpoint()
 	return &e
 }
 
 func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
-	cmd := exec.CommandContext(ctx, binary, args...)
-	cmd.Env = make([]string, 8)
-	e := cmdz{Cmd: cmd}
+	//cmd := exec.CommandContext(ctx, binary, args...)
+	//cmd.Env = make([]string, 8)
+	e := Cmd(binary, args...)
+	e.ctx = ctx
 	e.checkpoint()
-	return &e
+	return e
 }
 
 func Sh(cmd ...string) *cmdz {

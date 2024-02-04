@@ -2,6 +2,7 @@ package cmdz
 
 import (
 	"fmt"
+	"time"
 )
 
 type (
@@ -51,7 +52,7 @@ func (e *basicOutput) Retries(count, delayInMs int) Outputer {
 	return e
 }
 
-func (e *basicOutput) Timeout(delayInMs int) Outputer {
-	e.Executer = e.Executer.Timeout(delayInMs)
+func (e *basicOutput) Timeout(duration time.Duration) Outputer {
+	e.Executer = e.Executer.Timeout(duration)
 	return e
 }

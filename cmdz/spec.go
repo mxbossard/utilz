@@ -47,7 +47,7 @@ type (
 	Configurer[T any] interface {
 		ErrorOnFailure(bool) T
 		Retries(count, delayInMs int) T
-		Timeout(delayInMs int) T
+		Timeout(duration time.Duration) T
 		CombinedOutputs() T
 	}
 
@@ -63,6 +63,7 @@ type (
 	}
 
 	Runner interface {
+		init()
 		reset()
 		fallback(*config)
 
