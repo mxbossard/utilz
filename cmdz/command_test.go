@@ -224,12 +224,30 @@ func TestBlockRun_ErrorOnFailure(t *testing.T) {
 }
 
 func TestBlockRun_CombinedOutputs(t *testing.T) {
-	f := Sh("echo foo ; sleep 0.1 ; >&2 echo bar").CombinedOutputs()
+	f := Sh("echo foo ; sleep 0.02 ; >&2 echo bar").CombinedOutputs()
 	rc, err := f.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 0, rc)
 	assert.Equal(t, "foo\nbar\n", f.StdoutRecord())
 	assert.Equal(t, "", f.StderrRecord())
+}
+
+func TestBlockRun_Timeout_ok(t *testing.T) {
+	f := Sh("sleep 0.02 ; echo bar")
+	f.Timeout(100)
+	rc, err := f.BlockRun()
+	require.NoError(t, err)
+	assert.Equal(t, 0, rc)
+	assert.Equal(t, "bar\n", f.StdoutRecord())
+}
+
+func TestBlockRun_Timeout_ko(t *testing.T) {
+	f := Sh("sleep 0.02 ; echo bar")
+	f.Timeout(10)
+	rc, err := f.BlockRun()
+	require.Error(t, err)
+	assert.Equal(t, -1, rc)
+	assert.Equal(t, "", f.StdoutRecord())
 }
 
 func TestAsyncRun(t *testing.T) {
