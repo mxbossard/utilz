@@ -281,7 +281,19 @@ func (e *cmdz) StderrRecord() string {
 
 // ----- Reporter methods -----
 func (e cmdz) String() (t string) {
-	t = e.binary + " " + strings.Join(e.args, " ")
+	//t = e.binary + " " + strings.Join(e.args, " ")
+	if strings.Contains(e.binary, " ") {
+		t = fmt.Sprintf("\"%s\"", e.binary)
+	} else {
+		t = e.binary
+	}
+	for _, arg := range e.args {
+		if strings.Contains(arg, " ") {
+			t += fmt.Sprintf(" \"%s\"", arg)
+		} else {
+			t += fmt.Sprintf(" %s", arg)
+		}
+	}
 	return
 }
 
