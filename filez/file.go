@@ -67,6 +67,16 @@ func Read(filepath string) (content []byte, err error) {
 	return
 }
 
+func ReadString(filepath string) (content string, err error) {
+	var bytes []byte
+	bytes, err = os.ReadFile(filepath)
+	if err != nil {
+		return
+	}
+	content = string(bytes)
+	return
+}
+
 func Print(filepath string) (err error) {
 	content, err := Read(filepath)
 	if err != nil {
