@@ -6,18 +6,26 @@ import (
 )
 
 // ----- Commands -----
-func Cmd(binary string, args ...string) *cmdz {
+func Cmd(binaryAndArgs ...string) *cmdz {
 	//cmd := exec.Command(binary, args...)
 	//cmd.Env = make([]string, 8)
+	var binary string
+	var args []string
+	if len(binaryAndArgs) > 0 {
+		binary = binaryAndArgs[0]
+	}
+	if len(binaryAndArgs) > 1 {
+		args = binaryAndArgs[1:]
+	}
 	e := cmdz{binary: binary, args: args, ctx: context.Background()}
 	e.checkpoint()
 	return &e
 }
 
-func CmdCtx(ctx context.Context, binary string, args ...string) *cmdz {
+func CmdCtx(ctx context.Context, binaryAndArgs ...string) *cmdz {
 	//cmd := exec.CommandContext(ctx, binary, args...)
 	//cmd.Env = make([]string, 8)
-	e := Cmd(binary, args...)
+	e := Cmd(binaryAndArgs...)
 	e.ctx = ctx
 	e.checkpoint()
 	return e
@@ -57,8 +65,8 @@ func Outputted(e Executer) Outputer {
 	return &basicOutput{Executer: e}
 }
 
-func OutputtedCmd(binary string, args ...string) Outputer {
-	return Outputted(Cmd(binary, args...))
+func OutputtedCmd(binaryAndArgs ...string) Outputer {
+	return Outputted(Cmd(binaryAndArgs...))
 }
 
 // ----- Formatters -----
@@ -66,8 +74,8 @@ func Formatted[O any](e Executer, f func(int, []byte, []byte) (O, error)) *basic
 	return &basicFormat[O]{Executer: e, outFormatter: f}
 }
 
-func FormattedCmd[O any](f func(int, []byte, []byte) (O, error), binary string, args ...string) *basicFormat[O] {
-	c := Cmd(binary, args...)
+func FormattedCmd[O any](f func(int, []byte, []byte) (O, error), binaryAndArgs ...string) *basicFormat[O] {
+	c := Cmd(binaryAndArgs...)
 	return Formatted(c, f)
 }
 

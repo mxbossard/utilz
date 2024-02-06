@@ -360,6 +360,10 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 	e.setupStderr(config.stderr)
 	e.checkpoint()
 
+	if e.timeout > 0 {
+		defer e.cancel()
+	}
+
 	rc = -1
 	for i := 0; i <= config.retries && rc != 0; i++ {
 		var startTime time.Time
@@ -377,6 +381,10 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 			}
 			err = e.cmd.Wait()
 			duration = time.Since(startTime)
+
+			if e.ctx.Err() != nil {
+				err = e.ctx.Err()
+			}
 			if err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					rc = exitErr.ProcessState.ExitCode()

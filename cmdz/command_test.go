@@ -234,7 +234,7 @@ func TestBlockRun_CombinedOutputs(t *testing.T) {
 
 func TestBlockRun_Timeout_ok(t *testing.T) {
 	f := Sh("sleep 0.02 ; echo bar")
-	f.Timeout(100)
+	f.Timeout(100 * time.Millisecond)
 	rc, err := f.BlockRun()
 	require.NoError(t, err)
 	assert.Equal(t, 0, rc)
@@ -243,7 +243,7 @@ func TestBlockRun_Timeout_ok(t *testing.T) {
 
 func TestBlockRun_Timeout_ko(t *testing.T) {
 	f := Sh("sleep 0.02 ; echo bar")
-	f.Timeout(10)
+	f.Timeout(10 * time.Millisecond)
 	rc, err := f.BlockRun()
 	require.Error(t, err)
 	assert.Equal(t, -1, rc)
