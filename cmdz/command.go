@@ -493,7 +493,7 @@ func (e *cmdz) AddEnv(key, value string) *cmdz {
 	return e
 }
 
-func (e *cmdz) AddEnviron(environ []string) *cmdz {
+func (e *cmdz) AddEnviron(environ ...string) *cmdz {
 	e.environ = append(e.environ, environ...)
 	e.checkpoint()
 	return e
