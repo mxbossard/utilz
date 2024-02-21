@@ -4,6 +4,7 @@ import (
 	//"bytes"
 
 	"io"
+	"log"
 	"os/exec"
 
 	"mby.fr/utils/errorz"
@@ -16,11 +17,13 @@ var (
 
 type Runner interface {
 	Wait(io.Writer, io.Writer) error
+	//Async(io.Writer, io.Writer) error
 }
 
 type DockerRunner struct {
 	Name       string
 	Remove     bool
+	Detach     bool
 	Entrypoint string
 	EnvArgs    map[string]string
 	Volumes    []string
@@ -38,6 +41,10 @@ func (r DockerRunner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 
 	if r.Remove {
 		runParams = append(runParams, "--rm")
+	}
+
+	if r.Detach {
+		runParams = append(runParams, "-d")
 	}
 
 	if r.Entrypoint != "" {
@@ -87,4 +94,13 @@ func (r DockerRunner) Wait(stdOut io.Writer, stdErr io.Writer) (err error) {
 	// Aggregate all errors
 	var errors = errorz.ConsumedAggregated(errorsChan)
 	return errors.Return()
+}
+
+func (r DockerRunner) Async(stdOut io.Writer, stdErr io.Writer) {
+	go func() {
+		err2 := r.Wait(stdOut, stdErr)
+		if err2 != nil {
+			log.Fatal(err2)
+		}
+	}()
 }
