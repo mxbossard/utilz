@@ -49,11 +49,11 @@ func (o Optional[T]) IfPresent(f func(T) error) error {
 	return nil
 }
 
-func EmptyOptionnal[T comparable]() Optional[T] {
+func EmptyOptional[T comparable]() Optional[T] {
 	return Optional[T]{value: nil}
 }
 
-func OptionnalOf[T comparable](value T) Optional[T] {
+func OptionalOf[T comparable](value T) Optional[T] {
 	return Optional[T]{value: &value}
 }
 
@@ -93,10 +93,10 @@ func (o AnyOptional[T]) IfPresent(f func(T) error) error {
 	return nil
 }
 
-func EmptyAnyOptionnal[T any]() AnyOptional[T] {
+func EmptyAnyOptional[T any]() AnyOptional[T] {
 	return AnyOptional[T]{value: nil}
 }
 
-func AnyOptionnalOf[T any](value T) AnyOptional[T] {
+func AnyOptionalOf[T any](value T) AnyOptional[T] {
 	return AnyOptional[T]{value: &value}
 }
