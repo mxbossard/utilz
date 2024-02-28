@@ -463,7 +463,10 @@ func (e *cmdz) Durations() []time.Duration {
 }
 
 func (e *cmdz) Duration() time.Duration {
-	return e.durations[len(e.durations)-1]
+	if len(e.durations) > 0 {
+		return e.durations[len(e.durations)-1]
+	}
+	return 0 * time.Second
 }
 
 func (e *cmdz) Executions() []*exec.Cmd {
