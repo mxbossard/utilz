@@ -118,32 +118,32 @@ func stringify(obj interface{}) (str string, err error) {
 		str = strconv.FormatFloat(o, 'E', 3, 32)
 
 	/*
-	case ansiFormatted:
-		if o.content == "" {
-			return "", nil
-		}
-		content, err := stringify(o.content)
-		if err != nil {
-			return "", err
-		}
-		if o.format != "" {
-			str = fmt.Sprintf("%s%s%s", o.format, content, ansi.Reset)
-		} else {
-			str = content
-		}
-		if o.tab {
-			str += "\t"
-		} else if o.leftPad > 0 {
-			spaceCount := o.leftPad - len(content)
-			if spaceCount > 0 {
-				str = strings.Repeat(" ", spaceCount) + str
+		case ansiFormatted:
+			if o.content == "" {
+				return "", nil
 			}
-		} else if o.rightPad > 0 {
-			spaceCount := o.rightPad - len(content)
-			if spaceCount > 0 {
-				str += strings.Repeat(" ", spaceCount)
+			content, err := stringify(o.content)
+			if err != nil {
+				return "", err
 			}
-		}
+			if o.format != "" {
+				str = fmt.Sprintf("%s%s%s", o.format, content, ansi.Reset)
+			} else {
+				str = content
+			}
+			if o.tab {
+				str += "\t"
+			} else if o.leftPad > 0 {
+				spaceCount := o.leftPad - len(content)
+				if spaceCount > 0 {
+					str = strings.Repeat(" ", spaceCount) + str
+				}
+			} else if o.rightPad > 0 {
+				spaceCount := o.rightPad - len(content)
+				if spaceCount > 0 {
+					str += strings.Repeat(" ", spaceCount)
+				}
+			}
 	*/
 	case error:
 		str = fmt.Sprintf("Error: %s !\n", obj)
@@ -236,6 +236,11 @@ func New(outputs Outputs) Printer {
 
 func NewStandard() Printer {
 	outputs := NewStandardOutputs()
+	return New(outputs)
+}
+
+func NewDiscarding() Printer {
+	outputs := NewOutputs(io.Discard, io.Discard)
 	return New(outputs)
 }
 

@@ -40,8 +40,12 @@ func (o BasicOutputs) Err() io.Writer {
 	return o.err
 }
 
+func NewOutputs(out, err io.Writer) Outputs {
+	return BasicOutputs{out, err}
+}
+
 func NewStandardOutputs() Outputs {
-	return BasicOutputs{os.Stdout, os.Stderr}
+	return NewOutputs(os.Stdout, os.Stderr)
 }
 
 func NewBufferedOutputs(outputs Outputs) Outputs {
