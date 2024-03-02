@@ -40,3 +40,18 @@ func (e *basicFormat[O]) Timeout(duration time.Duration) Formatter[O] {
 	e.Executer = e.Executer.Timeout(duration)
 	return e
 }
+
+func (e *basicFormat[O]) AddEnv(key, value string) Formatter[O] {
+	e.Executer = e.Executer.AddEnv(key, value)
+	return e
+}
+
+func (e *basicFormat[O]) AddEnviron(environ ...string) Formatter[O] {
+	e.Executer = e.Executer.AddEnviron(environ...)
+	return e
+}
+
+func (e *basicFormat[O]) AddArgs(args ...string) Formatter[O] {
+	e.Executer = e.Executer.AddArgs(args...)
+	return e
+}

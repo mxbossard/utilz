@@ -56,3 +56,18 @@ func (e *basicOutput) Timeout(duration time.Duration) Outputer {
 	e.Executer = e.Executer.Timeout(duration)
 	return e
 }
+
+func (e *basicOutput) AddEnv(key, value string) Outputer {
+	e.Executer = e.Executer.AddEnv(key, value)
+	return e
+}
+
+func (e *basicOutput) AddEnviron(environ ...string) Outputer {
+	e.Executer = e.Executer.AddEnviron(environ...)
+	return e
+}
+
+func (e *basicOutput) AddArgs(args ...string) Outputer {
+	e.Executer = e.Executer.AddArgs(args...)
+	return e
+}

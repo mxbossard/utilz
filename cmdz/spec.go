@@ -49,6 +49,9 @@ type (
 		Retries(count, delayInMs int) T
 		Timeout(duration time.Duration) T
 		CombinedOutputs() T
+		AddEnv(key, value string) T
+		AddEnviron(environ ...string) T
+		AddArgs(args ...string) T
 	}
 
 	Recorder interface {

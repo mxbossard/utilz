@@ -489,20 +489,20 @@ func (e *cmdz) PipeFail(c *cmdz) *cmdz {
 	return e.Pipe(c)
 }
 
-func (e *cmdz) AddEnv(key, value string) *cmdz {
+func (e *cmdz) AddEnv(key, value string) Executer {
 	entry := fmt.Sprintf("%s=%s", key, value)
 	e.environ = append(e.environ, entry)
 	e.checkpoint()
 	return e
 }
 
-func (e *cmdz) AddEnviron(environ ...string) *cmdz {
+func (e *cmdz) AddEnviron(environ ...string) Executer {
 	e.environ = append(e.environ, environ...)
 	e.checkpoint()
 	return e
 }
 
-func (e *cmdz) AddArgs(args ...string) *cmdz {
+func (e *cmdz) AddArgs(args ...string) Executer {
 	e.args = append(e.args, args...)
 	e.checkpoint()
 	return e

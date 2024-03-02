@@ -193,6 +193,27 @@ func (s *serialSeq) Timeout(duration time.Duration) Executer {
 	return s
 }
 
+func (s *serialSeq) AddEnv(key, value string) Executer {
+	for _, e := range s.execs {
+		e.AddEnv(key, value)
+	}
+	return s
+}
+
+func (s *serialSeq) AddEnviron(environ ...string) Executer {
+	for _, e := range s.execs {
+		e.AddEnviron(environ...)
+	}
+	return s
+}
+
+func (s *serialSeq) AddArgs(args ...string) Executer {
+	for _, e := range s.execs {
+		e.AddArgs(args...)
+	}
+	return s
+}
+
 func (s *serialSeq) CombinedOutputs() Executer {
 	for _, e := range s.outers {
 		e.CombinedOutputs()
@@ -346,6 +367,27 @@ func (s *orSeq) Timeout(duration time.Duration) Executer {
 	return s
 }
 
+func (s *orSeq) AddEnv(key, value string) Executer {
+	for _, e := range s.execs {
+		e.AddEnv(key, value)
+	}
+	return s
+}
+
+func (s *orSeq) AddEnviron(environ ...string) Executer {
+	for _, e := range s.execs {
+		e.AddEnviron(environ...)
+	}
+	return s
+}
+
+func (s *orSeq) AddArgs(args ...string) Executer {
+	for _, e := range s.execs {
+		e.AddArgs(args...)
+	}
+	return s
+}
+
 func (s *orSeq) CombinedOutputs() Executer {
 	for _, e := range s.execs {
 		e.CombinedOutputs()
@@ -490,6 +532,26 @@ func (s *parallelSeq) Timeout(duration time.Duration) Executer {
 	return s
 }
 
+func (s *parallelSeq) AddEnv(key, value string) Executer {
+	for _, e := range s.execs {
+		e.AddEnv(key, value)
+	}
+	return s
+}
+
+func (s *parallelSeq) AddEnviron(environ ...string) Executer {
+	for _, e := range s.execs {
+		e.AddEnviron(environ...)
+	}
+	return s
+}
+
+func (s *parallelSeq) AddArgs(args ...string) Executer {
+	for _, e := range s.execs {
+		e.AddArgs(args...)
+	}
+	return s
+}
 func (s *parallelSeq) FailFast(enabled bool) *parallelSeq {
 	s.failFast = enabled
 	return s
