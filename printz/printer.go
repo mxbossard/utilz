@@ -37,7 +37,7 @@ type Printer interface {
 }
 
 type BasicPrinter struct {
-	sync.Mutex
+	*sync.Mutex
 	outputs   Outputs
 	lastPrint time.Time
 }
@@ -74,7 +74,7 @@ func (p *BasicPrinter) Outf(s string, params ...interface{}) {
 }
 
 func (p *BasicPrinter) ColoredOutf(color ansi.Color, s string, params ...interface{}) {
-	s = ansi.Sprintf(color, s, params...)
+	s = ansi.Sprintf(color, s, ansiFormatParams(color, params...)...)
 	p.Out(s)
 }
 
@@ -100,12 +100,28 @@ func (p *BasicPrinter) Errf(s string, params ...interface{}) {
 }
 
 func (p *BasicPrinter) ColoredErrf(color ansi.Color, s string, params ...interface{}) {
-	s = ansi.Sprintf(color, s, params...)
+	s = ansi.Sprintf(color, s, ansiFormatParams(color, params...)...)
 	p.Err(s)
 }
 
 func (p BasicPrinter) LastPrint() time.Time {
 	return p.lastPrint
+}
+
+func ansiFormatParams(color ansi.Color, params ...any) (formattedParams []any) {
+	for _, p := range params {
+		if f, ok := p.(ansiFormatted); ok {
+			s, err := stringify(f)
+			if err != nil {
+				log.Fatal(err)
+			}
+			s += string(color)
+			formattedParams = append(formattedParams, s)
+		} else {
+			formattedParams = append(formattedParams, p)
+		}
+	}
+	return
 }
 
 func stringify(obj interface{}) (str string, err error) {
@@ -117,38 +133,34 @@ func stringify(obj interface{}) (str string, err error) {
 	case float64:
 		str = strconv.FormatFloat(o, 'E', 3, 32)
 
-	/*
-		case ansiFormatted:
-			if o.content == "" {
-				return "", nil
+	case ansiFormatted:
+		if o.Content == "" {
+			return "", nil
+		}
+		content, err := stringify(o.Content)
+		if err != nil {
+			return "", err
+		}
+		if o.LeftPad > 0 {
+			spaceCount := o.LeftPad - len(content)
+			if spaceCount > 0 {
+				content = strings.Repeat(" ", spaceCount) + content
 			}
-			content, err := stringify(o.content)
-			if err != nil {
-				return "", err
+		} else if o.RightPad > 0 {
+			spaceCount := o.RightPad - len(content)
+			if spaceCount > 0 {
+				content += strings.Repeat(" ", spaceCount)
 			}
-			if o.format != "" {
-				str = fmt.Sprintf("%s%s%s", o.format, content, ansi.Reset)
-			} else {
-				str = content
-			}
-			if o.tab {
-				str += "\t"
-			} else if o.leftPad > 0 {
-				spaceCount := o.leftPad - len(content)
-				if spaceCount > 0 {
-					str = strings.Repeat(" ", spaceCount) + str
-				}
-			} else if o.rightPad > 0 {
-				spaceCount := o.rightPad - len(content)
-				if spaceCount > 0 {
-					str += strings.Repeat(" ", spaceCount)
-				}
-			}
-	*/
+		}
+		if o.Format != "" {
+			str = fmt.Sprintf("%s%s%s", o.Format, content, ansi.Reset)
+		} else {
+			str = content
+		}
 	case error:
 		str = fmt.Sprintf("Error: %s !\n", obj)
 	default:
-		err = fmt.Errorf("Unable to Print object of type: %T", obj)
+		err = fmt.Errorf("unable to Print object of type: %T", obj)
 		return
 	}
 	return
@@ -213,13 +225,21 @@ func flush(printer *BasicPrinter) {
 	}
 }
 
+func Sprintf(format string, params ...any) string {
+	return fmt.Sprintf(format, ansiFormatParams("", params...)...)
+}
+
+func SColoredPrintf(color ansi.Color, format string, params ...any) string {
+	return fmt.Sprintf(format, ansiFormatParams(color, params...)...)
+}
+
 //var flushablePrinters []*BasicPrinter
 
 func New(outputs Outputs) Printer {
 	buffered := NewBufferedOutputs(outputs)
 	var m sync.Mutex
 	var t time.Time
-	printer := BasicPrinter{m, buffered, t}
+	printer := BasicPrinter{&m, buffered, t}
 
 	//flushablePrinters = append(flushablePrinters, &printer)
 
@@ -245,11 +265,28 @@ func NewDiscarding() Printer {
 }
 
 // ANSI formatting for content
-/*
 type ansiFormatted struct {
-	format            string
-	content           interface{}
-	tab               bool
-	leftPad, rightPad int
+	Format            ansi.Color
+	Content           interface{}
+	LeftPad, RightPad int
 }
-*/
+
+func NewAnsi(format ansi.Color, content any) (f ansiFormatted) {
+	f.Format = format
+	f.Content = content
+	return
+}
+
+func NewAnsiLeftPadded(format ansi.Color, content any, padding int) (f ansiFormatted) {
+	f.Format = format
+	f.Content = content
+	f.LeftPad = padding
+	return
+}
+
+func NewAnsiRightPadded(format ansi.Color, content any, padding int) (f ansiFormatted) {
+	f.Format = format
+	f.Content = content
+	f.RightPad = padding
+	return
+}
