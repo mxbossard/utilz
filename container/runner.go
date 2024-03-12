@@ -115,15 +115,50 @@ func (r DockerRunner) Async(stdOut io.Writer, stdErr io.Writer) {
 	}()
 }
 
-type RunBuilder interface {
-	RunExecuter() cmdz.Executer
+type LifeCycleBuilder interface {
 	StopExecuter() cmdz.Executer
 	StartExecuter() cmdz.Executer
 	RmExecuter() cmdz.Executer
 }
 
+type RunBuilder interface {
+	RunExecuter() cmdz.Executer
+}
+
 type ExecBuilder interface {
 	ExecExecuter() cmdz.Executer
+}
+
+type LifeCycleConfig struct {
+	Name    string
+	Timeout time.Duration
+}
+
+type podmanLifeCycleBuilder struct {
+	LifeCycleConfig
+	binary string
+}
+
+func (r podmanLifeCycleBuilder) StopExecuter() cmdz.Executer {
+	runParams := []string{r.binary, "stop", r.Name}
+	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
+	return cmd
+}
+
+func (r podmanLifeCycleBuilder) StartExecuter() cmdz.Executer {
+	runParams := []string{r.binary, "start", r.Name}
+	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
+	return cmd
+}
+
+func (r podmanLifeCycleBuilder) RmExecuter() cmdz.Executer {
+	runParams := []string{r.binary, "rm", "-f", r.Name}
+	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
+	return cmd
+}
+
+type dockerLifeCycleBuilder struct {
+	podmanLifeCycleBuilder
 }
 
 type ExecConfig struct {
@@ -132,7 +167,7 @@ type ExecConfig struct {
 	Tty         bool
 	User        string
 	EnvArgs     map[string]string
-	CmdArgs     []string
+	CmdAndArgs  []string
 
 	Timeout time.Duration
 }
@@ -161,7 +196,7 @@ func buildCommonExecParams(r ExecConfig) []string {
 	params = append(params, r.Name)
 
 	// Add command args
-	params = append(params, r.CmdArgs...)
+	params = append(params, r.CmdAndArgs...)
 
 	return params
 }
@@ -261,26 +296,13 @@ type podmanRunBuilder struct {
 func (r *podmanRunBuilder) RunExecuter() cmdz.Executer {
 	completeRunConfig(&r.RunConfig)
 	runParams := []string{r.binary, "run"}
+
+	if r.Userns != "" {
+		runParams = append(runParams, "--userns", r.Userns)
+	}
+
 	runParams = append(runParams, buildCommonRunParams(r.RunConfig)...)
 
-	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
-	return cmd
-}
-
-func (r *podmanRunBuilder) StopExecuter() cmdz.Executer {
-	runParams := []string{r.binary, "stop", r.Name}
-	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
-	return cmd
-}
-
-func (r *podmanRunBuilder) StartExecuter() cmdz.Executer {
-	runParams := []string{r.binary, "start", r.Name}
-	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
-	return cmd
-}
-
-func (r *podmanRunBuilder) RmExecuter() cmdz.Executer {
-	runParams := []string{r.binary, "rm", "-f", r.Name}
 	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
 	return cmd
 }
@@ -359,6 +381,39 @@ func NewExecBuilder(cfg ExecConfig) ExecBuilder {
 		return PodmanExecBuilder(binaryPath, cfg)
 	} else if strings.Contains(binaryPath, "docker") {
 		return DockerExecBuilder(binaryPath, cfg)
+	}
+	err := fmt.Errorf("cannot determine which container engine is: %s", binaryPath)
+	panic(err)
+}
+
+func PodmanLifeCycleBuilder(binary string, cfg LifeCycleConfig) podmanLifeCycleBuilder {
+	r := podmanLifeCycleBuilder{
+		LifeCycleConfig: cfg,
+		binary:          binary,
+	}
+	return r
+}
+
+func DockerLifeCycleBuilder(binary string, cfg LifeCycleConfig) dockerLifeCycleBuilder {
+	r := dockerLifeCycleBuilder{
+		podmanLifeCycleBuilder: podmanLifeCycleBuilder{
+			LifeCycleConfig: cfg,
+			binary:          binary,
+		},
+	}
+	return r
+}
+
+func NewLifeCycleBuilder(cfg LifeCycleConfig) LifeCycleBuilder {
+	ok, binaryPath := selectContainerEngine()
+	if !ok {
+		err := fmt.Errorf("no container engine found in path. You must install podman or docker")
+		panic(err)
+	}
+	if strings.Contains(binaryPath, "podman") {
+		return PodmanLifeCycleBuilder(binaryPath, cfg)
+	} else if strings.Contains(binaryPath, "docker") {
+		return DockerLifeCycleBuilder(binaryPath, cfg)
 	}
 	err := fmt.Errorf("cannot determine which container engine is: %s", binaryPath)
 	panic(err)
