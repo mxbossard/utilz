@@ -131,7 +131,7 @@ type ExecBuilder interface {
 
 type LifeCycleConfig struct {
 	Name    string
-	Timeout time.Duration
+	Timeout *time.Duration
 }
 
 type podmanLifeCycleBuilder struct {
@@ -140,7 +140,11 @@ type podmanLifeCycleBuilder struct {
 }
 
 func (r podmanLifeCycleBuilder) StopExecuter() cmdz.Executer {
-	runParams := []string{r.binary, "stop", r.Name}
+	runParams := []string{r.binary, "stop"}
+	if r.Timeout != nil {
+		runParams = append(runParams, "--time", fmt.Sprintf("%d", int64(r.Timeout.Round(time.Second).Seconds())))
+	}
+	runParams = append(runParams, r.Name)
 	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
 	return cmd
 }
@@ -148,12 +152,18 @@ func (r podmanLifeCycleBuilder) StopExecuter() cmdz.Executer {
 func (r podmanLifeCycleBuilder) StartExecuter() cmdz.Executer {
 	runParams := []string{r.binary, "start", r.Name}
 	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
+	if r.Timeout != nil {
+		cmd = cmd.Timeout(*r.Timeout)
+	}
 	return cmd
 }
 
 func (r podmanLifeCycleBuilder) RmExecuter() cmdz.Executer {
 	runParams := []string{r.binary, "rm", "-f", r.Name}
 	cmd := cmdz.Cmd(runParams...).ErrorOnFailure(true)
+	if r.Timeout != nil {
+		cmd = cmd.Timeout(*r.Timeout)
+	}
 	return cmd
 }
 
@@ -169,7 +179,7 @@ type ExecConfig struct {
 	EnvArgs     map[string]string
 	CmdAndArgs  []string
 
-	Timeout time.Duration
+	Timeout *time.Duration
 }
 
 func buildCommonExecParams(r ExecConfig) []string {
@@ -234,6 +244,8 @@ type RunConfig struct {
 	Image        string
 	Entrypoint   string
 	CmdArgs      []string
+
+	Timeout      *time.Duration
 }
 
 func completeRunConfig(cfg *RunConfig) {
