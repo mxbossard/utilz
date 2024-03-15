@@ -1,15 +1,20 @@
-package container
+package ctnrz
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"mby.fr/utils/cmdz"
+	"mby.fr/utils/utilz"
 )
 
 type Status string
 
 const (
+	CONTAINER_ENGINE_ENV_KEY = "CONTAINER_ENGINE"
+
 	RUNNING   = Status("RUNNING")
 	STOPPED   = Status("STOPPED")
 	NOT_FOUND = Status("NOT_FOUND")
@@ -298,4 +303,40 @@ func Engine() engine {
 		panic(err)
 	}
 	return engine{binary: binaryPath}
+}
+
+func selectContainerEngine() (ok bool, binaryPath string) {
+	// Check presence of podman & docker binary
+	// Prefer to use podman
+
+	// Check env var for a preference
+	ok, binaryPath = utilz.EnvValue(CONTAINER_ENGINE_ENV_KEY)
+	if ok {
+		return
+	}
+
+	// Search PATH for an existing binary
+	pCmd := cmdz.Sh("which", "podman").ErrorOnFailure(false).AddEnviron(os.Environ()...)
+	pCode, err := pCmd.BlockRun()
+	if err != nil {
+		panic(err)
+	}
+	if pCode == 0 {
+		ok = true
+		binaryPath = strings.TrimSpace(pCmd.StdoutRecord())
+		return
+	}
+
+	dCmd := cmdz.Sh("which", "docker").ErrorOnFailure(false).AddEnviron(os.Environ()...)
+	dCode, err := dCmd.BlockRun()
+	if err != nil {
+		panic(err)
+	}
+	if dCode == 0 {
+		ok = true
+		binaryPath = strings.TrimSpace(dCmd.StdoutRecord())
+		return
+	}
+
+	return
 }
