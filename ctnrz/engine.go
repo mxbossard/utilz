@@ -12,21 +12,26 @@ import (
 
 type Status string
 
+type Provider string
+
 const (
 	CONTAINER_ENGINE_ENV_KEY = "CONTAINER_ENGINE"
 
 	RUNNING   = Status("RUNNING")
 	STOPPED   = Status("STOPPED")
 	NOT_FOUND = Status("NOT_FOUND")
+
+	PODMAN = Provider("PODMAN")
+	DOCKER = Provider("DOCKER")
 )
 
-type common struct {
-	name    string
-	timeout *time.Duration
-}
-
+/*
+	type common struct {
+		container
+	}
+*/
 type runner struct {
-	common
+	container
 
 	image      string
 	cmdAndArgs []string
@@ -46,7 +51,45 @@ type runner struct {
 }
 
 func (c *runner) Executer() cmdz.Executer {
+	params := []string{c.binary, "run"}
+	if c.name != "" {
+		params = append(params, "--name", c.name)
+	}
+	if c.remove {
+		params = append(params, "--rm")
+	}
+	if c.detach {
+		params = append(params, "-d")
+	}
+	if c.entrypoint != "" {
+		params = append(params, "--entrypoint", c.entrypoint)
+	}
+	if c.user != "" {
+		params = append(params, "-u", c.user)
+	}
+	for _, arg := range c.volumes {
+		params = append(params, "-v", arg)
+	}
+	for _, envArg := range c.envArgs {
+		var envArg string = "-e=" + envArg
+		params = append(params, envArg)
+	}
 
+	// podman specific
+	if c.provider == PODMAN {
+		// FIXME: always do this for podman ?
+		params = append(params, "--userns", "keep-id")
+	}
+
+	params = append(params, c.image)
+	// Add command args
+	params = append(params, c.cmdAndArgs...)
+
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	if c.timeout != nil {
+		e.Timeout(*c.timeout)
+	}
+	return e
 }
 
 func (c *runner) Interactive() *runner {
@@ -84,12 +127,19 @@ func (c *runner) Entrypoint(entrypoint string) *runner {
 	return c
 }
 
-func (c *runner) Envs(envs ...string) *runner {
+func (c *runner) AddEnvs(envs ...string) *runner {
 	c.envArgs = append(c.envArgs, envs...)
 	return c
 }
 
-func (c *runner) Volumes(vols ...string) *runner {
+func (c *runner) AddEnvMap(envs map[string]string) *runner {
+	for key, value := range envs {
+		c.AddEnvs(key + "=" + value)
+	}
+	return c
+}
+
+func (c *runner) AddVolumes(vols ...string) *runner {
 	c.volumes = append(c.volumes, vols...)
 	return c
 }
@@ -100,7 +150,7 @@ func (c *runner) Timeout(timeout time.Duration) *runner {
 }
 
 type executer struct {
-	common
+	container
 
 	cmdAndArgs []string
 
@@ -112,7 +162,28 @@ type executer struct {
 }
 
 func (c *executer) Executer() cmdz.Executer {
+	params := []string{c.binary, "exec"}
+	if c.interactive {
+		params = append(params, "-i")
+	}
+	if c.tty {
+		params = append(params, "-t")
+	}
+	if c.user != "" {
+		params = append(params, "-u", c.user)
+	}
+	for _, envArg := range c.envArgs {
+		var envArg string = "-e=" + envArg
+		params = append(params, envArg)
+	}
+	params = append(params, c.name)
+	params = append(params, c.cmdAndArgs...)
 
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	if c.timeout != nil {
+		e.Timeout(*c.timeout)
+	}
+	return e
 }
 
 func (c *executer) Interactive() *executer {
@@ -135,8 +206,15 @@ func (c *executer) User(user string) *executer {
 	return c
 }
 
-func (c *executer) Envs(envs ...string) *executer {
+func (c *executer) AddEnvs(envs ...string) *executer {
 	c.envArgs = append(c.envArgs, envs...)
+	return c
+}
+
+func (c *executer) AddEnvMap(envs map[string]string) *executer {
+	for key, value := range envs {
+		c.AddEnvs(key + "=" + value)
+	}
 	return c
 }
 
@@ -145,25 +223,57 @@ func (c *executer) Timeout(timeout time.Duration) *executer {
 	return c
 }
 
-type stoper struct {
-	common
+type starter struct {
+	container
 }
 
-func (c *stoper) Executer() cmdz.Executer {
-
+func (c *starter) Executer() cmdz.Executer {
+	params := []string{c.binary, "start"}
+	params = append(params, c.name)
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	if c.timeout != nil {
+		e.Timeout(*c.timeout)
+	}
+	return e
 }
 
-func (c *stoper) Timeout(timeout time.Duration) *stoper {
+func (c *starter) Timeout(timeout time.Duration) *starter {
+	c.timeout = &timeout
+	return c
+}
+
+type stopper struct {
+	container
+}
+
+func (c *stopper) Executer() cmdz.Executer {
+	params := []string{c.binary, "stop"}
+	if c.timeout != nil {
+		params = append(params, "--time", fmt.Sprintf("%d", int64(c.timeout.Round(time.Second).Seconds())))
+	}
+	params = append(params, c.name)
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	return e
+}
+
+func (c *stopper) Timeout(timeout time.Duration) *stopper {
 	c.timeout = &timeout
 	return c
 }
 
 type pser struct {
+	engine
+
 	timeout *time.Duration
 }
 
 func (c *pser) Executer() cmdz.Executer {
-
+	params := []string{c.binary, "ps"}
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	if c.timeout != nil {
+		e.Timeout(*c.timeout)
+	}
+	return e
 }
 
 func (c *pser) Timeout(timeout time.Duration) *pser {
@@ -172,14 +282,26 @@ func (c *pser) Timeout(timeout time.Duration) *pser {
 }
 
 type builder struct {
-	buildCtx string
-	noCache  bool
+	engine
 
+	buildCtx string
+	tag      string
+
+	noCache bool
 	timeout *time.Duration
 }
 
 func (c *builder) Executer() cmdz.Executer {
-
+	params := []string{c.binary, "build", "-t", c.tag}
+	if c.noCache {
+		params = append(params, "--no-cache")
+	}
+	params = append(params, c.buildCtx)
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	if c.timeout != nil {
+		e.Timeout(*c.timeout)
+	}
+	return e
 }
 
 func (c *builder) NoCache() *builder {
@@ -193,13 +315,20 @@ func (c *builder) Timeout(timeout time.Duration) *builder {
 }
 
 type puller struct {
+	engine
+
 	image string
 
 	timeout *time.Duration
 }
 
 func (c *puller) Executer() cmdz.Executer {
-
+	params := []string{c.binary, "pull", c.image}
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	if c.timeout != nil {
+		e.Timeout(*c.timeout)
+	}
+	return e
 }
 
 func (c *puller) Timeout(timeout time.Duration) *puller {
@@ -208,13 +337,20 @@ func (c *puller) Timeout(timeout time.Duration) *puller {
 }
 
 type pusher struct {
+	engine
+
 	image string
 
 	timeout *time.Duration
 }
 
 func (c *pusher) Executer() cmdz.Executer {
-
+	params := []string{c.binary, "push", c.image}
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	if c.timeout != nil {
+		e.Timeout(*c.timeout)
+	}
+	return e
 }
 
 func (c *pusher) Timeout(timeout time.Duration) *pusher {
@@ -223,6 +359,8 @@ func (c *pusher) Timeout(timeout time.Duration) *pusher {
 }
 
 type tagger struct {
+	engine
+
 	image string
 	tag   string
 
@@ -230,7 +368,12 @@ type tagger struct {
 }
 
 func (c *tagger) Executer() cmdz.Executer {
-
+	params := []string{c.binary, "tag", c.image}
+	e := cmdz.Cmd(params...).ErrorOnFailure(true)
+	if c.timeout != nil {
+		e.Timeout(*c.timeout)
+	}
+	return e
 }
 
 func (c *tagger) Timeout(timeout time.Duration) *tagger {
@@ -239,10 +382,23 @@ func (c *tagger) Timeout(timeout time.Duration) *tagger {
 }
 
 type engine struct {
-	binary string
+	provider Provider
+	binary   string
 }
 
-func (e engine) Container(name string) *container {
+func (e engine) Container(names ...string) *container {
+	var name string
+	if len(names) == 0 {
+		uuid, err := utilz.ForgeUuid()
+		if err != nil {
+			panic(err)
+		}
+		name = uuid
+	} else if len(names) == 1 {
+		name = names[0]
+	} else {
+		panic("ctnrz.engine.Container() take 0 or 1 name as argument not more")
+	}
 	return &container{engine: e, name: name}
 }
 
@@ -250,8 +406,8 @@ func (e engine) Ps() *pser {
 	return &pser{}
 }
 
-func (e engine) Build(buildCtxDir string) *builder {
-	return &builder{buildCtx: buildCtxDir}
+func (e engine) Build(buildCtxDir, tag string) *builder {
+	return &builder{buildCtx: buildCtxDir, tag: tag}
 }
 
 func (e engine) Pull(image string) *puller {
@@ -267,33 +423,38 @@ func (e engine) Tagger(image, tag string) *tagger {
 }
 
 func (e engine) Status(name string) Status {
+	panic("not implemented yet")
 }
 
 func (e engine) Exists(name string) bool {
+	panic("not implemented yet")
 }
 
 func (e engine) IsRunning(name string) bool {
+	panic("not implemented yet")
 }
 
 func (e engine) IsStopped(name string) bool {
+	panic("not implemented yet")
 }
 
 type container struct {
 	engine
 
-	name string
+	name    string
+	timeout *time.Duration
 }
 
 func (c container) Run(image string, cmdAndArgs ...string) *runner {
-	return &runner{common: common{name: c.name}, image: image, cmdAndArgs: cmdAndArgs}
+	return &runner{container: c, image: image, cmdAndArgs: cmdAndArgs}
 }
 
 func (c container) Exec(cmdAndArgs ...string) *executer {
-	return &executer{common: common{name: c.name}, cmdAndArgs: cmdAndArgs}
+	return &executer{container: c, cmdAndArgs: cmdAndArgs}
 }
 
-func (c container) Stop() *stoper {
-	return &stoper{common: common{name: c.name}}
+func (c container) Stop() *stopper {
+	return &stopper{container: c}
 }
 
 func Engine() engine {
@@ -302,7 +463,13 @@ func Engine() engine {
 		err := fmt.Errorf("no container engine found in path. You must install podman or docker")
 		panic(err)
 	}
-	return engine{binary: binaryPath}
+	var provider Provider
+	if strings.Contains(binaryPath, "podman") {
+		provider = PODMAN
+	} else if strings.Contains(binaryPath, "docker") {
+		provider = DOCKER
+	}
+	return engine{provider: provider, binary: binaryPath}
 }
 
 func selectContainerEngine() (ok bool, binaryPath string) {
