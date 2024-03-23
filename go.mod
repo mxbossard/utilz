@@ -3,6 +3,7 @@ module mby.fr/utils
 go 1.20
 
 require (
+	github.com/jcelliott/lumber v0.0.0-20160324203708-dd349441af25
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/mod v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
