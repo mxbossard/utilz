@@ -5,11 +5,11 @@ import (
 )
 
 func EmptyAnyOptional[T any]() AnyOptional[T] {
-	return AnyOptional[T]{value: nil}
+	return AnyOptional[T]{Value: nil}
 }
 
 func AnyOptionalOf[T any](value T) AnyOptional[T] {
-	return AnyOptional[T]{value: &value}
+	return AnyOptional[T]{Value: &value}
 }
 
 func EmptyOptional[T comparable]() Optional[T] {
@@ -21,8 +21,8 @@ func OptionalOf[T comparable](value T) Optional[T] {
 }
 
 type AnyOptional[T any] struct {
-	value *T //`yaml:""`
-	def   *T //`yaml:""`
+	Value *T //`yaml:""`
+	Def   *T //`yaml:""`
 }
 
 func (o AnyOptional[T]) MarshalYAML() (any, error) {
@@ -30,8 +30,8 @@ func (o AnyOptional[T]) MarshalYAML() (any, error) {
 		Value *T
 		Def   *T
 	}{
-		Value: o.value,
-		Def:   o.def,
+		Value: o.Value,
+		Def:   o.Def,
 	}
 	return anonymous, nil
 }
@@ -45,8 +45,8 @@ func (o *AnyOptional[T]) UnmarshalYAML(unmarshal func(any) error) error {
 	if err != nil {
 		return err
 	}
-	o.value = anonymous.Value
-	o.def = anonymous.Def
+	o.Value = anonymous.Value
+	o.Def = anonymous.Def
 	return nil
 }
 
@@ -58,8 +58,8 @@ func (o AnyOptional[T]) String() string {
 }
 
 func (o *AnyOptional[T]) Clear() {
-	o.value = nil
-	o.def = nil
+	o.Value = nil
+	o.Def = nil
 }
 
 func (o AnyOptional[T]) GetOrError() (val T, err error) {
@@ -67,10 +67,10 @@ func (o AnyOptional[T]) GetOrError() (val T, err error) {
 		err = fmt.Errorf("attempt to get empty optional value")
 		return
 	}
-	if o.value != nil {
-		val = *o.value
-	} else if o.def != nil {
-		val = *o.def
+	if o.Value != nil {
+		val = *o.Value
+	} else if o.Def != nil {
+		val = *o.Def
 	}
 	return
 }
@@ -91,11 +91,11 @@ func (o AnyOptional[T]) GetOr(def T) T {
 }
 
 func (o *AnyOptional[T]) Set(val T) {
-	o.value = &val
+	o.Value = &val
 }
 
 func (o *AnyOptional[T]) Default(val T) {
-	o.def = &val
+	o.Def = &val
 }
 
 func (o *AnyOptional[T]) Merge(right AnyOptional[T]) {
@@ -105,7 +105,7 @@ func (o *AnyOptional[T]) Merge(right AnyOptional[T]) {
 }
 
 func (o AnyOptional[T]) IsEmpty() bool {
-	return o.value == nil && o.def == nil
+	return o.Value == nil && o.Def == nil
 }
 
 func (o AnyOptional[T]) IsPresent() bool {
