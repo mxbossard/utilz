@@ -1,6 +1,8 @@
 package utilz
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 )
 
@@ -18,6 +20,13 @@ func EmptyOptional[T comparable]() Optional[T] {
 
 func OptionalOf[T comparable](value T) Optional[T] {
 	return Optional[T]{AnyOptional: AnyOptionalOf(value)}
+}
+
+type transport[T any] struct {
+	ValuePresent bool
+	Value        T
+	DefPresent   bool
+	Def          T
 }
 
 type AnyOptional[T any] struct {
@@ -47,6 +56,41 @@ func (o *AnyOptional[T]) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 	o.Value = anonymous.Value
 	o.Def = anonymous.Def
+	return nil
+}
+
+func (o AnyOptional[T]) MarshalBinary() (data []byte, err error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	var t transport[T]
+	if o.Value != nil {
+		t.ValuePresent = true
+		t.Value = *o.Value
+	}
+	if o.Def != nil {
+		t.DefPresent = true
+		t.Def = *o.Def
+	}
+	err = enc.Encode(t)
+	data = buf.Bytes()
+	return
+}
+
+func (o *AnyOptional[T]) UnmarshalBinary(data []byte) error {
+	var t transport[T]
+	buf := bytes.NewReader(data)
+	dec := gob.NewDecoder(buf)
+	err := dec.Decode(&t)
+	if err != nil {
+		return err
+	}
+
+	if t.ValuePresent {
+		o.Value = &t.Value
+	}
+	if t.DefPresent {
+		o.Def = &t.Def
+	}
 	return nil
 }
 
@@ -134,4 +178,21 @@ func (o Optional[T]) Is(expected T) bool {
 		return false
 	}
 	return o.Get() == expected
+}
+
+func (o Optional[T]) Equal(other Optional[T]) (ok bool) {
+	ok = true
+	if o.Def != nil && other.Def != nil {
+		ok = ok && *o.Def == *other.Def
+	} else {
+		ok = ok && o.Def == nil && other.Def == nil
+	}
+
+	if o.Value != nil && other.Value != nil {
+		ok = ok && *o.Value == *other.Value
+	} else {
+		ok = ok && o.Value == nil && other.Value == nil
+	}
+
+	return
 }

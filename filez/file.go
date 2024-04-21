@@ -107,3 +107,21 @@ func IsDirectory(path string) (bool, error) {
 
 	return fileInfo.IsDir(), err
 }
+
+func MkTemp(pattern string) string {
+	dir := os.TempDir()
+	f, err := os.CreateTemp(dir, pattern)
+	if err != nil {
+		panic(err)
+	}
+	path := filepath.Join(dir, f.Name())
+	return path
+}
+
+func MkTempDir(dir, pattern string) string {
+	p, err := os.MkdirTemp(dir, pattern)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
