@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"mby.fr/utils/zql"
-
-	_ "modernc.org/sqlite"
 )
 
 func OpenSynchronizedDB(backingFile, opts string, busyTimeout time.Duration) (*zql.SynchronizedDB, error) {
