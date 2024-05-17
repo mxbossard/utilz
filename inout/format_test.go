@@ -21,7 +21,7 @@ func TestAnsiFormatter(t *testing.T) {
 
 	cases := []struct {
 		in, want string
-		err error
+		err      error
 	}{
 		{"", "", nil},
 		{"\n", "\n", nil},
@@ -52,7 +52,7 @@ func TestPrefixFormatter(t *testing.T) {
 
 	cases := []struct {
 		in, want string
-		err error
+		err      error
 	}{
 		{"", "", nil},
 		{"\n", "\n", nil},
@@ -62,6 +62,7 @@ func TestPrefixFormatter(t *testing.T) {
 		{"foo\nbar", "  foofoo\n  foobar", nil},
 		{"foo\n\nbar", "  foofoo\n\n  foobar", nil},
 		{"foo\nbar\n", "  foofoo\n  foobar\n", nil},
+		{"foo%bar\nbar\n", "  foofoo%bar\n  foobar\n", nil},
 	}
 	for i, c := range cases {
 		got := formatter.Format(c.in)
@@ -81,7 +82,7 @@ func TestLeftPadFormatter(t *testing.T) {
 
 	cases := []struct {
 		in, want string
-		err error
+		err      error
 	}{
 		{"", "", nil},
 		{"\n", "\n", nil},
@@ -114,7 +115,7 @@ func TestLineFormatter(t *testing.T) {
 
 	cases := []struct {
 		in, want string
-		err error
+		err      error
 	}{
 		{"", "", nil},
 		{"\n", "\n", nil},
@@ -135,4 +136,3 @@ func TestLineFormatter(t *testing.T) {
 		assert.Equal(t, c.want, buffer.String(), "Bad data written for  case #%d", i)
 	}
 }
-

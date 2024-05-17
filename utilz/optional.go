@@ -95,10 +95,12 @@ func (o *AnyOptional[T]) UnmarshalBinary(data []byte) error {
 }
 
 func (o AnyOptional[T]) String() string {
-	if o.IsPresent() {
-		return fmt.Sprint(o.Get())
+	if o.IsSet() {
+		return fmt.Sprintf("<Optional value: %v>", o.Get())
+	} else if o.IsDefault() {
+		return fmt.Sprintf("<Optional default: %v>", o.Get())
 	}
-	return "<EMPTY>"
+	return "<Optional EMPTY>"
 }
 
 func (o *AnyOptional[T]) Clear() {
