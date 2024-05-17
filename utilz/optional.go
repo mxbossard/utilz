@@ -152,6 +152,14 @@ func (o AnyOptional[T]) IsEmpty() bool {
 	return o.Value == nil && o.Def == nil
 }
 
+func (o AnyOptional[T]) IsSet() bool {
+	return o.Value != nil
+}
+
+func (o AnyOptional[T]) IsDefault() bool {
+	return o.Value == nil && o.Def != nil
+}
+
 func (o AnyOptional[T]) IsPresent() bool {
 	return !o.IsEmpty()
 }
