@@ -24,6 +24,10 @@ type SynchronizedDB struct {
 	busyTimeout time.Duration
 }
 
+func (d SynchronizedDB) FileLockPath() string {
+	return d.fileLock.Path()
+}
+
 func (d SynchronizedDB) lock() (err error) {
 	lockCtx, cancel := context.WithTimeout(context.Background(), d.busyTimeout)
 	defer cancel()
