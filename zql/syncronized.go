@@ -4,9 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/gofrs/flock"
+)
+
+var (
+	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelWarn,
+	}))
 )
 
 type SqlQuerier interface {
@@ -29,6 +37,7 @@ func (d SynchronizedDB) FileLockPath() string {
 }
 
 func (d SynchronizedDB) lock() (err error) {
+	logger.Debug("SynchronizedDB locking ...", "fileLock", d.fileLock)
 	lockCtx, cancel := context.WithTimeout(context.Background(), d.busyTimeout)
 	defer cancel()
 	locked, err := d.fileLock.TryLockContext(lockCtx, time.Millisecond)
@@ -38,17 +47,21 @@ func (d SynchronizedDB) lock() (err error) {
 	if !locked {
 		err = errors.New("unable to acquire DB lock")
 	}
+	logger.Debug("SynchronizedDB locked ...", "fileLock", d.fileLock)
 	return
 }
 
 func (d SynchronizedDB) unlock() (err error) {
+	logger.Debug("SynchronizedDB unlocking ...", "fileLock", d.fileLock)
 	if d.fileLock != nil {
 		err = d.fileLock.Unlock()
 	}
+	logger.Debug("SynchronizedDB unlocked ...", "fileLock", d.fileLock)
 	return
 }
 
 func (d SynchronizedDB) Exec(query string, args ...any) (sql.Result, error) {
+
 	d.lock()
 	defer d.unlock()
 	return d.DB.Exec(query, args...)
