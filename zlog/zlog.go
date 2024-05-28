@@ -5,17 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime"
+	"strings"
 	"time"
-)
-
-const (
-	LevelTrace slog.Level = -12
-	LevelPerf  slog.Level = -8
-	LevelDebug slog.Level = -4
-	LevelInfo  slog.Level = 0
-	LevelWarn  slog.Level = 4
-	LevelError slog.Level = 8
-	LevelFatal slog.Level = 12
 )
 
 type perfTimer struct {
@@ -31,12 +23,12 @@ func (t *perfTimer) End() {
 		return
 	}
 	if t.ended {
-		msg := fmt.Sprintf("<%s> timer already ended", t.qualifier)
+		msg := fmt.Sprintf("%s() timer already ended", t.qualifier)
 		panic(msg)
 	}
 	duration := time.Since(*t.start)
-	msg := fmt.Sprintf("<%s> timer stopped", t.qualifier)
-	t.logger.Perf(msg, "duration", duration)
+	msg := fmt.Sprintf("%s() ended in %s", t.qualifier, duration)
+	t.logger.Perf(msg)
 	t.ended = true
 }
 
@@ -56,10 +48,12 @@ func (l *zLogger) TraceContext(ctx context.Context, msg string, args ...any) {
 
 func (l *zLogger) Fatal(msg string, args ...any) {
 	l.Log(context.Background(), LevelFatal, msg, args...)
+	os.Exit(1)
 }
 
 func (l *zLogger) FatalContext(ctx context.Context, msg string, args ...any) {
 	l.Log(ctx, LevelFatal, msg, args...)
+	os.Exit(1)
 }
 
 func (l *zLogger) Perf(msg string, args ...any) {
@@ -86,17 +80,31 @@ func (l *zLogger) StartPerf(inputs ...any) *perfTimer {
 			panic("not supported non string param supplied to zlog.StartPerf()")
 		}
 	} else {
-		// TODO: forge qualifier from caller method
-		qualifier = "TODO"
+		_, qualifier = CallerInfos(1)
 	}
 
-	msg := fmt.Sprintf("<%s> timer started ...", qualifier)
-	t.logger.Perf(msg)
+	msg := fmt.Sprintf("%s() started ...", qualifier)
+	l.Perf(msg)
 	t.logger = l
-	t.qualifier = "todo"
+	t.qualifier = qualifier
 	now := time.Now()
 	t.start = &now
 	return &t
+}
+
+func CallerInfos(skip int) (pkgName, funcName string) {
+	pc, _, _, ok := runtime.Caller(skip + 1)
+	details := runtime.FuncForPC(pc)
+	if ok && details != nil {
+		names := strings.Split(details.Name(), ".")
+		c := len(names)
+		funcName = names[c-1]
+		pkgName = strings.Join(names[:c-1], ".")
+
+	} else {
+		panic("cannot find caller infos")
+	}
+	return
 }
 
 func New(inputs ...any) *zLogger {
@@ -115,27 +123,18 @@ func New(inputs ...any) *zLogger {
 		}
 	}
 
-	var level *slog.LevelVar
-
 	if qualifier == "" {
-		// TODO: forge qualifier from caller package
-		qualifier = "TODO"
+		qualifier, _ = CallerInfos(1)
 	}
 	if handler == nil {
-		// By default set log level to Error
-		level.Set(LevelError)
-		// By default log to Stderr
-		opts := &slog.HandlerOptions{
-			Level: level,
-		}
-		handler = slog.NewTextHandler(os.Stderr, opts)
+		handler = *defaultHandler.Load()
 	}
 
+	handler = handler.WithAttrs([]slog.Attr{slog.String(QualifierKey, qualifier)})
 	logger := slog.New(handler)
-	logger = logger.With("qualifier", qualifier)
 	zLogger := zLogger{
 		Logger: logger,
-		level:  level,
+		level:  defaultLogLevel,
 	}
 	return &zLogger
 }

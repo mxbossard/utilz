@@ -154,6 +154,12 @@ func (w *ProcessingStreamWriter) Write(buffer []byte) (int, error) {
 	return written, err
 }
 
+func NewProcessingStreamWriter(nested io.Writer) *ProcessingStreamWriter {
+	return &ProcessingStreamWriter{
+		processingWriter: processingWriter{Nested: nested},
+	}
+}
+
 type ProcessingBufferWriter struct {
 	processingWriter
 	inBuffer  bytes.Buffer
@@ -218,14 +224,16 @@ func (w *ProcessingBufferWriter) Write(buffer []byte) (int, error) {
 	return 0, nil
 }
 
-func NewProcessingStreamWriter(nested io.Writer) *ProcessingStreamWriter {
-	return &ProcessingStreamWriter{
-		processingWriter: processingWriter{Nested: nested},
-	}
-}
-
 func NewProcessingBufferWriter(nested io.Writer) *ProcessingBufferWriter {
 	return &ProcessingBufferWriter{
 		processingWriter: processingWriter{Nested: nested},
 	}
+}
+
+type WriterRef struct {
+	io.Writer
+}
+
+func (w *WriterRef) Set(new io.Writer) {
+	w.Writer = new
 }

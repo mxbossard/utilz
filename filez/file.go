@@ -118,10 +118,40 @@ func MkTemp(pattern string) string {
 	return path
 }
 
+func MkTemp2(dir, pattern string) string {
+	f, err := os.CreateTemp(dir, pattern)
+	if err != nil {
+		panic(err)
+	}
+	path := filepath.Join(dir, f.Name())
+	return path
+}
+
 func MkTempDir(dir, pattern string) string {
 	p, err := os.MkdirTemp(dir, pattern)
 	if err != nil {
 		panic(err)
 	}
 	return p
+}
+
+func Open(dir, pattern string) *os.File {
+	f, err := os.CreateTemp("", pattern)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func ReadFile(f *os.File, size int) []byte {
+	b := make([]byte, size)
+	n, err := f.ReadAt(b, 0)
+	if err != nil {
+		panic(err)
+	}
+	return b[:n]
+}
+
+func ReadFileString(f *os.File, size int) string {
+	return string(ReadFile(f, size))
 }

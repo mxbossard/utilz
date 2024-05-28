@@ -132,6 +132,12 @@ func (r *ProcessingStreamReader) Read(buffer []byte) (int, error) {
 	return n, err
 }
 
+func NewProcessingStreamReader(nested io.Reader) *ProcessingStreamReader {
+	return &ProcessingStreamReader{
+		processingReader: processingReader{Nested: nested},
+	}
+}
+
 type ProcessingBufferReader struct {
 	processingReader
 	outBuffer bytes.Buffer
@@ -182,14 +188,16 @@ func (r *ProcessingBufferReader) Read(buffer []byte) (int, error) {
 	return r.outBuffer.Read(buffer)
 }
 
-func NewProcessingStreamReader(nested io.Reader) *ProcessingStreamReader {
-	return &ProcessingStreamReader{
-		processingReader: processingReader{Nested: nested},
-	}
-}
-
 func NewProcessingBufferReader(nested io.Reader) *ProcessingBufferReader {
 	return &ProcessingBufferReader{
 		processingReader: processingReader{Nested: nested},
 	}
+}
+
+type ReaderRef struct {
+	io.Reader
+}
+
+func (w *ReaderRef) Set(new io.Reader) {
+	w.Reader = new
 }
