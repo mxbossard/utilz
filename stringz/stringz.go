@@ -21,7 +21,7 @@ func Left(s string, n int) string {
 func Right(s string, n int) string {
 	r := []rune(s)
 	if len(r) > n {
-		return string(r[len(r)-n : len(r)])
+		return string(r[len(r)-n:])
 	}
 	return s
 }
@@ -44,13 +44,13 @@ func SummaryRatioEllipsis(s string, length int, leftRatio float32, ellipsis stri
 		return s
 	}
 
-	leftCount := int(float32(length - len(ellipsis)) * leftRatio)
+	leftCount := int(float32(length-len(ellipsis)) * leftRatio)
 	rightCount := length - len(ellipsis) - leftCount
 
 	sb := strings.Builder{}
 	sb.WriteString(s[0:leftCount])
 	sb.WriteString(ellipsis)
-	sb.WriteString(s[len(s)-rightCount:len(s)])
+	sb.WriteString(s[len(s)-rightCount:])
 	return sb.String()
 }
 
@@ -74,13 +74,13 @@ func SummaryRatioEllipsisRune(s string, length int, leftRatio float32, ellipsis 
 		return s
 	}
 
-	leftCount := int(float32(length - elipsisLen) * leftRatio)
+	leftCount := int(float32(length-elipsisLen) * leftRatio)
 	rightCount := length - elipsisLen - leftCount
 
 	sb := strings.Builder{}
 	sb.WriteString(string([]rune(s)[0:leftCount]))
 	sb.WriteString(ellipsis)
-	sb.WriteString(string([]rune(s)[len(s)-rightCount:len(s)]))
+	sb.WriteString(string([]rune(s)[len(s)-rightCount:]))
 	return sb.String()
 }
 

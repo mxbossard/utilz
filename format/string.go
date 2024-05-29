@@ -22,34 +22,33 @@ func PadRight(in string, pad int) (out string) {
 	return
 }
 
-func TruncateLeft(in string, length int)  (out string) {
+func TruncateLeft(in string, length int) (out string) {
 	if len(in) > length {
-		s:= len(in) - length
-	       return in[s:len(in)]
+		s := len(in) - length
+		return in[s:]
 	}
 	return in
 }
 
-func TruncateRight(in string, length int)  (out string) {
+func TruncateRight(in string, length int) (out string) {
 	if len(in) > length {
 		return in[:length]
 	}
 	return in
 }
 
-func TruncateLeftPrefix(in string, length int, prefix string)  (out string) {
+func TruncateLeftPrefix(in string, length int, prefix string) (out string) {
 	prefix = TruncateRight(prefix, length)
 	if len(in) > length {
-		return prefix + TruncateLeft(in, length - len(prefix))
+		return prefix + TruncateLeft(in, length-len(prefix))
 	}
 	return in
 }
 
-func TruncateRightSuffix(in string, length int, suffix string)  (out string) {
+func TruncateRightSuffix(in string, length int, suffix string) (out string) {
 	suffix = TruncateLeft(suffix, length)
 	if len(in) > length {
-	       return TruncateRight(in, length - len(suffix)) + suffix
+		return TruncateRight(in, length-len(suffix)) + suffix
 	}
 	return in
 }
-

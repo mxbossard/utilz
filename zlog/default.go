@@ -1,8 +1,6 @@
 package zlog
 
 import (
-	"context"
-	"fmt"
 	"io"
 	"log"
 	"log/slog"
@@ -40,41 +38,48 @@ func init() {
 
 	SetDefaultHandlerOptions(&slog.HandlerOptions{
 		Level: defaultLogLevel,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.LevelKey {
+				level := a.Value.Any().(slog.Level)
+				levelLabel := levelLabel(level)
+				a.Value = slog.StringValue(levelLabel)
+			}
+			return a
+		},
 	})
 
 	SetDefaultOutput(os.Stderr)
 
 	//handler := slog.NewTextHandler(defaultOutput, defaultHandlerOptions)
-	handler := NewDefaultHandler()
+	handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions)
+	//handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
 	SetDefaultHandler(handler)
 }
 
-func levelString(l slog.Level) string {
-	str := func(base string, val slog.Level) string {
-		if val == 0 {
-			return base
-		}
-		return fmt.Sprintf("%s%+d", base, val)
-	}
-
-	switch {
-	case l < LevelPerf:
-		return str("TRACE", l-LevelTrace)
-	case l < LevelDebug:
-		return str("PERF", l-LevelPerf)
-	case l < LevelInfo:
-		return str("DEBUG", l-LevelDebug)
-	case l < LevelWarn:
-		return str("INFO", l-LevelInfo)
-	case l < LevelError:
-		return str("WARN", l-LevelWarn)
-	case l < LevelFatal:
-		return str("ERROR", l-LevelError)
-	default:
-		return str("FATAL", l-LevelFatal)
-	}
+func SetDefaultLogLevel(lvl slog.Level) {
+	defaultLogLevel.Set(lvl)
+	slog.SetLogLoggerLevel(lvl)
 }
 
+func SetDefaultHandlerOptions(opts *slog.HandlerOptions) {
+	*defaultHandlerOptions = *opts
+}
+
+func SetDefaultOutput(out io.Writer) {
+	defaultOutput.Set(out)
+	log.SetOutput(out)
+}
+
+func SetDefaultHandler(handler slog.Handler) {
+	defaultHandler.Store(&handler)
+}
+
+func UseColoredDefaultHandler() {
+	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
+	SetDefaultHandler(handler)
+}
+
+/*
 type DefaultHandler struct {
 	slog.Handler
 
@@ -91,7 +96,7 @@ func NewDefaultHandler() DefaultHandler {
 
 func (h DefaultHandler) Handle(ctx context.Context, record slog.Record) error {
 	rawMsg := record.Message
-	record.Message = levelString(record.Level) + " "
+	record.Message = levelLabel(record.Level) + " "
 	if h.qualifier != "" {
 		//record.Message = fmt.Sprintf("%s [%s] %s", levelString(record.Level), h.qualifier, record.Message)
 		record.Message += fmt.Sprintf("[%s] ", h.qualifier)
@@ -116,21 +121,4 @@ func (h DefaultHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		qualifier: qualifier,
 	}
 }
-
-func SetDefaultLogLevel(lvl slog.Level) {
-	defaultLogLevel.Set(lvl)
-	slog.SetLogLoggerLevel(lvl)
-}
-
-func SetDefaultHandlerOptions(opts *slog.HandlerOptions) {
-	*defaultHandlerOptions = *opts
-}
-
-func SetDefaultOutput(out io.Writer) {
-	defaultOutput.Set(out)
-	log.SetOutput(out)
-}
-
-func SetDefaultHandler(handler slog.Handler) {
-	defaultHandler.Store(&handler)
-}
+*/

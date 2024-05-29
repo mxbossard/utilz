@@ -108,3 +108,21 @@ func TestStartPerf(t *testing.T) {
 	assert.Contains(t, b.String(), "PERF [foo] TestStartPerf() started ...")
 	assert.Contains(t, b.String(), "PERF [foo] TestStartPerf() ended in")
 }
+
+func TestColors(t *testing.T) {
+	//t.Skip()
+	b := open()
+	UseColoredDefaultHandler()
+	SetDefaultLogLevel(LevelTrace)
+
+	logger := New("qualifier")
+	logger.Trace("trace message", "key", "value")
+	logger.Perf("perf message", "key", "value")
+	logger.Debug("debug message", "key", "value")
+	logger.Info("info message", "key", "value")
+	logger.Warn("warn message", "key", "value")
+	logger.Error("error message", "key", "value")
+	//logger.Fatal("trace message")
+
+	assert.Equal(t, "", b.String())
+}

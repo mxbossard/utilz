@@ -1,12 +1,9 @@
 package ansi
 
-import (
-	"fmt"
-)
-
 type Color string
 
 const (
+	None  = Color("")
 	Reset = Color("\033[0m")
 
 	Black  = Color("\033[0;30m")
@@ -72,11 +69,3 @@ const (
 	HilightCyan   = Color("\033[0;97;46m")
 	HilightWhite  = Color("\033[0;90;47m")
 )
-
-func String(color Color, s string) string {
-	return fmt.Sprintf("%v%s%v", color, s, Reset)
-}
-
-func Sprintf(color Color, s string, objects ...any) string {
-	return String(color, fmt.Sprintf(s, objects...))
-}
