@@ -85,7 +85,7 @@ func (l *zLogger) StartPerf(inputs ...any) *perfTimer {
 	}
 
 	msg := fmt.Sprintf("%s() started ...", qualifier)
-	l.log(context.Background(), LevelPerf, msg)
+	l.log(context.Background(), LevelTrace, msg)
 	t.logger = l
 	t.qualifier = qualifier
 	now := time.Now()
@@ -150,7 +150,22 @@ func CallerInfos(skip int) (pkgName, funcName string) {
 	return
 }
 
-func New(inputs ...any) *zLogger {
+var defaultHandlers []qualifiedHandlerProxy
+
+type qualifiedHandlerProxy struct {
+	*handlerProxy
+	qualifier, pkgName string
+}
+
+func (h qualifiedHandlerProxy) Set(new slog.Handler) {
+	updated := new.WithAttrs([]slog.Attr{
+		slog.String(PackageKey, h.pkgName),
+		slog.String(QualifierKey, h.qualifier),
+	})
+	h.handlerProxy.Set(updated)
+}
+
+func new(defaultHandler slog.Handler, inputs ...any) *zLogger {
 	if len(inputs) > 2 {
 		panic("zlog.New() should not take more than two args")
 	}
@@ -166,20 +181,30 @@ func New(inputs ...any) *zLogger {
 		}
 	}
 
-	pkgName, _ := CallerInfos(1)
+	pkgName, _ := CallerInfos(2)
 	if handler == nil {
-		handler = DefaultHandler()
+		handler = defaultHandler
 	}
 
 	if qualifier == "" {
 		qualifier = pkgName
 	}
 
-	handler = handler.WithAttrs([]slog.Attr{
-		slog.String(PackageKey, pkgName),
-		slog.String(QualifierKey, qualifier),
-	})
-	logger := slog.New(handler)
+	/*
+		handler = handler.WithAttrs([]slog.Attr{
+			slog.String(PackageKey, pkgName),
+			slog.String(QualifierKey, qualifier),
+		})
+	*/
+	proxyHandler := qualifiedHandlerProxy{
+		handlerProxy: &handlerProxy{},
+		qualifier:    qualifier,
+		pkgName:      pkgName,
+	}
+	proxyHandler.Set(handler)
+	defaultHandlers = append(defaultHandlers, proxyHandler)
+
+	logger := slog.New(proxyHandler)
 	zLogger := zLogger{
 		Logger: logger,
 		level:  defaultLogLevel,
@@ -187,15 +212,39 @@ func New(inputs ...any) *zLogger {
 	return &zLogger
 }
 
-func SetDefault() {
+func New(inputs ...any) *zLogger {
+	return new(DefaultHandler(), inputs...)
+}
+
+func NewUnstructured(inputs ...any) *zLogger {
+	return new(NewUnstructuredHandler(defaultOutput, defaultHandlerOptions), inputs...)
+}
+
+func NewColored(inputs ...any) *zLogger {
+	return new(NewColoredHandler(defaultOutput, defaultHandlerOptions), inputs...)
+}
+
+func DefaultConfig() {
 	logger := slog.New(DefaultHandler())
 	slog.SetDefault(logger)
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 }
 
-/*
-func SetLogLoggerLevel(l slog.Level) {
-	slog.SetLogLoggerLevel(l)
-	setDefaultLogLevel(l)
+func UnstructuredConfig() bool {
+	logger := slog.New(NewUnstructuredHandler(defaultOutput, defaultHandlerOptions))
+	slog.SetDefault(logger)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+	return true
 }
-*/
+
+func ColoredConfig() bool {
+	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
+	// Update default handlers
+	for _, h := range defaultHandlers {
+		h.Set(handler)
+	}
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+	return true
+}

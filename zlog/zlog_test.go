@@ -20,7 +20,7 @@ func TestZlog(t *testing.T) {
 	assert.NotNil(t, logger)
 }
 
-func TestDefault_Before(t *testing.T) {
+func TestNoDefaultConfig(t *testing.T) {
 	b := open()
 	SetLogLevelThreshold(LevelError)
 
@@ -38,10 +38,10 @@ func TestDefault_Before(t *testing.T) {
 	assert.Contains(t, logged, "bar")
 }
 
-func TestDefault_After(t *testing.T) {
+func TestDefaultConfig(t *testing.T) {
 	b := open()
 
-	SetDefault()
+	DefaultConfig()
 	SetLogLevelThreshold(LevelError)
 
 	log.Printf("foo")
@@ -236,14 +236,14 @@ func TestFatal(t *testing.T) {
 
 func TestStartPerf(t *testing.T) {
 	b := open()
-	SetLogLevelThreshold(LevelPerf)
+	SetLogLevelThreshold(LevelTrace)
 
 	logger := New("foo")
 	p := logger.StartPerf()
 	p.End()
 
 	logged := b.String()
-	assert.Contains(t, logged, "PERF [foo] TestStartPerf() started ...")
+	assert.Contains(t, logged, "TRACE [foo] TestStartPerf() started ...")
 	assert.Contains(t, logged, "PERF [foo] TestStartPerf() ended in")
 	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
 	assert.NotContains(t, logged, "source=zlog/zlog.go:")
@@ -252,10 +252,10 @@ func TestStartPerf(t *testing.T) {
 func TestColors(t *testing.T) {
 	//t.Skip()
 	b := open()
-	UseColoredDefaultHandler()
+	//seColoredDefaultHandler()
 	SetLogLevelThreshold(LevelTrace)
 
-	logger := New()
+	logger := NewColored()
 	logger.Trace("trace message", "key", "value")
 	logger.Perf("perf message", "key", "value")
 	logger.Debug("debug message", "key", "value")

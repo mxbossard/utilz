@@ -230,10 +230,10 @@ func NewProcessingBufferWriter(nested io.Writer) *ProcessingBufferWriter {
 	}
 }
 
-type WriterRef struct {
+type WriterProxy struct {
 	io.Writer
 }
 
-func (w *WriterRef) Set(new io.Writer) {
+func (w *WriterProxy) Set(new io.Writer) {
 	w.Writer = new
 }

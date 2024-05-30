@@ -4,17 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log/slog"
-	"os"
 	"time"
 
 	"github.com/gofrs/flock"
+	"mby.fr/utils/zlog"
 )
 
 var (
-	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelWarn,
-	}))
+	// logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+	// 	Level: slog.LevelWarn,
+	// }))
+	logger = zlog.New()
 )
 
 type SqlQuerier interface {
@@ -37,7 +37,10 @@ func (d SynchronizedDB) FileLockPath() string {
 }
 
 func (d SynchronizedDB) lock() (err error) {
-	logger.Debug("SynchronizedDB locking ...", "fileLock", d.fileLock)
+	//logger.Debug("SynchronizedDB locking ...", "fileLock", d.fileLock)
+	perf := logger.StartPerf()
+	defer perf.End()
+
 	lockCtx, cancel := context.WithTimeout(context.Background(), d.busyTimeout)
 	defer cancel()
 	locked, err := d.fileLock.TryLockContext(lockCtx, time.Millisecond)
@@ -47,16 +50,19 @@ func (d SynchronizedDB) lock() (err error) {
 	if !locked {
 		err = errors.New("unable to acquire DB lock")
 	}
-	logger.Debug("SynchronizedDB locked ...", "fileLock", d.fileLock)
+	//logger.Debug("SynchronizedDB locked ...", "fileLock", d.fileLock)
 	return
 }
 
 func (d SynchronizedDB) unlock() (err error) {
-	logger.Debug("SynchronizedDB unlocking ...", "fileLock", d.fileLock)
+	//logger.Debug("SynchronizedDB unlocking ...", "fileLock", d.fileLock)
+	perf := logger.StartPerf()
+	defer perf.End()
+
 	if d.fileLock != nil {
 		err = d.fileLock.Unlock()
 	}
-	logger.Debug("SynchronizedDB unlocked ...", "fileLock", d.fileLock)
+	//logger.Debug("SynchronizedDB unlocked ...", "fileLock", d.fileLock)
 	return
 }
 

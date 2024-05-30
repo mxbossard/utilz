@@ -194,10 +194,10 @@ func NewProcessingBufferReader(nested io.Reader) *ProcessingBufferReader {
 	}
 }
 
-type ReaderRef struct {
+type ReaderProxy struct {
 	io.Reader
 }
 
-func (w *ReaderRef) Set(new io.Reader) {
+func (w *ReaderProxy) Set(new io.Reader) {
 	w.Reader = new
 }

@@ -1,12 +1,12 @@
 package zlog
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"log/slog"
 	"os"
-	"sync/atomic"
 
 	"mby.fr/utils/inout"
 )
@@ -27,15 +27,44 @@ const (
 var (
 	defaultLogLevel       *slog.LevelVar
 	defaultHandlerOptions *slog.HandlerOptions
-	defaultOutput         *inout.WriterRef
-	defaultHandler        atomic.Pointer[slog.Handler]
+	defaultOutput         *inout.WriterProxy
+	defaultHandler        *handlerProxy
 	IgnorePC              = false
 )
+
+type handlerProxy struct {
+	slog.Handler
+}
+
+func (h *handlerProxy) Set(new slog.Handler) {
+	h.Handler = new
+}
+
+func (h handlerProxy) Enabled(c context.Context, l slog.Level) bool {
+	return h.Handler.Enabled(c, l)
+}
+
+func (h handlerProxy) Handle(ctx context.Context, r slog.Record) error {
+	return h.Handler.Handle(ctx, r)
+}
+
+func (h handlerProxy) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &handlerProxy{
+		Handler: h.Handler.WithAttrs(attrs),
+	}
+}
+
+func (h handlerProxy) WithGroup(name string) slog.Handler {
+	return &handlerProxy{
+		Handler: h.Handler.WithGroup(name),
+	}
+}
 
 func init() {
 	defaultLogLevel = &slog.LevelVar{}
 	defaultHandlerOptions = &slog.HandlerOptions{}
-	defaultOutput = &inout.WriterRef{}
+	defaultOutput = &inout.WriterProxy{}
+	defaultHandler = &handlerProxy{}
 
 	SetLogLevelThreshold(LevelError)
 
@@ -111,7 +140,30 @@ func levelShortLabel(l slog.Level) string {
 		return str("FAT", l-LevelFatal)
 	}
 }
+
 func SetLogLevelThreshold(lvl slog.Level) {
+	defaultLogLevel.Set(lvl)
+}
+
+func validateThresholdLevel(lvl slog.Level) {
+	if lvl < LevelTrace {
+		msg := fmt.Sprintf("zlog threshold level: %d is < LevelTrace", lvl)
+		panic(msg)
+	} else if lvl > LevelFatal {
+		msg := fmt.Sprintf("zlog threshold level: %d is > LevelFatal", lvl)
+		panic(msg)
+	}
+}
+
+func SetLogLevelThreshold0IsTrace(n int) {
+	lvl := slog.Level(int(LevelTrace) + 4*n)
+	validateThresholdLevel(lvl)
+	defaultLogLevel.Set(lvl)
+}
+
+func SetLogLevelThreshold0IsFatal(n int) {
+	lvl := slog.Level(int(LevelFatal) - 4*n)
+	validateThresholdLevel(lvl)
 	defaultLogLevel.Set(lvl)
 }
 
@@ -125,19 +177,21 @@ func SetDefaultOutput(out io.Writer) {
 }
 
 func SetDefaultHandler(handler slog.Handler) {
-	defaultHandler.Store(&handler)
+	handler = handler.WithAttrs([]slog.Attr{
+		slog.String(QualifierKey, "default"),
+	})
+	defaultHandler.Set(handler)
 }
 
+/*
 func UseColoredDefaultHandler() {
 	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
 	SetDefaultHandler(handler)
 }
+*/
 
 func DefaultHandler() slog.Handler {
-	handler := *defaultHandler.Load()
-	return handler.WithAttrs([]slog.Attr{
-		slog.String(QualifierKey, "default"),
-	})
+	return defaultHandler
 }
 
 /*
