@@ -1,6 +1,7 @@
 package zlog
 
 import (
+	"log"
 	"log/slog"
 	"strings"
 	"testing"
@@ -19,22 +20,64 @@ func TestZlog(t *testing.T) {
 	assert.NotNil(t, logger)
 }
 
+func TestDefault_Before(t *testing.T) {
+	b := open()
+	SetLogLevelThreshold(LevelError)
+
+	log.Printf("foo")
+
+	logged := b.String()
+	assert.Contains(t, logged, "foo")
+
+	b.Reset()
+
+	SetLogLevelThreshold(LevelDebug)
+	log.Printf("bar")
+
+	logged = b.String()
+	assert.Contains(t, logged, "bar")
+}
+
+func TestDefault_After(t *testing.T) {
+	b := open()
+
+	SetDefault()
+	SetLogLevelThreshold(LevelError)
+
+	log.Printf("foo")
+
+	logged := b.String()
+	assert.Empty(t, logged)
+
+	b.Reset()
+
+	SetLogLevelThreshold(LevelDebug)
+	log.Printf("bar")
+
+	logged = b.String()
+	assert.Contains(t, logged, "DEBUG [default] bar")
+	//assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	//assert.NotContains(t, logged, "source=zlog/zlog.go:")
+}
+
 func TestNew_WithQualifier(t *testing.T) {
 	b := open()
-	SetDefaultLogLevel(LevelError)
+	SetLogLevelThreshold(LevelError)
 
 	logger := New("foo")
 	logger.Error("bar")
 
 	logged := b.String()
 	assert.Contains(t, logged, "ERROR [foo] bar")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
 }
 
 func TestNew_WithHandler(t *testing.T) {
 	b := open()
-	SetDefaultLogLevel(LevelError)
+	SetLogLevelThreshold(LevelError)
 
-	handler := slog.NewTextHandler(b, nil)
+	handler := slog.NewTextHandler(b, defaultHandlerOptions)
 
 	logger := New(handler)
 	logger.Error("bar")
@@ -43,79 +86,176 @@ func TestNew_WithHandler(t *testing.T) {
 	assert.Contains(t, logged, "level=ERROR")
 	assert.Contains(t, logged, "msg=bar")
 	assert.Contains(t, logged, "qualifier=mby.fr/utils/zlog")
+	assert.Contains(t, logged, "/mby.fr/utils/zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "/mby.fr/utils/zlog/zlog.go:")
 }
 
 func TestTrace(t *testing.T) {
 	b := open()
-	SetDefaultLogLevel(LevelError)
+	SetLogLevelThreshold(LevelError)
 
 	logger := New("foo")
-	logger.Trace("bar")
+	logger.Trace("baz trace")
 
 	assert.Empty(t, b.String())
 
 	b.Reset()
-	SetDefaultLogLevel(LevelTrace)
+	SetLogLevelThreshold(LevelTrace)
 
-	logger.Trace("bar")
+	logger.Trace("baz trace2")
 
-	assert.Contains(t, b.String(), "TRACE [foo] bar")
+	logged := b.String()
+	assert.Contains(t, logged, "TRACE [foo] baz trace")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
 }
 
 func TestPerf(t *testing.T) {
 	b := open()
-	SetDefaultLogLevel(LevelError)
+	SetLogLevelThreshold(LevelError)
 
 	logger := New("foo")
-	logger.Perf("bar")
+	logger.Perf("baz perf")
 
 	assert.Empty(t, b.String())
 
 	b.Reset()
-	SetDefaultLogLevel(LevelPerf)
+	SetLogLevelThreshold(LevelPerf)
 
-	logger.Perf("bar")
+	logger.Perf("baz perf2")
 
-	assert.Contains(t, b.String(), "PERF [foo] bar")
+	logged := b.String()
+	assert.Contains(t, logged, "PERF [foo] baz perf")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
+}
+
+func TestDebug(t *testing.T) {
+	b := open()
+	SetLogLevelThreshold(LevelError)
+
+	logger := New("foo")
+	logger.Debug("baz debug")
+
+	assert.Empty(t, b.String())
+
+	b.Reset()
+	SetLogLevelThreshold(LevelDebug)
+
+	logger.Debug("baz debug2")
+
+	logged := b.String()
+	assert.Contains(t, logged, "DEBUG [foo] baz debug2")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
+}
+
+func TestInfo(t *testing.T) {
+	b := open()
+	SetLogLevelThreshold(LevelError)
+
+	logger := New("foo")
+	logger.Info("baz info")
+
+	assert.Empty(t, b.String())
+
+	b.Reset()
+	SetLogLevelThreshold(LevelInfo)
+
+	logger.Info("baz info2")
+
+	logged := b.String()
+	assert.Contains(t, logged, "INFO [foo] baz info2")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
+}
+
+func TestWarn(t *testing.T) {
+	b := open()
+	SetLogLevelThreshold(LevelError)
+
+	logger := New("foo")
+	logger.Warn("baz warn")
+
+	assert.Empty(t, b.String())
+
+	b.Reset()
+	SetLogLevelThreshold(LevelWarn)
+
+	logger.Warn("baz warn2")
+
+	logged := b.String()
+	assert.Contains(t, logged, "WARN [foo] baz warn2")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
+}
+
+func TestError(t *testing.T) {
+	b := open()
+	SetLogLevelThreshold(LevelFatal)
+
+	logger := New("foo")
+	logger.Error("baz error")
+
+	assert.Empty(t, b.String())
+
+	b.Reset()
+	SetLogLevelThreshold(LevelDebug)
+
+	logger.Error("baz error2")
+
+	logged := b.String()
+	assert.Contains(t, logged, "ERROR [foo] baz error2")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
 }
 
 func TestFatal(t *testing.T) {
 	t.Skip("cannot test fatal which exit")
 	b := open()
-	SetDefaultLogLevel(LevelError)
+	SetLogLevelThreshold(LevelError)
 
 	logger := New("foo")
-	logger.Fatal("bar")
+	logger.Fatal("baz fatal")
 
-	assert.Contains(t, b.String(), "FATAL [foo] bar")
+	logged := b.String()
+	assert.Contains(t, logged, "FATAL [foo] baz fatal")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
 
 	b.Reset()
-	SetDefaultLogLevel(LevelFatal)
+	SetLogLevelThreshold(LevelFatal)
 
-	logger.Fatal("bar")
+	logger.Fatal("baz fatal2")
 
-	assert.Contains(t, b.String(), "FATAL [foo] bar")
+	logged = b.String()
+	assert.Contains(t, logged, "FATAL [foo] baz fatal2")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
 }
 
 func TestStartPerf(t *testing.T) {
 	b := open()
-	SetDefaultLogLevel(LevelPerf)
+	SetLogLevelThreshold(LevelPerf)
 
 	logger := New("foo")
 	p := logger.StartPerf()
 	p.End()
 
-	assert.Contains(t, b.String(), "PERF [foo] TestStartPerf() started ...")
-	assert.Contains(t, b.String(), "PERF [foo] TestStartPerf() ended in")
+	logged := b.String()
+	assert.Contains(t, logged, "PERF [foo] TestStartPerf() started ...")
+	assert.Contains(t, logged, "PERF [foo] TestStartPerf() ended in")
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
 }
 
 func TestColors(t *testing.T) {
 	//t.Skip()
 	b := open()
 	UseColoredDefaultHandler()
-	SetDefaultLogLevel(LevelTrace)
+	SetLogLevelThreshold(LevelTrace)
 
-	logger := New("qualifier")
+	logger := New()
 	logger.Trace("trace message", "key", "value")
 	logger.Perf("perf message", "key", "value")
 	logger.Debug("debug message", "key", "value")
@@ -124,5 +264,8 @@ func TestColors(t *testing.T) {
 	logger.Error("error message", "key", "value")
 	//logger.Fatal("trace message")
 
-	assert.Equal(t, "", b.String())
+	logged := b.String()
+	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
+	assert.NotContains(t, logged, "source=zlog/zlog.go:")
+	//assert.Equal(t, "", logged)
 }

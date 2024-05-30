@@ -1,6 +1,7 @@
 package zlog
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"log/slog"
@@ -20,6 +21,7 @@ const (
 	LevelFatal slog.Level = 12
 
 	QualifierKey = "qualifier"
+	PackageKey   = "pkg"
 )
 
 var (
@@ -27,6 +29,7 @@ var (
 	defaultHandlerOptions *slog.HandlerOptions
 	defaultOutput         *inout.WriterRef
 	defaultHandler        atomic.Pointer[slog.Handler]
+	IgnorePC              = false
 )
 
 func init() {
@@ -34,10 +37,11 @@ func init() {
 	defaultHandlerOptions = &slog.HandlerOptions{}
 	defaultOutput = &inout.WriterRef{}
 
-	SetDefaultLogLevel(LevelError)
+	SetLogLevelThreshold(LevelError)
 
 	SetDefaultHandlerOptions(&slog.HandlerOptions{
-		Level: defaultLogLevel,
+		Level:     defaultLogLevel,
+		AddSource: true,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.LevelKey {
 				level := a.Value.Any().(slog.Level)
@@ -56,9 +60,59 @@ func init() {
 	SetDefaultHandler(handler)
 }
 
-func SetDefaultLogLevel(lvl slog.Level) {
+func levelLabel(l slog.Level) string {
+	str := func(base string, val slog.Level) string {
+		if val == 0 {
+			return base
+		}
+		return fmt.Sprintf("%s%+d", base, val)
+	}
+
+	switch {
+	case l < LevelPerf:
+		return str("TRACE", l-LevelTrace)
+	case l < LevelDebug:
+		return str(" PERF", l-LevelPerf)
+	case l < LevelInfo:
+		return str("DEBUG", l-LevelDebug)
+	case l < LevelWarn:
+		return str(" INFO", l-LevelInfo)
+	case l < LevelError:
+		return str(" WARN", l-LevelWarn)
+	case l < LevelFatal:
+		return str("ERROR", l-LevelError)
+	default:
+		return str("FATAL", l-LevelFatal)
+	}
+}
+
+func levelShortLabel(l slog.Level) string {
+	str := func(base string, val slog.Level) string {
+		if val == 0 {
+			return base
+		}
+		return fmt.Sprintf("%s%+d", base, val)
+	}
+
+	switch {
+	case l < LevelPerf:
+		return str("TRA", l-LevelTrace)
+	case l < LevelDebug:
+		return str("PRF", l-LevelPerf)
+	case l < LevelInfo:
+		return str("DBG", l-LevelDebug)
+	case l < LevelWarn:
+		return str("INF", l-LevelInfo)
+	case l < LevelError:
+		return str("WAR", l-LevelWarn)
+	case l < LevelFatal:
+		return str("ERR", l-LevelError)
+	default:
+		return str("FAT", l-LevelFatal)
+	}
+}
+func SetLogLevelThreshold(lvl slog.Level) {
 	defaultLogLevel.Set(lvl)
-	slog.SetLogLoggerLevel(lvl)
 }
 
 func SetDefaultHandlerOptions(opts *slog.HandlerOptions) {
@@ -77,6 +131,13 @@ func SetDefaultHandler(handler slog.Handler) {
 func UseColoredDefaultHandler() {
 	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
 	SetDefaultHandler(handler)
+}
+
+func DefaultHandler() slog.Handler {
+	handler := *defaultHandler.Load()
+	return handler.WithAttrs([]slog.Attr{
+		slog.String(QualifierKey, "default"),
+	})
 }
 
 /*

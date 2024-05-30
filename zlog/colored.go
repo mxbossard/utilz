@@ -48,14 +48,21 @@ func (h *coloredHandler) Handle(ctx context.Context, r slog.Record) error {
 
 	lvl := r.Level
 	hiColor, color := levelAnsiColor(lvl)
-	state.appendString(" " + hiColor + levelLabel(lvl) + string(ansi.Reset) + " ")
+	state.appendString(" " + hiColor + levelShortLabel(lvl) + string(ansi.Reset) + " ")
 	if h.uh.qualifier != "" {
 		q := fmt.Sprintf("[%s%s%s] ", string(ansi.BoldWhite), h.uh.qualifier, string(ansi.Reset))
 		state.appendString(q)
 	}
+
 	state.appendString(color + r.Message + string(ansi.Reset))
-	defer state.free()
+
 	state.appendNonBuiltIns(r)
+
+	// source
+	if h.uh.ch.opts.AddSource {
+		state.appendAttr(slog.Any(slog.SourceKey, source(r, h.uh.packageName)))
+	}
+
 	state.appendString("\n")
 	return h.uh.output(r.PC, *buf)
 }

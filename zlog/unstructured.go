@@ -1,15 +1,19 @@
 package zlog
 
+// Unstructured handler is largely copy paste from golang default handler (log/slog/handler.go)
+
 import (
 	"context"
 	"encoding"
 	"fmt"
 	"io"
 	"log/slog"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -20,32 +24,6 @@ var groupPool = sync.Pool{New: func() any {
 	s := make([]string, 0, 10)
 	return &s
 }}
-
-func levelLabel(l slog.Level) string {
-	str := func(base string, val slog.Level) string {
-		if val == 0 {
-			return base
-		}
-		return fmt.Sprintf("%s%+d", base, val)
-	}
-
-	switch {
-	case l < LevelPerf:
-		return str("TRACE", l-LevelTrace)
-	case l < LevelDebug:
-		return str("PERF", l-LevelPerf)
-	case l < LevelInfo:
-		return str("DEBUG", l-LevelDebug)
-	case l < LevelWarn:
-		return str("INFO", l-LevelInfo)
-	case l < LevelError:
-		return str("WARN", l-LevelWarn)
-	case l < LevelFatal:
-		return str("ERROR", l-LevelError)
-	default:
-		return str("FATAL", l-LevelFatal)
-	}
-}
 
 // isEmptyGroup reports whether v is a group that has no attributes.
 func isEmptyGroup(v slog.Value) bool {
@@ -62,12 +40,23 @@ func isEmptyGroup(v slog.Value) bool {
 // If the Record was created without the necessary information,
 // or if the location is unavailable, it returns a non-nil *Source
 // with zero fields.
-func source(r slog.Record) *slog.Source {
+func source(r slog.Record, packageName string) *slog.Source {
 	fs := runtime.CallersFrames([]uintptr{r.PC})
 	f, _ := fs.Next()
+
+	fp := f.File
+	if packageName != "" {
+		s := strings.SplitAfterN(fp, packageName, 2)
+		pkgBaseName := filepath.Base(packageName)
+		if len(s) > 0 {
+			fp = filepath.Join(pkgBaseName, s[len(s)-1])
+			//fp = "[...]/" + fp
+		}
+
+	}
 	return &slog.Source{
 		Function: f.Function,
-		File:     f.File,
+		File:     fp,
 		Line:     f.Line,
 	}
 }
@@ -186,7 +175,7 @@ func (h *commonHandler) handle(r slog.Record) error {
 	}
 	// source
 	if h.opts.AddSource {
-		state.appendAttr(slog.Any(slog.SourceKey, source(r)))
+		state.appendAttr(slog.Any(slog.SourceKey, source(r, "")))
 	}
 	key = slog.MessageKey
 	msg := r.Message
@@ -530,9 +519,10 @@ func appendRFC3339Millis(b []byte, t time.Time) []byte {
 }
 
 type unstructuredHandler struct {
-	ch        *commonHandler
-	output    func(pc uintptr, data []byte) error
-	qualifier string
+	ch          *commonHandler
+	output      func(pc uintptr, data []byte) error
+	qualifier   string
+	packageName string
 }
 
 func (h *unstructuredHandler) Enabled(_ context.Context, l slog.Level) bool {
@@ -551,27 +541,38 @@ func (h *unstructuredHandler) Handle(ctx context.Context, r slog.Record) error {
 	// time
 	if !r.Time.IsZero() {
 		val := r.Time.Round(0) // strip monotonic to match Attr behavior
-		state.appendString(val.Format("15:04:05,000"))
+		state.appendString(val.Format("01/02/03 15:04:05,000"))
 	}
 
 	lvl := r.Level
 	state.appendString(" " + levelLabel(lvl) + " ")
+
 	if h.qualifier != "" {
 		q := fmt.Sprintf("[%s] ", h.qualifier)
 		state.appendString(q)
 	}
+
 	state.appendString(r.Message)
+
 	state.appendNonBuiltIns(r)
+
+	// source
+	if h.ch.opts.AddSource {
+		state.appendAttr(slog.Any(slog.SourceKey, source(r, h.packageName)))
+	}
+
 	state.appendString("\n")
 	return h.output(r.PC, *buf)
 }
 
 func (h *unstructuredHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	var qualifier string
+	var qualifier, pkgName string
 	var filtered []slog.Attr
 	for _, attr := range attrs {
 		if attr.Key == QualifierKey {
 			qualifier = attr.Value.String()
+		} else if attr.Key == PackageKey {
+			pkgName = attr.Value.String()
 		} else {
 			filtered = append(filtered, attr)
 		}
@@ -579,14 +580,15 @@ func (h *unstructuredHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 
 	newHandler := h.ch.withAttrs(filtered)
 	return &unstructuredHandler{
-		ch:        newHandler,
-		output:    h.output,
-		qualifier: qualifier,
+		ch:          newHandler,
+		output:      h.output,
+		qualifier:   qualifier,
+		packageName: pkgName,
 	}
 }
 
 func (h *unstructuredHandler) WithGroup(name string) slog.Handler {
-	return &unstructuredHandler{h.ch.withGroup(name), h.output, h.qualifier}
+	return &unstructuredHandler{h.ch.withGroup(name), h.output, h.qualifier, h.packageName}
 }
 
 func NewUnstructuredHandler(w io.Writer, opts *slog.HandlerOptions) *unstructuredHandler {

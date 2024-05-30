@@ -28,7 +28,8 @@ func (t *perfTimer) End() {
 	}
 	duration := time.Since(*t.start)
 	msg := fmt.Sprintf("%s() ended in %s", t.qualifier, duration)
-	t.logger.Perf(msg)
+	//t.logger.Perf(msg)
+	t.logger.log(context.Background(), LevelPerf, msg)
 	t.ended = true
 }
 
@@ -39,29 +40,29 @@ type zLogger struct {
 }
 
 func (l *zLogger) Trace(msg string, args ...any) {
-	l.Log(context.Background(), LevelTrace, msg, args...)
+	l.log(context.Background(), LevelTrace, msg, args...)
 }
 
 func (l *zLogger) TraceContext(ctx context.Context, msg string, args ...any) {
-	l.Log(ctx, LevelTrace, msg, args...)
+	l.log(ctx, LevelTrace, msg, args...)
+}
+
+func (l *zLogger) Perf(msg string, args ...any) {
+	l.log(context.Background(), LevelPerf, msg, args...)
+}
+
+func (l *zLogger) PerfContext(ctx context.Context, msg string, args ...any) {
+	l.log(ctx, LevelPerf, msg, args...)
 }
 
 func (l *zLogger) Fatal(msg string, args ...any) {
-	l.Log(context.Background(), LevelFatal, msg, args...)
+	l.log(context.Background(), LevelFatal, msg, args...)
 	os.Exit(1)
 }
 
 func (l *zLogger) FatalContext(ctx context.Context, msg string, args ...any) {
-	l.Log(ctx, LevelFatal, msg, args...)
+	l.log(ctx, LevelFatal, msg, args...)
 	os.Exit(1)
-}
-
-func (l *zLogger) Perf(msg string, args ...any) {
-	l.Log(context.Background(), LevelPerf, msg, args...)
-}
-
-func (l *zLogger) PerfContext(ctx context.Context, msg string, args ...any) {
-	l.Log(ctx, LevelPerf, msg, args...)
 }
 
 func (l *zLogger) StartPerf(inputs ...any) *perfTimer {
@@ -84,12 +85,54 @@ func (l *zLogger) StartPerf(inputs ...any) *perfTimer {
 	}
 
 	msg := fmt.Sprintf("%s() started ...", qualifier)
-	l.Perf(msg)
+	l.log(context.Background(), LevelPerf, msg)
 	t.logger = l
 	t.qualifier = qualifier
 	now := time.Now()
 	t.start = &now
 	return &t
+}
+
+// log is the low-level logging method for methods that take ...any.
+// It must always be called directly by an exported logging method
+// or function, because it uses a fixed call depth to obtain the pc.
+func (l *zLogger) log(ctx context.Context, level slog.Level, msg string, args ...any) {
+	if !l.Enabled(ctx, level) {
+		return
+	}
+	var pc uintptr
+	if !IgnorePC {
+		var pcs [1]uintptr
+		// skip [runtime.Callers, this function, this function's caller]
+		runtime.Callers(3, pcs[:])
+		pc = pcs[0]
+	}
+	r := slog.NewRecord(time.Now(), level, msg, pc)
+	r.Add(args...)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	_ = l.Handler().Handle(ctx, r)
+}
+
+// logAttrs is like [Logger.log], but for methods that take ...Attr.
+func (l *zLogger) logAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
+	if !l.Enabled(ctx, level) {
+		return
+	}
+	var pc uintptr
+	if !IgnorePC {
+		var pcs [1]uintptr
+		// skip [runtime.Callers, this function, this function's caller]
+		runtime.Callers(3, pcs[:])
+		pc = pcs[0]
+	}
+	r := slog.NewRecord(time.Now(), level, msg, pc)
+	r.AddAttrs(attrs...)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	_ = l.Handler().Handle(ctx, r)
 }
 
 func CallerInfos(skip int) (pkgName, funcName string) {
@@ -123,14 +166,19 @@ func New(inputs ...any) *zLogger {
 		}
 	}
 
-	if qualifier == "" {
-		qualifier, _ = CallerInfos(1)
-	}
+	pkgName, _ := CallerInfos(1)
 	if handler == nil {
-		handler = *defaultHandler.Load()
+		handler = DefaultHandler()
 	}
 
-	handler = handler.WithAttrs([]slog.Attr{slog.String(QualifierKey, qualifier)})
+	if qualifier == "" {
+		qualifier = pkgName
+	}
+
+	handler = handler.WithAttrs([]slog.Attr{
+		slog.String(PackageKey, pkgName),
+		slog.String(QualifierKey, qualifier),
+	})
 	logger := slog.New(handler)
 	zLogger := zLogger{
 		Logger: logger,
@@ -138,3 +186,16 @@ func New(inputs ...any) *zLogger {
 	}
 	return &zLogger
 }
+
+func SetDefault() {
+	logger := slog.New(DefaultHandler())
+	slog.SetDefault(logger)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+}
+
+/*
+func SetLogLoggerLevel(l slog.Level) {
+	slog.SetLogLoggerLevel(l)
+	setDefaultLogLevel(l)
+}
+*/
