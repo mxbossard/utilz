@@ -255,7 +255,7 @@ func TestColors(t *testing.T) {
 	//seColoredDefaultHandler()
 	SetLogLevelThreshold(LevelTrace)
 
-	logger := NewColored()
+	logger := New()
 	logger.Trace("trace message", "key", "value")
 	logger.Perf("perf message", "key", "value")
 	logger.Debug("debug message", "key", "value")

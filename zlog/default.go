@@ -181,59 +181,9 @@ func SetDefaultHandler(handler slog.Handler) {
 		slog.String(QualifierKey, "default"),
 	})
 	defaultHandler.Set(handler)
+	updateDefaultHandlers(handler)
 }
-
-/*
-func UseColoredDefaultHandler() {
-	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
-	SetDefaultHandler(handler)
-}
-*/
 
 func DefaultHandler() slog.Handler {
 	return defaultHandler
 }
-
-/*
-type DefaultHandler struct {
-	slog.Handler
-
-	qualifier string
-}
-
-func NewDefaultHandler() DefaultHandler {
-	handler := DefaultHandler{
-		Handler: slog.Default().Handler(),
-	}
-	handler.Enabled(context.Background(), defaultLogLevel.Level())
-	return handler
-}
-
-func (h DefaultHandler) Handle(ctx context.Context, record slog.Record) error {
-	rawMsg := record.Message
-	record.Message = levelLabel(record.Level) + " "
-	if h.qualifier != "" {
-		//record.Message = fmt.Sprintf("%s [%s] %s", levelString(record.Level), h.qualifier, record.Message)
-		record.Message += fmt.Sprintf("[%s] ", h.qualifier)
-	}
-	record.Message += rawMsg
-	return h.Handler.Handle(ctx, record)
-}
-
-func (h DefaultHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	var qualifier string
-	var filtered []slog.Attr
-	for _, attr := range attrs {
-		if attr.Key == QualifierKey {
-			qualifier = attr.Value.String()
-		} else {
-			filtered = append(filtered, attr)
-		}
-	}
-	newHandler := h.Handler.WithAttrs(filtered)
-	return DefaultHandler{
-		Handler:   newHandler,
-		qualifier: qualifier,
-	}
-}
-*/

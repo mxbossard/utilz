@@ -216,6 +216,7 @@ func New(inputs ...any) *zLogger {
 	return new(DefaultHandler(), inputs...)
 }
 
+/*
 func NewUnstructured(inputs ...any) *zLogger {
 	return new(NewUnstructuredHandler(defaultOutput, defaultHandlerOptions), inputs...)
 }
@@ -223,6 +224,7 @@ func NewUnstructured(inputs ...any) *zLogger {
 func NewColored(inputs ...any) *zLogger {
 	return new(NewColoredHandler(defaultOutput, defaultHandlerOptions), inputs...)
 }
+*/
 
 func DefaultConfig() {
 	logger := slog.New(DefaultHandler())
@@ -230,8 +232,17 @@ func DefaultConfig() {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 }
 
+func updateDefaultHandlers(newDefault slog.Handler) {
+	// Update default handlers
+	for _, h := range defaultHandlers {
+		h.Set(newDefault)
+	}
+}
+
 func UnstructuredConfig() bool {
-	logger := slog.New(NewUnstructuredHandler(defaultOutput, defaultHandlerOptions))
+	handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions)
+	updateDefaultHandlers(handler)
+	logger := slog.New(handler)
 	slog.SetDefault(logger)
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 	return true
@@ -239,10 +250,7 @@ func UnstructuredConfig() bool {
 
 func ColoredConfig() bool {
 	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
-	// Update default handlers
-	for _, h := range defaultHandlers {
-		h.Set(handler)
-	}
+	updateDefaultHandlers(handler)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 	slog.SetLogLoggerLevel(slog.LevelDebug)
