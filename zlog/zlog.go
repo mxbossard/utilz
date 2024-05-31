@@ -17,19 +17,19 @@ type perfTimer struct {
 	ended     bool
 }
 
-func (t *perfTimer) End() {
+func (t *perfTimer) End(args ...any) {
 	if t.start == nil {
 		// nothing to do
 		return
 	}
 	if t.ended {
-		msg := fmt.Sprintf("%s() timer already ended", t.qualifier)
+		msg := fmt.Sprintf("%s timer already ended", t.qualifier)
 		panic(msg)
 	}
 	duration := time.Since(*t.start)
-	msg := fmt.Sprintf("%s() ended in %s", t.qualifier, duration)
+	msg := fmt.Sprintf("%s ended in %s", t.qualifier, duration)
 	//t.logger.Perf(msg)
-	t.logger.log(context.Background(), LevelPerf, msg)
+	t.logger.log(context.Background(), LevelPerf, msg, args...)
 	t.ended = true
 }
 
@@ -65,32 +65,31 @@ func (l *zLogger) FatalContext(ctx context.Context, msg string, args ...any) {
 	os.Exit(1)
 }
 
-func (l *zLogger) StartPerf(inputs ...any) *perfTimer {
+func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
 	var t perfTimer
 	if l.level.Level() > LevelPerf {
 		return &t
 	}
 
-	var qualifier string
-	if len(inputs) > 1 {
-		panic("zlog.StartPerf() should not take more than one string as arg")
-	} else if len(inputs) == 1 {
-		if q, ok := inputs[0].(string); ok {
-			qualifier = q
-		} else {
-			panic("not supported non string param supplied to zlog.StartPerf()")
-		}
-	} else {
-		_, qualifier = CallerInfos(1)
-	}
-
-	msg := fmt.Sprintf("%s() started ...", qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
 	l.log(context.Background(), LevelTrace, msg)
 	t.logger = l
 	t.qualifier = qualifier
 	now := time.Now()
 	t.start = &now
 	return &t
+}
+
+func (l *zLogger) PerfTimer(args ...any) *perfTimer {
+	if l.level.Level() > LevelPerf {
+		var t perfTimer
+		return &t
+	}
+
+	_, qualifier := CallerInfos(1)
+	qualifier += "()"
+
+	return l.QualifiedPerfTimer(qualifier, args...)
 }
 
 // log is the low-level logging method for methods that take ...any.
@@ -226,8 +225,10 @@ func NewColored(inputs ...any) *zLogger {
 }
 */
 
-func DefaultConfig() {
-	logger := slog.New(DefaultHandler())
+func DefaultConfig(attrs ...slog.Attr) {
+	handler := DefaultHandler()
+	SetDefaultHandler(handler, attrs...)
+	logger := slog.New(handler)
 	slog.SetDefault(logger)
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 }
@@ -239,8 +240,8 @@ func updateDefaultHandlers(newDefault slog.Handler) {
 	}
 }
 
-func UnstructuredConfig() bool {
-	handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions)
+func UnstructuredConfig(attrs ...slog.Attr) bool {
+	handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions).WithAttrs(attrs)
 	updateDefaultHandlers(handler)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
@@ -248,8 +249,8 @@ func UnstructuredConfig() bool {
 	return true
 }
 
-func ColoredConfig() bool {
-	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
+func ColoredConfig(attrs ...slog.Attr) bool {
+	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions).WithAttrs(attrs)
 	updateDefaultHandlers(handler)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)

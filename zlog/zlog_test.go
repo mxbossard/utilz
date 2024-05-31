@@ -239,7 +239,7 @@ func TestStartPerf(t *testing.T) {
 	SetLogLevelThreshold(LevelTrace)
 
 	logger := New("foo")
-	p := logger.StartPerf()
+	p := logger.PerfTimer()
 	p.End()
 
 	logged := b.String()

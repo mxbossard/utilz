@@ -176,10 +176,9 @@ func SetDefaultOutput(out io.Writer) {
 	log.SetOutput(out)
 }
 
-func SetDefaultHandler(handler slog.Handler) {
-	handler = handler.WithAttrs([]slog.Attr{
-		slog.String(QualifierKey, "default"),
-	})
+func SetDefaultHandler(handler slog.Handler, attrs ...slog.Attr) {
+	attrs = append(attrs, slog.String(QualifierKey, "default"))
+	handler = handler.WithAttrs(attrs)
 	defaultHandler.Set(handler)
 	updateDefaultHandlers(handler)
 }
