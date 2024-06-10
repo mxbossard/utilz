@@ -3,6 +3,8 @@ package errorz
 import (
 	//"fmt"
 	"errors"
+	"fmt"
+	"os"
 	"reflect"
 	"strings"
 )
@@ -126,4 +128,24 @@ func NewAggregated(errors ...error) Aggregated {
 	agg := Aggregated{}
 	agg.AddAll(errors...)
 	return agg
+}
+
+func Fatal(a ...any) {
+	fmt.Fprint(os.Stderr, a...)
+	os.Exit(1)
+}
+
+func Fatalf(format string, a ...any) {
+	fmt.Fprintf(os.Stderr, format, a...)
+	os.Exit(1)
+}
+
+func Panic(a ...any) {
+	msg := fmt.Sprint(a...)
+	panic(msg)
+}
+
+func Panicf(format string, a ...any) {
+	msg := fmt.Sprintf(format, a...)
+	panic(msg)
 }

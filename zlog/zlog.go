@@ -65,6 +65,16 @@ func (l *zLogger) FatalContext(ctx context.Context, msg string, args ...any) {
 	os.Exit(1)
 }
 
+func (l *zLogger) Panic(msg string, args ...any) {
+	l.log(context.Background(), LevelFatal, msg, args...)
+	panic(msg)
+}
+
+func (l *zLogger) PanicContext(ctx context.Context, msg string, args ...any) {
+	l.log(ctx, LevelFatal, msg, args...)
+	panic(msg)
+}
+
 func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
 	var t perfTimer
 	if l.level.Level() > LevelPerf {
