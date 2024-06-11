@@ -18,6 +18,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"mby.fr/utils/format"
 )
 
 var groupPool = sync.Pool{New: func() any {
@@ -271,15 +273,29 @@ func valueAppend(dst []byte, v slog.Value) []byte {
 		return fmt.Append(dst, v.Group())
 	case slog.KindAny, slog.KindLogValuer:
 		return fmt.Append(dst, v.Any())
+		/*
+			str := fmt.Sprint(v.Any())
+			str = truncateStringValue(str)
+			return fmt.Append(dst, str)
+		*/
 	default:
 		panic(fmt.Sprintf("bad kind: %s", v.Kind()))
 	}
 }
 
+func truncateStringValue(in string, level slog.Level) string {
+	if level > LevelTrace {
+		return format.TruncateMiddle(in, TruncatedArgsLength, "[...]")
+	}
+	return in
+}
+
 func appendTextValue(s *handleState, v slog.Value) error {
 	switch v.Kind() {
 	case slog.KindString:
-		s.appendString(v.String())
+		str := v.String()
+		str = truncateStringValue(str, s.h.opts.Level.Level())
+		s.appendString(str)
 	case slog.KindTime:
 		s.appendTime(v.Time())
 	case slog.KindAny:
@@ -289,7 +305,9 @@ func appendTextValue(s *handleState, v slog.Value) error {
 				return err
 			}
 			// TODO: avoid the conversion to string.
-			s.appendString(string(data))
+			str := string(data)
+			str = truncateStringValue(str, s.h.opts.Level.Level())
+			s.appendString(str)
 			return nil
 		}
 		if bs, ok := byteSlice(v.Any()); ok {
@@ -297,7 +315,9 @@ func appendTextValue(s *handleState, v slog.Value) error {
 			s.buf.WriteString(strconv.Quote(string(bs)))
 			return nil
 		}
-		s.appendString(fmt.Sprintf("%+v", v.Any()))
+		str := fmt.Sprintf("%+v", v.Any())
+		str = truncateStringValue(str, s.h.opts.Level.Level())
+		s.appendString(str)
 	default:
 		*s.buf = valueAppend(*s.buf, v)
 	}

@@ -52,3 +52,12 @@ func TruncateRightSuffix(in string, length int, suffix string) (out string) {
 	}
 	return in
 }
+
+func TruncateMiddle(in string, length int, replacement string) (out string) {
+	if len(in) > length {
+		left := (length - len(replacement)) / 2
+		right := length - len(replacement) - left
+		return in[:left] + replacement + in[len(in)-right:]
+	}
+	return in
+}

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"mby.fr/utils/ansi"
+	"mby.fr/utils/format"
 )
 
 func levelAnsiColor(l slog.Level) (string, string) {
@@ -50,7 +51,9 @@ func (h *coloredHandler) Handle(ctx context.Context, r slog.Record) error {
 	hiColor, color := levelAnsiColor(lvl)
 	state.appendString(" " + hiColor + levelShortLabel(lvl) + string(ansi.Reset) + " ")
 	if h.uh.qualifier != "" {
-		q := fmt.Sprintf("[%s%s%s] ", string(ansi.BoldWhite), h.uh.qualifier, string(ansi.Reset))
+		qualifier := format.PadLeft(h.uh.qualifier, QualifierPadding)
+		qualifier = format.TruncateLeftPrefix(qualifier, QualifierPadding, "...")
+		q := fmt.Sprintf("[%s%s%s] ", string(ansi.BoldWhite), qualifier, string(ansi.Reset))
 		state.appendString(q)
 	}
 

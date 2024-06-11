@@ -12,6 +12,7 @@ import (
 
 type perfTimer struct {
 	logger    *zLogger
+	level     slog.Level
 	qualifier string
 	start     *time.Time
 	ended     bool
@@ -28,8 +29,7 @@ func (t *perfTimer) End(args ...any) {
 	}
 	duration := time.Since(*t.start)
 	msg := fmt.Sprintf("%s ended in %s", t.qualifier, duration)
-	//t.logger.Perf(msg)
-	t.logger.log(context.Background(), LevelPerf, msg, args...)
+	t.logger.log(context.Background(), t.level, msg, args...)
 	t.ended = true
 }
 
@@ -75,18 +75,44 @@ func (l *zLogger) PanicContext(ctx context.Context, msg string, args ...any) {
 	panic(msg)
 }
 
-func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
-	var t perfTimer
-	if l.level.Level() > LevelPerf {
-		return &t
-	}
-
+func (l *zLogger) startTimer(t *perfTimer, level slog.Level, qualifier string, args ...any) {
 	msg := fmt.Sprintf("%s timer started ...", qualifier)
-	l.log(context.Background(), LevelTrace, msg)
+	l.log(context.Background(), level, msg, args...)
 	t.logger = l
 	t.qualifier = qualifier
 	now := time.Now()
 	t.start = &now
+}
+
+func (l *zLogger) QualifiedTraceTimer(qualifier string, args ...any) *perfTimer {
+	t := perfTimer{level: LevelTrace}
+	if l.level.Level() > LevelTrace {
+		return &t
+	}
+
+	l.startTimer(&t, LevelTrace, qualifier, args...)
+	return &t
+}
+
+func (l *zLogger) TraceTimer(args ...any) *perfTimer {
+	if l.level.Level() > LevelTrace {
+		var t perfTimer
+		return &t
+	}
+
+	_, qualifier := CallerInfos(1)
+	qualifier += "()"
+
+	return l.QualifiedTraceTimer(qualifier, args...)
+}
+
+func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
+	t := perfTimer{level: LevelPerf}
+	if l.level.Level() > LevelPerf {
+		return &t
+	}
+
+	l.startTimer(&t, LevelTrace, qualifier, args...)
 	return &t
 }
 
@@ -100,6 +126,50 @@ func (l *zLogger) PerfTimer(args ...any) *perfTimer {
 	qualifier += "()"
 
 	return l.QualifiedPerfTimer(qualifier, args...)
+}
+
+func (l *zLogger) QualifiedDebugTimer(qualifier string, args ...any) *perfTimer {
+	t := perfTimer{level: LevelDebug}
+	if l.level.Level() > LevelDebug {
+		return &t
+	}
+
+	l.startTimer(&t, LevelTrace, qualifier, args...)
+	return &t
+}
+
+func (l *zLogger) DebugTimer(args ...any) *perfTimer {
+	if l.level.Level() > LevelDebug {
+		var t perfTimer
+		return &t
+	}
+
+	_, qualifier := CallerInfos(1)
+	qualifier += "()"
+
+	return l.QualifiedDebugTimer(qualifier, args...)
+}
+
+func (l *zLogger) QualifiedInfoTimer(qualifier string, args ...any) *perfTimer {
+	t := perfTimer{level: LevelInfo}
+	if l.level.Level() > LevelInfo {
+		return &t
+	}
+
+	l.startTimer(&t, LevelTrace, qualifier, args...)
+	return &t
+}
+
+func (l *zLogger) InfoTimer(args ...any) *perfTimer {
+	if l.level.Level() > LevelInfo {
+		var t perfTimer
+		return &t
+	}
+
+	_, qualifier := CallerInfos(1)
+	qualifier += "()"
+
+	return l.QualifiedInfoTimer(qualifier, args...)
 }
 
 // log is the low-level logging method for methods that take ...any.

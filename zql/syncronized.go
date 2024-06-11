@@ -38,7 +38,7 @@ func (d SynchronizedDB) FileLockPath() string {
 
 func (d SynchronizedDB) lock() (err error) {
 	//logger.Debug("SynchronizedDB locking ...", "fileLock", d.fileLock)
-	perf := logger.PerfTimer()
+	perf := logger.TraceTimer()
 	defer perf.End()
 
 	lockCtx, cancel := context.WithTimeout(context.Background(), d.busyTimeout)
@@ -56,7 +56,7 @@ func (d SynchronizedDB) lock() (err error) {
 
 func (d SynchronizedDB) unlock() (err error) {
 	//logger.Debug("SynchronizedDB unlocking ...", "fileLock", d.fileLock)
-	perf := logger.PerfTimer()
+	perf := logger.TraceTimer()
 	defer perf.End()
 
 	if d.fileLock != nil {

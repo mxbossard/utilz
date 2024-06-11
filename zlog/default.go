@@ -30,6 +30,8 @@ var (
 	defaultOutput         *inout.WriterProxy
 	defaultHandler        *handlerProxy
 	IgnorePC              = false
+	QualifierPadding      = 30
+	TruncatedArgsLength   = 32
 )
 
 type handlerProxy struct {
