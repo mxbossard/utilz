@@ -1,12 +1,14 @@
-package ansi
+package format
 
 import (
 	"fmt"
 	"strings"
+
+	"mby.fr/utils/ansi"
 )
 
 type FormattedText struct {
-	F          Color
+	F          ansi.Color
 	Nested     []*Formatted
 	Formatting bool
 }
@@ -52,9 +54,9 @@ func (f *FormattedText) Cat(o any) *FormattedText {
 		f.Nested = append(f.Nested, n)
 	case Stringer:
 		s := n.String()
-		f.Nested = append(f.Nested, Format(f.F, s))
+		f.Nested = append(f.Nested, New(f.F, s))
 	case string:
-		f.Nested = append(f.Nested, Format(f.F, n))
+		f.Nested = append(f.Nested, New(f.F, n))
 	default:
 		msg := fmt.Sprintf("canot Cat() type: %T", n)
 		panic(msg)
@@ -63,22 +65,22 @@ func (f *FormattedText) Cat(o any) *FormattedText {
 }
 
 func (f *FormattedText) Catln(o any) *FormattedText {
-	return f.Cat(o).Fcat(None, "\n")
+	return f.Cat(o).Fcat(ansi.None, "\n")
 }
 
 func (f *FormattedText) Join(o any, sep string) *FormattedText {
-	return f.Cat(o).Fcat(None, sep)
+	return f.Cat(o).Fcat(ansi.None, sep)
 }
 
-func (f *FormattedText) Fcat(format Color, o any) *FormattedText {
+func (f *FormattedText) Fcat(format ansi.Color, o any) *FormattedText {
 	var formatted *Formatted
 	switch n := o.(type) {
 	case Formatted:
-		formatted = Format(format, n.Squash(true).Raw())
+		formatted = New(format, n.Squash(true).Raw())
 	case *Formatted:
-		formatted = Format(format, n.Squash(true).Raw())
+		formatted = New(format, n.Squash(true).Raw())
 	case Stringer, string:
-		formatted = Format(format, n)
+		formatted = New(format, n)
 	default:
 		msg := fmt.Sprintf("canot Cat() type: %T", n)
 		panic(msg)
@@ -87,15 +89,15 @@ func (f *FormattedText) Fcat(format Color, o any) *FormattedText {
 	return f
 }
 
-func (f *FormattedText) Fcatln(format Color, o any) *FormattedText {
-	return f.Fcat(format, o).Fcat(None, "\n")
+func (f *FormattedText) Fcatln(format ansi.Color, o any) *FormattedText {
+	return f.Fcat(format, o).Fcat(ansi.None, "\n")
 }
 
-func (f *FormattedText) Fjoin(format Color, o any, sep string) *FormattedText {
-	return f.Fcat(format, o).Fcat(None, sep)
+func (f *FormattedText) Fjoin(format ansi.Color, o any, sep string) *FormattedText {
+	return f.Fcat(format, o).Fcat(ansi.None, sep)
 }
 
-func Text(color Color, inputs ...any) *FormattedText {
+func Text(color ansi.Color, inputs ...any) *FormattedText {
 	f := FormattedText{
 		F:          color,
 		Formatting: true,

@@ -1,132 +1,136 @@
 package ansi
 
 import (
-	"fmt"
 	"regexp"
+	"strings"
 )
 
-var formatPattern = regexp.MustCompile(`\033\[0(;\d{2,3}){0,2}m`)
+var ansiRulePattern = regexp.MustCompile(`\033\[0(;\d{2,3}){0,2}m`)
 
-type Stringer interface {
-	String() string
+func AnsiRulesIndex(in string) (int, [][]int) {
+	pos := ansiRulePattern.FindAllStringSubmatchIndex(in, -1)
+	ansiLength := 0
+	for _, p := range pos {
+		ansiLength += p[1] - p[0]
+	}
+	return ansiLength, pos
 }
 
-type Formatter interface {
-	Stringer
-
-	Format() string
-	Raw() string
-	Disable() Formatter
-	Enable() Formatter
-	Squash(bool) Formatter
+func AnsiRules(in string) (rules []string) {
+	_, pos := AnsiRulesIndex(in)
+	for _, p := range pos {
+		rules = append(rules, in[p[0]:p[1]])
+	}
+	return
 }
 
-type Formatted struct {
-	F          Color
-	Nested     any
-	Formatting bool
-	Squashing  bool
+func PadLeft(in string, pad int) (out string) {
+	ansiLength, _ := AnsiRulesIndex(in)
+	spaceCount := pad - len(in) - ansiLength
+	if spaceCount > 0 {
+		out += strings.Repeat(" ", spaceCount)
+	}
+	out += in
+	return
 }
 
-func (f Formatted) Format() string {
-	var nested string
-	switch n := f.Nested.(type) {
-	case Formatted:
-		if f.Squashing {
-			nested = n.Raw()
+func PadRight(in string, pad int) (out string) {
+	ansiLength, _ := AnsiRulesIndex(in)
+	out += in
+	spaceCount := pad - len(in) - ansiLength
+	if spaceCount > 0 {
+		out += strings.Repeat(" ", spaceCount)
+	}
+	return
+}
+
+func TruncateLeftPrefix(in string, length int, prefix string) string {
+	if len(prefix) >= int(length) {
+		panic("prefix must be smaller than length")
+	}
+	ansiLength, pos := AnsiRulesIndex(in)
+	if len(in)-ansiLength > length {
+		// Need to truncate
+		length -= len(prefix)
+		var out string
+		if len(pos) > 0 {
+			ptr := len(in)
+			remains := length
+			for i := len(pos) - 1; i >= 0; i-- {
+				left := pos[i][0]
+				right := pos[i][1]
+				if remains > 0 {
+					notAnsi := in[max(right, ptr-remains):ptr]
+					out = notAnsi + out
+					remains = remains - len(notAnsi)
+				}
+				out = in[left:right] + out
+				ptr = left
+			}
+			out = in[ptr-remains:ptr] + out
 		} else {
-			nested = n.Format()
+			out = in[len(in)-length:]
 		}
-	case Stringer:
-		nested = n.String()
-	case string:
-		nested = n
-	default:
-		msg := fmt.Sprintf("canot Format() nested type: %T", n)
-		panic(msg)
+		out = prefix + out
+		return out
 	}
-	if f.F == None {
-		return nested
+	return in
+}
+
+func TruncateLeft(in string, length int) string {
+	return TruncateLeftPrefix(in, length, "")
+}
+
+func TruncateRightSuffix(in string, length int, suffix string) string {
+	if len(suffix) >= int(length) {
+		panic("suffix must be smaller than length")
 	}
-	if f.Squashing {
-		nested = Unformat(nested)
+	ansiLength, pos := AnsiRulesIndex(in)
+	if len(in)-ansiLength > length {
+		// Need to truncate
+		length -= len(suffix)
+		var out string
+		if len(pos) > 0 {
+			ptr := 0
+			remains := length
+			for i := 0; i < len(pos); i++ {
+				left := pos[i][0]
+				right := pos[i][1]
+				if remains > 0 {
+					notAnsi := in[ptr:min(left, ptr+remains)]
+					out = out + notAnsi
+					remains = remains - len(notAnsi)
+				}
+				out = out + in[left:right]
+				ptr = right
+			}
+			out = out + in[ptr:ptr+remains]
+		} else {
+			out = in[:length]
+		}
+		out = out + suffix
+		return out
 	}
-	return fmt.Sprintf("%v%s%v", f.F, nested, Reset)
+	return in
 }
 
-func (f Formatted) Raw() string {
-	var nested string
-	switch n := f.Nested.(type) {
-	case Formatted:
-		nested = n.Raw()
-	case Stringer:
-		nested = n.String()
-	case string:
-		nested = n
-	default:
-		msg := fmt.Sprintf("canot Raw() nested type: %T", n)
-		panic(msg)
+func TruncateRight(in string, length int) string {
+	return TruncateRightSuffix(in, length, "")
+}
+
+func TruncateMid(in string, length int, replacement string) string {
+	if len(replacement) >= int(length) {
+		panic("replacement must be smaller than length")
 	}
-	if f.Squashing {
-		nested = Unformat(nested)
+
+	ansiLength, _ := AnsiRulesIndex(in)
+	if len(in)-ansiLength > length {
+		length -= len(replacement)
+		left := length / 2
+		right := length - left
+
+		out := TruncateRight(in, left) + replacement + TruncateLeft(in, right)
+		return out
 	}
-	return nested
-}
-
-func (f Formatted) String() string {
-	if f.Formatting {
-		return f.Format()
-	}
-	return f.Raw()
-}
-
-func (f *Formatted) Disable() *Formatted {
-	f.Formatting = false
-	return f
-}
-
-func (f *Formatted) Enable() *Formatted {
-	f.Formatting = true
-	return f
-}
-
-func (f *Formatted) Squash(ok bool) *Formatted {
-	f.Squashing = ok
-	return f
-}
-
-func Format(color Color, s any) *Formatted {
-	f := Formatted{
-		F:          color,
-		Nested:     s,
-		Formatting: true,
-		Squashing:  true,
-	}
-	return &f
-}
-
-func Unformat(o any) string {
-	var s string
-	switch n := o.(type) {
-	case Formatted:
-		s = n.Raw()
-	case *Formatted:
-		s = n.Raw()
-	case Stringer:
-		s = n.String()
-	case string:
-		s = n
-	default:
-		msg := fmt.Sprintf("canot Unformat() type: %T", n)
-		panic(msg)
-	}
-	return formatPattern.ReplaceAllString(s, "")
-}
-
-func Sprintf(color Color, s string, objects ...any) string {
-	return Format(color, fmt.Sprintf(s, objects...)).String()
-}
-
-func String0(color Color, s any) *Formatted {
-	return Format(color, s)
+	return in
 }

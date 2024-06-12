@@ -243,7 +243,7 @@ func TestStartPerf(t *testing.T) {
 	p.End()
 
 	logged := b.String()
-	assert.Contains(t, logged, "TRACE [foo] TestStartPerf() started ...")
+	assert.Contains(t, logged, "TRACE [foo] TestStartPerf() timer started ...")
 	assert.Contains(t, logged, "PERF [foo] TestStartPerf() ended in")
 	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
 	assert.NotContains(t, logged, "source=zlog/zlog.go:")

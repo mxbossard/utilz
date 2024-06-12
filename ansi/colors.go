@@ -69,3 +69,7 @@ const (
 	HilightCyan   = Color("\033[0;97;46m")
 	HilightWhite  = Color("\033[0;90;47m")
 )
+
+func Unformat(in string) string {
+	return ansiRulePattern.ReplaceAllString(in, "")
+}

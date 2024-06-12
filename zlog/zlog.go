@@ -75,9 +75,7 @@ func (l *zLogger) PanicContext(ctx context.Context, msg string, args ...any) {
 	panic(msg)
 }
 
-func (l *zLogger) startTimer(t *perfTimer, level slog.Level, qualifier string, args ...any) {
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
-	l.log(context.Background(), level, msg, args...)
+func (l *zLogger) startTimer(t *perfTimer, qualifier string) {
 	t.logger = l
 	t.qualifier = qualifier
 	now := time.Now()
@@ -90,20 +88,25 @@ func (l *zLogger) QualifiedTraceTimer(qualifier string, args ...any) *perfTimer 
 		return &t
 	}
 
-	l.startTimer(&t, LevelTrace, qualifier, args...)
+	l.startTimer(&t, qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) TraceTimer(args ...any) *perfTimer {
+	t := perfTimer{level: LevelPerf}
 	if l.level.Level() > LevelTrace {
-		var t perfTimer
 		return &t
 	}
 
 	_, qualifier := CallerInfos(1)
 	qualifier += "()"
 
-	return l.QualifiedTraceTimer(qualifier, args...)
+	l.startTimer(&t, qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	l.log(context.Background(), LevelTrace, msg, args...)
+	return &t
 }
 
 func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
@@ -112,20 +115,25 @@ func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
 		return &t
 	}
 
-	l.startTimer(&t, LevelTrace, qualifier, args...)
+	l.startTimer(&t, qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) PerfTimer(args ...any) *perfTimer {
+	t := perfTimer{level: LevelPerf}
 	if l.level.Level() > LevelPerf {
-		var t perfTimer
 		return &t
 	}
 
 	_, qualifier := CallerInfos(1)
 	qualifier += "()"
 
-	return l.QualifiedPerfTimer(qualifier, args...)
+	l.startTimer(&t, qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	l.log(context.Background(), LevelTrace, msg, args...)
+	return &t
 }
 
 func (l *zLogger) QualifiedDebugTimer(qualifier string, args ...any) *perfTimer {
@@ -134,20 +142,25 @@ func (l *zLogger) QualifiedDebugTimer(qualifier string, args ...any) *perfTimer 
 		return &t
 	}
 
-	l.startTimer(&t, LevelTrace, qualifier, args...)
+	l.startTimer(&t, qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) DebugTimer(args ...any) *perfTimer {
+	t := perfTimer{level: LevelPerf}
 	if l.level.Level() > LevelDebug {
-		var t perfTimer
 		return &t
 	}
 
 	_, qualifier := CallerInfos(1)
 	qualifier += "()"
 
-	return l.QualifiedDebugTimer(qualifier, args...)
+	l.startTimer(&t, qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	l.log(context.Background(), LevelTrace, msg, args...)
+	return &t
 }
 
 func (l *zLogger) QualifiedInfoTimer(qualifier string, args ...any) *perfTimer {
@@ -156,20 +169,25 @@ func (l *zLogger) QualifiedInfoTimer(qualifier string, args ...any) *perfTimer {
 		return &t
 	}
 
-	l.startTimer(&t, LevelTrace, qualifier, args...)
+	l.startTimer(&t, qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) InfoTimer(args ...any) *perfTimer {
+	t := perfTimer{level: LevelPerf}
 	if l.level.Level() > LevelInfo {
-		var t perfTimer
 		return &t
 	}
 
 	_, qualifier := CallerInfos(1)
 	qualifier += "()"
 
-	return l.QualifiedInfoTimer(qualifier, args...)
+	l.startTimer(&t, qualifier)
+	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	l.log(context.Background(), LevelTrace, msg, args...)
+	return &t
 }
 
 // log is the low-level logging method for methods that take ...any.

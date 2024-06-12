@@ -38,6 +38,9 @@ func TruncateRight(in string, length int) (out string) {
 }
 
 func TruncateLeftPrefix(in string, length int, prefix string) (out string) {
+	if len(prefix) >= int(length) {
+		panic("prefix must be smaller than length")
+	}
 	prefix = TruncateRight(prefix, length)
 	if len(in) > length {
 		return prefix + TruncateLeft(in, length-len(prefix))
@@ -46,6 +49,9 @@ func TruncateLeftPrefix(in string, length int, prefix string) (out string) {
 }
 
 func TruncateRightSuffix(in string, length int, suffix string) (out string) {
+	if len(suffix) >= int(length) {
+		panic("suffix must be smaller than length")
+	}
 	suffix = TruncateLeft(suffix, length)
 	if len(in) > length {
 		return TruncateRight(in, length-len(suffix)) + suffix
@@ -53,7 +59,10 @@ func TruncateRightSuffix(in string, length int, suffix string) (out string) {
 	return in
 }
 
-func TruncateMiddle(in string, length int, replacement string) (out string) {
+func TruncateMid(in string, length int, replacement string) (out string) {
+	if len(replacement) >= int(length) {
+		panic("replacement must be smaller than length")
+	}
 	if len(in) > length {
 		left := (length - len(replacement)) / 2
 		right := length - len(replacement) - left

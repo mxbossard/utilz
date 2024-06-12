@@ -13,6 +13,7 @@ import (
 
 	"mby.fr/utils/ansi"
 	"mby.fr/utils/errorz"
+	"mby.fr/utils/format"
 )
 
 // Printer responsible for printing messages in outputs (example: print with colors, without colors, ...)
@@ -74,7 +75,7 @@ func (p *BasicPrinter) Outf(s string, params ...interface{}) {
 }
 
 func (p *BasicPrinter) ColoredOutf(color ansi.Color, s string, params ...interface{}) {
-	s = ansi.Sprintf(color, s, ansiFormatParams(color, params...)...)
+	s = format.Sprintf(color, s, ansiFormatParams(color, params...)...)
 	p.Out(s)
 }
 
@@ -100,7 +101,7 @@ func (p *BasicPrinter) Errf(s string, params ...interface{}) {
 }
 
 func (p *BasicPrinter) ColoredErrf(color ansi.Color, s string, params ...interface{}) {
-	s = ansi.Sprintf(color, s, ansiFormatParams(color, params...)...)
+	s = format.Sprintf(color, s, ansiFormatParams(color, params...)...)
 	p.Err(s)
 }
 
@@ -141,6 +142,7 @@ func stringify(obj interface{}) (str string, err error) {
 		if err != nil {
 			return "", err
 		}
+
 		if o.LeftPad > 0 {
 			spaceCount := o.LeftPad - len(content)
 			if spaceCount > 0 {
@@ -152,11 +154,12 @@ func stringify(obj interface{}) (str string, err error) {
 				content += strings.Repeat(" ", spaceCount)
 			}
 		}
+
 		if o.Format != "" {
-			str = fmt.Sprintf("%s%s%s", o.Format, content, ansi.Reset)
-		} else {
-			str = content
+			content = fmt.Sprintf("%s%s%s", o.Format, content, ansi.Reset)
 		}
+
+		str = content
 	case error:
 		str = fmt.Sprintf("Error: %s !\n", obj)
 	default:
