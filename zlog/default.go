@@ -198,3 +198,11 @@ func DefaultHandler() slog.Handler {
 func SetPart(part string) {
 	defaultPart = part
 }
+
+func SetQualifierPadding(n int) {
+	QualifierPadding = n
+}
+
+func SetTruncatedArgsLength(n int) {
+	TruncatedArgsLength = n
+}
