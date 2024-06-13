@@ -95,7 +95,7 @@ func (l *zLogger) QualifiedTraceTimer(qualifier string, args ...any) *perfTimer 
 }
 
 func (l *zLogger) TraceTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelPerf}
+	t := perfTimer{level: LevelTrace}
 	if l.level.Level() > LevelTrace {
 		return &t
 	}
@@ -149,7 +149,7 @@ func (l *zLogger) QualifiedDebugTimer(qualifier string, args ...any) *perfTimer 
 }
 
 func (l *zLogger) DebugTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelPerf}
+	t := perfTimer{level: LevelDebug}
 	if l.level.Level() > LevelDebug {
 		return &t
 	}
@@ -176,7 +176,7 @@ func (l *zLogger) QualifiedInfoTimer(qualifier string, args ...any) *perfTimer {
 }
 
 func (l *zLogger) InfoTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelPerf}
+	t := perfTimer{level: LevelInfo}
 	if l.level.Level() > LevelInfo {
 		return &t
 	}

@@ -22,6 +22,7 @@ const (
 
 	QualifierKey = "qualifier"
 	PackageKey   = "pkg"
+	partKey      = "part"
 )
 
 var (
@@ -29,6 +30,7 @@ var (
 	defaultHandlerOptions *slog.HandlerOptions
 	defaultOutput         *inout.WriterProxy
 	defaultHandler        *handlerProxy
+	defaultPart           string
 	IgnorePC              = false
 	QualifierPadding      = 30
 	TruncatedArgsLength   = 32
@@ -147,6 +149,10 @@ func SetLogLevelThreshold(lvl slog.Level) {
 	defaultLogLevel.Set(lvl)
 }
 
+func GetLogLevelThreshold() slog.Level {
+	return defaultLogLevel.Level()
+}
+
 func validateThresholdLevel(lvl slog.Level) {
 	if lvl < LevelTrace {
 		msg := fmt.Sprintf("zlog threshold level: %d is < LevelTrace", lvl)
@@ -187,4 +193,8 @@ func SetDefaultHandler(handler slog.Handler, attrs ...slog.Attr) {
 
 func DefaultHandler() slog.Handler {
 	return defaultHandler
+}
+
+func SetPart(part string) {
+	defaultPart = part
 }

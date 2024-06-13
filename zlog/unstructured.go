@@ -543,6 +543,7 @@ type unstructuredHandler struct {
 	output      func(pc uintptr, data []byte) error
 	qualifier   string
 	packageName string
+	part        *string
 }
 
 func (h *unstructuredHandler) Enabled(_ context.Context, l slog.Level) bool {
@@ -567,8 +568,12 @@ func (h *unstructuredHandler) Handle(ctx context.Context, r slog.Record) error {
 	lvl := r.Level
 	state.appendString(" " + levelLabel(lvl) + " ")
 
-	if h.qualifier != "" {
-		q := fmt.Sprintf("[%s] ", h.qualifier)
+	if h.qualifier != "" || *h.part != "" {
+		part := ""
+		if *h.part != "" {
+			part = fmt.Sprintf("%s:", h.part)
+		}
+		q := fmt.Sprintf("[%s%s] ", part, h.qualifier)
 		state.appendString(q)
 	}
 
@@ -608,7 +613,7 @@ func (h *unstructuredHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 }
 
 func (h *unstructuredHandler) WithGroup(name string) slog.Handler {
-	return &unstructuredHandler{h.ch.withGroup(name), h.output, h.qualifier, h.packageName}
+	return &unstructuredHandler{h.ch.withGroup(name), h.output, h.qualifier, h.packageName, h.part}
 }
 
 func NewUnstructuredHandler(w io.Writer, opts *slog.HandlerOptions) *unstructuredHandler {

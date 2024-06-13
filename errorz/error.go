@@ -131,7 +131,7 @@ func NewAggregated(errors ...error) Aggregated {
 }
 
 func Fatal(a ...any) {
-	fmt.Fprint(os.Stderr, a...)
+	fmt.Fprintln(os.Stderr, a...)
 	os.Exit(1)
 }
 
@@ -141,7 +141,7 @@ func Fatalf(format string, a ...any) {
 }
 
 func Panic(a ...any) {
-	msg := fmt.Sprint(a...)
+	msg := fmt.Sprintln(a...)
 	panic(msg)
 }
 

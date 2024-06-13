@@ -50,10 +50,14 @@ func (h *coloredHandler) Handle(ctx context.Context, r slog.Record) error {
 	lvl := r.Level
 	hiColor, color := levelAnsiColor(lvl)
 	state.appendString(" " + hiColor + levelShortLabel(lvl) + string(ansi.Reset) + " ")
-	if h.uh.qualifier != "" {
+	if h.uh.qualifier != "" || defaultPart != "" {
+		part := ""
+		if defaultPart != "" {
+			part = fmt.Sprintf("%s:", defaultPart)
+		}
 		qualifier := format.PadLeft(h.uh.qualifier, QualifierPadding)
 		qualifier = format.TruncateLeftPrefix(qualifier, QualifierPadding, "...")
-		q := fmt.Sprintf("[%s%s%s] ", string(ansi.BoldWhite), qualifier, string(ansi.Reset))
+		q := fmt.Sprintf("[%s%s%s%s] ", part, string(ansi.BoldWhite), qualifier, string(ansi.Reset))
 		state.appendString(q)
 	}
 
