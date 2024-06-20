@@ -87,9 +87,8 @@ func init() {
 
 	SetDefaultOutput(os.Stderr)
 
-	//handler := slog.NewTextHandler(defaultOutput, defaultHandlerOptions)
-	handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions)
-	//handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
+	//handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions)
+	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
 	SetDefaultHandler(handler)
 }
 

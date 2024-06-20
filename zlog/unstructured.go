@@ -568,9 +568,9 @@ func (h *unstructuredHandler) Handle(ctx context.Context, r slog.Record) error {
 	lvl := r.Level
 	state.appendString(" " + levelLabel(lvl) + " ")
 
-	if h.qualifier != "" || *h.part != "" {
+	if h.qualifier != "" || h.part != nil && *h.part != "" {
 		part := ""
-		if *h.part != "" {
+		if h.part != nil && *h.part != "" {
 			part = fmt.Sprintf("%s:", h.part)
 		}
 		q := fmt.Sprintf("[%s%s] ", part, h.qualifier)

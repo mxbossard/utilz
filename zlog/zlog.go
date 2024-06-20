@@ -10,10 +10,17 @@ import (
 	"time"
 )
 
+func init() {
+	// if flag.Lookup("test.v") != nil {
+	// 	SetLogLevelThreshold(LevelDebug)
+	// }
+}
+
 type perfTimer struct {
 	logger    *zLogger
 	level     slog.Level
 	qualifier string
+	args      []any
 	start     *time.Time
 	ended     bool
 }
@@ -29,7 +36,8 @@ func (t *perfTimer) End(args ...any) {
 	}
 	duration := time.Since(*t.start)
 	msg := fmt.Sprintf("%s ended in %s", t.qualifier, duration)
-	t.logger.log(context.Background(), t.level, msg, args...)
+	allArgs := append(t.args, args...)
+	t.logger.log(context.Background(), t.level, msg, allArgs...)
 	t.ended = true
 }
 
@@ -83,7 +91,7 @@ func (l *zLogger) startTimer(t *perfTimer, qualifier string) {
 }
 
 func (l *zLogger) QualifiedTraceTimer(qualifier string, args ...any) *perfTimer {
-	t := perfTimer{level: LevelTrace}
+	t := perfTimer{level: LevelTrace, args: args}
 	if l.level.Level() > LevelTrace {
 		return &t
 	}
@@ -95,7 +103,7 @@ func (l *zLogger) QualifiedTraceTimer(qualifier string, args ...any) *perfTimer 
 }
 
 func (l *zLogger) TraceTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelTrace}
+	t := perfTimer{level: LevelTrace, args: args}
 	if l.level.Level() > LevelTrace {
 		return &t
 	}
@@ -110,7 +118,7 @@ func (l *zLogger) TraceTimer(args ...any) *perfTimer {
 }
 
 func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
-	t := perfTimer{level: LevelPerf}
+	t := perfTimer{level: LevelPerf, args: args}
 	if l.level.Level() > LevelPerf {
 		return &t
 	}
@@ -122,7 +130,7 @@ func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
 }
 
 func (l *zLogger) PerfTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelPerf}
+	t := perfTimer{level: LevelPerf, args: args}
 	if l.level.Level() > LevelPerf {
 		return &t
 	}
@@ -137,7 +145,7 @@ func (l *zLogger) PerfTimer(args ...any) *perfTimer {
 }
 
 func (l *zLogger) QualifiedDebugTimer(qualifier string, args ...any) *perfTimer {
-	t := perfTimer{level: LevelDebug}
+	t := perfTimer{level: LevelDebug, args: args}
 	if l.level.Level() > LevelDebug {
 		return &t
 	}
@@ -149,7 +157,7 @@ func (l *zLogger) QualifiedDebugTimer(qualifier string, args ...any) *perfTimer 
 }
 
 func (l *zLogger) DebugTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelDebug}
+	t := perfTimer{level: LevelDebug, args: args}
 	if l.level.Level() > LevelDebug {
 		return &t
 	}
@@ -164,7 +172,7 @@ func (l *zLogger) DebugTimer(args ...any) *perfTimer {
 }
 
 func (l *zLogger) QualifiedInfoTimer(qualifier string, args ...any) *perfTimer {
-	t := perfTimer{level: LevelInfo}
+	t := perfTimer{level: LevelInfo, args: args}
 	if l.level.Level() > LevelInfo {
 		return &t
 	}
@@ -176,7 +184,7 @@ func (l *zLogger) QualifiedInfoTimer(qualifier string, args ...any) *perfTimer {
 }
 
 func (l *zLogger) InfoTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelInfo}
+	t := perfTimer{level: LevelInfo, args: args}
 	if l.level.Level() > LevelInfo {
 		return &t
 	}
@@ -338,6 +346,15 @@ func updateDefaultHandlers(newDefault slog.Handler) {
 	}
 }
 
+func ColoredConfig(attrs ...slog.Attr) bool {
+	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions).WithAttrs(attrs)
+	updateDefaultHandlers(handler)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+	return true
+}
+
 func UnstructuredConfig(attrs ...slog.Attr) bool {
 	handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions).WithAttrs(attrs)
 	updateDefaultHandlers(handler)
@@ -347,11 +364,6 @@ func UnstructuredConfig(attrs ...slog.Attr) bool {
 	return true
 }
 
-func ColoredConfig(attrs ...slog.Attr) bool {
-	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions).WithAttrs(attrs)
-	updateDefaultHandlers(handler)
-	logger := slog.New(handler)
-	slog.SetDefault(logger)
-	slog.SetLogLoggerLevel(slog.LevelDebug)
-	return true
+func UncoloredConfig(attrs ...slog.Attr) bool {
+	return UnstructuredConfig(attrs...)
 }
