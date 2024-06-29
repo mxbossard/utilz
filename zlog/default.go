@@ -33,7 +33,7 @@ var (
 	defaultPart           string
 	IgnorePC              = false
 	QualifierPadding      = 30
-	TruncatedArgsLength   = 32
+	TruncatedArgsLength   = 64
 )
 
 type handlerProxy struct {

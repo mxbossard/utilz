@@ -291,6 +291,12 @@ func truncateStringValue(in string, level slog.Level) string {
 }
 
 func appendTextValue(s *handleState, v slog.Value) error {
+	switch f := v.Any().(type) {
+	case func() string:
+		s.appendString(f())
+		return nil
+	}
+
 	switch v.Kind() {
 	case slog.KindString:
 		str := v.String()
@@ -504,6 +510,7 @@ func (s *handleState) appendValue(v slog.Value) {
 			// an encoding.TextMarshaler or error fails to guard against nil,
 			// in which case "<nil>" seems to be the feasible choice.
 			//
+
 			// Adapted from the code in fmt/print.go.
 			if v := reflect.ValueOf(v.Any()); v.Kind() == reflect.Pointer && v.IsNil() {
 				s.appendString("<nil>")
