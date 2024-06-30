@@ -1,5 +1,7 @@
 package ansi
 
+import "regexp"
+
 type Color string
 
 const (
@@ -69,6 +71,8 @@ const (
 	HilightCyan   = Color("\033[0;97;46m")
 	HilightWhite  = Color("\033[0;90;47m")
 )
+
+var ansiRulePattern = regexp.MustCompile(`\033\[\d(;\d{2,3}){0,2}m`)
 
 func Unformat(in string) string {
 	return ansiRulePattern.ReplaceAllString(in, "")

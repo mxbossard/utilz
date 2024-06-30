@@ -1,11 +1,8 @@
 package ansi
 
 import (
-	"regexp"
 	"strings"
 )
-
-var ansiRulePattern = regexp.MustCompile(`\033\[0(;\d{2,3}){0,2}m`)
 
 func AnsiRulesIndex(in string) (int, [][]int) {
 	pos := ansiRulePattern.FindAllStringSubmatchIndex(in, -1)
