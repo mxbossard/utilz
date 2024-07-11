@@ -2,6 +2,7 @@ package filez
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -154,4 +155,23 @@ func ReadFile(f *os.File, size int) []byte {
 
 func ReadFileString(f *os.File, size int) string {
 	return string(ReadFile(f, size))
+}
+
+func Copy(f *os.File, w io.Writer, buffer []byte) (p int64, err error) {
+	n := -1
+	for err != io.EOF && n != 0 {
+		n, err = f.Read(buffer)
+		if err == io.EOF || n == 0 {
+			continue
+		}
+		if err != nil {
+			return
+		}
+		n, err = w.Write(buffer[0:n])
+		if err != nil {
+			return
+		}
+		p += int64(n)
+	}
+	return p, nil
 }
