@@ -183,6 +183,24 @@ func SetDefaultOutput(out io.Writer) {
 	log.SetOutput(out)
 }
 
+func SetDefaultTruncatingFileOutput(filepath string) {
+	out, err := os.OpenFile(filepath, os.O_CREATE+os.O_WRONLY+os.O_TRUNC, 0644)
+	if err != nil {
+		panic(err)
+	}
+	out.WriteString("\n==================== Truncated log file ====================\n")
+	SetDefaultOutput(out)
+}
+
+func SetDefaultAppendingFileOutput(filepath string) {
+	out, err := os.OpenFile(filepath, os.O_CREATE+os.O_WRONLY+os.O_APPEND, 0644)
+	if err != nil {
+		panic(err)
+	}
+	out.WriteString("\n==================== Appending to log file ====================\n")
+	SetDefaultOutput(out)
+}
+
 func SetDefaultHandler(handler slog.Handler, attrs ...slog.Attr) {
 	attrs = append(attrs, slog.String(QualifierKey, "default"))
 	handler = handler.WithAttrs(attrs)
