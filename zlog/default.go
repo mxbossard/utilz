@@ -29,7 +29,7 @@ var (
 	defaultLogLevel       *slog.LevelVar
 	defaultHandlerOptions *slog.HandlerOptions
 	defaultOutput         *inout.WriterProxy
-	defaultHandler        *handlerProxy
+	defaultHandlerProxy   *handlerProxy
 	defaultPart           string
 	IgnorePC              = false
 	QualifierPadding      = 30
@@ -41,7 +41,11 @@ type handlerProxy struct {
 }
 
 func (h *handlerProxy) Set(new slog.Handler) {
-	h.Handler = new
+	if p, ok := new.(handlerProxy); ok {
+		h.Handler = p.Handler
+	} else {
+		h.Handler = new
+	}
 }
 
 func (h handlerProxy) Enabled(c context.Context, l slog.Level) bool {
@@ -68,7 +72,7 @@ func init() {
 	defaultLogLevel = &slog.LevelVar{}
 	defaultHandlerOptions = &slog.HandlerOptions{}
 	defaultOutput = &inout.WriterProxy{}
-	defaultHandler = &handlerProxy{}
+	defaultHandlerProxy = &handlerProxy{}
 
 	SetLogLevelThreshold(LevelError)
 
@@ -87,9 +91,13 @@ func init() {
 
 	SetDefaultOutput(os.Stderr)
 
-	//handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions)
-	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
-	SetDefaultHandler(handler)
+	// handler := NewUnstructuredHandler(defaultOutput, defaultHandlerOptions)
+	// //handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
+	// SetDefaultHandler(handler)
+
+	if defaultHandlerProxy.Handler == nil {
+		UnstructuredConfig()
+	}
 }
 
 func levelLabel(l slog.Level) string {
@@ -204,12 +212,59 @@ func SetDefaultAppendingFileOutput(filepath string) {
 func SetDefaultHandler(handler slog.Handler, attrs ...slog.Attr) {
 	attrs = append(attrs, slog.String(QualifierKey, "default"))
 	handler = handler.WithAttrs(attrs)
-	defaultHandler.Set(handler)
+	defaultHandlerProxy.Set(handler)
 	updateDefaultHandlers(handler)
 }
 
 func DefaultHandler() slog.Handler {
-	return defaultHandler
+	return defaultHandlerProxy
+}
+
+func DefaultConfig(attrs ...slog.Attr) {
+	handler := defaultHandlerProxy.Handler
+	SetDefaultHandler(handler, attrs...)
+	//updateDefaultHandlers(handler)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+}
+
+func updateDefaultHandlers(newDefault slog.Handler) {
+	// Update default handlers
+	//defaultHandler.Set(newDefault)
+	for _, h := range defaultHandlers {
+		h.Set(newDefault)
+	}
+}
+
+func ColoredConfig(attrs ...slog.Attr) {
+	var handler slog.Handler
+	handler = NewColoredHandler(defaultOutput, defaultHandlerOptions)
+	if len(attrs) > 0 {
+		handler = handler.WithAttrs(attrs)
+	}
+	SetDefaultHandler(handler, attrs...)
+	//updateDefaultHandlers(handler)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+}
+
+func UnstructuredConfig(attrs ...slog.Attr) {
+	var handler slog.Handler
+	handler = NewUnstructuredHandler(defaultOutput, defaultHandlerOptions)
+	if len(attrs) > 0 {
+		handler = handler.WithAttrs(attrs)
+	}
+	SetDefaultHandler(handler, attrs...)
+	//updateDefaultHandlers(handler)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+}
+
+func UncoloredConfig(attrs ...slog.Attr) {
+	UnstructuredConfig(attrs...)
 }
 
 func SetPart(part string) {

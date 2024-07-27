@@ -238,6 +238,7 @@ func SColoredPrintf(color ansi.Color, format string, params ...any) string {
 
 //var flushablePrinters []*BasicPrinter
 
+// Build a default printer with buffered outputs.
 func New(outputs Outputs) Printer {
 	buffered := NewBufferedOutputs(outputs)
 	var m sync.Mutex
@@ -257,14 +258,31 @@ func New(outputs Outputs) Printer {
 	return &printer
 }
 
+func NewUnbuffured(outputs Outputs) Printer {
+	var m sync.Mutex
+	var t time.Time
+	printer := BasicPrinter{&m, outputs, t}
+	return &printer
+}
+
+// Build a default printer with non buffered standards outputs.
 func NewStandard() Printer {
 	outputs := NewStandardOutputs()
 	return New(outputs)
 }
 
+// Build a default printer with discarding outputs.
 func NewDiscarding() Printer {
 	outputs := NewOutputs(io.Discard, io.Discard)
 	return New(outputs)
+}
+
+func Buffered(p Printer) Printer {
+	buffered := NewBufferedOutputs(p.Outputs())
+	var m sync.Mutex
+	var t time.Time
+	printer := BasicPrinter{&m, buffered, t}
+	return &printer
 }
 
 // ANSI formatting for content

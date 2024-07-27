@@ -578,7 +578,7 @@ func (h *unstructuredHandler) Handle(ctx context.Context, r slog.Record) error {
 	if h.qualifier != "" || h.part != nil && *h.part != "" {
 		part := ""
 		if h.part != nil && *h.part != "" {
-			part = fmt.Sprintf("%s:", h.part)
+			part = fmt.Sprintf("%s:", *h.part)
 		}
 		q := fmt.Sprintf("[%s%s] ", part, h.qualifier)
 		state.appendString(q)

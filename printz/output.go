@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"strings"
 )
 
 // Outputs responsible for keeping reference of outputs writers (example: stdout, file, ...)
@@ -41,16 +42,43 @@ func (o BasicOutputs) Err() io.Writer {
 }
 
 func NewOutputs(out, err io.Writer) Outputs {
-	return BasicOutputs{out, err}
+	return &BasicOutputs{out, err}
 }
 
 func NewStandardOutputs() Outputs {
 	return NewOutputs(os.Stdout, os.Stderr)
 }
 
+func NewStringOutputs() (outW, errW *strings.Builder, outs Outputs) {
+	outW = &strings.Builder{}
+	errW = &strings.Builder{}
+	outs = NewOutputs(outW, errW)
+	return
+}
+
+type dummyWriter struct {
+	io.Writer
+}
+
+func (w dummyWriter) Write(p []byte) (int, error) {
+	return w.Writer.Write(p)
+}
+
+func (w dummyWriter) Flush() error {
+	f, ok := w.Writer.(Flusher)
+	if ok {
+		err := f.Flush()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func NewBufferedOutputs(outputs Outputs) Outputs {
-	buffOut := bufio.NewWriter(outputs.Out())
-	buffErr := bufio.NewWriter(outputs.Err())
+	// Use a dummyWriter to be able to nest multiple bufio.Writer
+	buffOut := bufio.NewWriter(dummyWriter{outputs.Out()})
+	buffErr := bufio.NewWriter(dummyWriter{outputs.Err()})
 	buffered := BasicOutputs{buffOut, buffErr}
 	return buffered
 }
