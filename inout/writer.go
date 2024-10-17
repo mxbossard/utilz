@@ -13,6 +13,26 @@ type Flusher interface {
 	Flush() error
 }
 
+type CallbackFlusher struct {
+	Nested   Flusher
+	Callback func()
+}
+
+func (w *CallbackFlusher) Flush() (err error) {
+	w.Callback()
+	return w.Nested.Flush()
+}
+
+type CallbackWriter struct {
+	Nested   io.Writer
+	Callback func(p []byte)
+}
+
+func (w *CallbackWriter) Write(p []byte) (n int, err error) {
+	w.Callback(p)
+	return w.Nested.Write(p)
+}
+
 type CallbackLineWriter struct {
 	sync.Mutex
 	//Flusher
