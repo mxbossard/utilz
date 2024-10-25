@@ -140,7 +140,11 @@ func (l *zLogger) PerfTimer(args ...any) *perfTimer {
 
 	l.startTimer(&t, qualifier)
 	msg := fmt.Sprintf("%s timer started ...", qualifier)
-	l.log(context.Background(), LevelTrace, msg, args...)
+	lvl := LevelPerf
+	if displayPerfStartTimerAsTrace {
+		lvl = LevelTrace
+	}
+	l.log(context.Background(), lvl, msg, args...)
 	return &t
 }
 

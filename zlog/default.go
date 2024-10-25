@@ -26,14 +26,15 @@ const (
 )
 
 var (
-	defaultLogLevel       *slog.LevelVar
-	defaultHandlerOptions *slog.HandlerOptions
-	defaultOutput         *inout.WriterProxy
-	defaultHandlerProxy   *handlerProxy
-	defaultPart           string
-	IgnorePC              = false
-	QualifierPadding      = 30
-	TruncatedArgsLength   = 64
+	defaultLogLevel              *slog.LevelVar
+	defaultHandlerOptions        *slog.HandlerOptions
+	defaultOutput                *inout.WriterProxy
+	defaultHandlerProxy          *handlerProxy
+	defaultPart                  string
+	displayPerfStartTimerAsTrace = true
+	IgnorePC                     = false
+	QualifierPadding             = 30
+	TruncatedArgsLength          = 64
 )
 
 type handlerProxy struct {
@@ -277,4 +278,8 @@ func SetQualifierPadding(n int) {
 
 func SetTruncatedArgsLength(n int) {
 	TruncatedArgsLength = n
+}
+
+func PerfTimerStartAsTrace(b bool) {
+	displayPerfStartTimerAsTrace = b
 }
