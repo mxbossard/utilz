@@ -1,5 +1,11 @@
 package display
 
+import (
+	"time"
+
+	"mby.fr/utils/printz"
+)
+
 /**
 - A screen is a structure which abstract the whole screen.
   - a screen may be splitted into multiple parts which are displayed simultaneously.
@@ -13,42 +19,50 @@ package display
 ## Features
 - A displayer can be configured with Formatters
 - The configuration should be stored à Screen level
--
+
+## Ideas
+- reuse printz.Printer : how to format ?
+- screen.InitPrinter(name)
+- screen.ConfigPrinter(name, formaters)
+- change format.Formatter for signature: Format(string|Stringer...) Formatted
+- use templates ?
 */
 
 type displayer interface {
+	// Replaced by printz.Printer ?
 	Stdout()
 	Stderr()
 	Flush() error
-	Quiet(bool)
-	//SetVerbose(model.VerboseLevel)
+	//Quiet(bool)
 }
 
 type screen struct {
 }
 
-func (*screen) Session(name string) (s *session) {
+func (*screen) Session(name string, priority int32) (s *session) {
 
 	return
 }
 
-func (*screen) ConfigDisplay(name string) (s *session) {
+func (*screen) ConfigPrinter(name string) (s *session) {
 
 	return
 }
 
-func (*screen) Flush() (err error) {
+func (*screen) AsyncFlush(timeout time.Duration) (err error) {
+	// Launch goroutine wich will continuously flush async display
 	return
 }
 
-func (*screen) Async() (err error) {
+func (*screen) BlockTail(timeout time.Duration) (err error) {
+	// Tail async display blocking until end
 	return
 }
 
 type session struct {
 }
 
-func (*session) Display(name string) (d *displayer) {
+func (*session) Printer(name string) (p printz.Printer) {
 
 	return
 }
@@ -63,5 +77,9 @@ func (*session) Flush() (err error) {
 }
 
 func NewScreen() *screen {
+	return &screen{}
+}
+
+func NewAsyncScreen(tmpPath string) *screen {
 	return &screen{}
 }
