@@ -78,6 +78,15 @@ func ReadString(filepath string) (content string, err error) {
 	return
 }
 
+func ReadStringOrPanic(filepath string) (content string) {
+	bytes, err := os.ReadFile(filepath)
+	if err != nil {
+		panic(err)
+	}
+	content = string(bytes)
+	return
+}
+
 func WriteString(filepath, content string, perm os.FileMode) (err error) {
 	bytes := []byte(content)
 	err = os.WriteFile(filepath, bytes, perm)

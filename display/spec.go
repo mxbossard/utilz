@@ -62,6 +62,12 @@ func (*screen) ConfigPrinter(name string) (s *session) {
 	return
 }
 
+func (*screen) Flush() (err error) {
+	// Flush the display
+	// TODO
+	return
+}
+
 func (*screen) AsyncFlush(timeout time.Duration) (err error) {
 	// Launch goroutine wich will continuously flush async display
 	// TODO
@@ -108,17 +114,17 @@ func (s *session) Flush() (err error) {
 	return
 }
 
-func NewScreen() *screen {
+func NewScreen(outputs printz.Outputs) *screen {
 	return &screen{
 		sessions: make(map[string]*session),
 		outputs:  printz.NewStandardOutputs(),
 	}
 }
 
-func NewAsyncScreen(tmpPath string) *screen {
+func NewAsyncScreen(outputs printz.Outputs, tmpPath string) *screen {
 	return &screen{
 		sessions: make(map[string]*session),
-		outputs:  printz.NewStandardOutputs(),
+		outputs:  outputs,
 		tmpPath:  tmpPath,
 	}
 }
