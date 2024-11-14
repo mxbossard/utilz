@@ -1,6 +1,7 @@
 package display
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -22,7 +23,8 @@ func TestGetAsyncScreen(t *testing.T) {
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
-	tmpDir := "/tmp/foo"
+	tmpDir := "/tmp/foo42"
+	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(outs, tmpDir)
 	assert.NotNil(t, s)
 	assert.DirExists(t, tmpDir)
@@ -32,7 +34,8 @@ func TestGetSession(t *testing.T) {
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
-	tmpDir := "/tmp/foo"
+	tmpDir := "/tmp/foo42"
+	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(outs, tmpDir)
 	require.NotNil(t, s)
 	session := s.Session("bar", 42)
@@ -44,7 +47,8 @@ func TestGetSessionPrinter(t *testing.T) {
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
-	tmpDir := "/tmp/foo"
+	tmpDir := "/tmp/foo42"
+	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(outs, tmpDir)
 	require.NotNil(t, s)
 	session := s.Session("foo", 42)
@@ -57,7 +61,8 @@ func TestAsyncPrint(t *testing.T) {
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
-	tmpDir := "/tmp/foo"
+	tmpDir := "/tmp/foo42"
+	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(outs, tmpDir)
 	require.NotNil(t, s)
 	session := s.Session("foo", 42)

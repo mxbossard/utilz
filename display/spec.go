@@ -1,6 +1,9 @@
 package display
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"mby.fr/utils/printz"
@@ -46,6 +49,17 @@ func (s *screen) Session(name string, priorityOrder int32) *session {
 	if session, ok := s.sessions[name]; ok {
 		return session
 	}
+
+	sessionFilepath := filepath.Join(s.tmpPath, name)
+	if _, err := os.Stat(sessionFilepath); err == nil {
+		panic(fmt.Sprintf("unable to create async screen session: [%s] path already exists", sessionFilepath))
+	}
+
+	_, err := os.Create(sessionFilepath)
+	if err != nil {
+		panic(err)
+	}
+
 	session := &session{
 		name:          name,
 		priorityOrder: priorityOrder,
@@ -122,6 +136,15 @@ func NewScreen(outputs printz.Outputs) *screen {
 }
 
 func NewAsyncScreen(outputs printz.Outputs, tmpPath string) *screen {
+	if _, err := os.Stat(tmpPath); err == nil {
+		panic(fmt.Sprintf("unable to create async screen: [%s] path already exists", tmpPath))
+	}
+
+	err := os.MkdirAll(tmpPath, 0760)
+	if err != nil {
+		panic(err)
+	}
+
 	return &screen{
 		sessions: make(map[string]*session),
 		outputs:  outputs,
