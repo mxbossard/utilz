@@ -37,49 +37,88 @@ type displayer interface {
 }
 
 type screen struct {
+	tmpPath  string
+	sessions map[string]*session
+	outputs  printz.Outputs
 }
 
-func (*screen) Session(name string, priority int32) (s *session) {
+func (s *screen) Session(name string, priorityOrder int32) *session {
+	if session, ok := s.sessions[name]; ok {
+		return session
+	}
+	session := &session{
+		name:          name,
+		priorityOrder: priorityOrder,
+		outputs:       s.outputs,
+		printers:      make(map[string]printz.Printer),
+	}
+	s.sessions[name] = session
 
-	return
+	return session
 }
 
 func (*screen) ConfigPrinter(name string) (s *session) {
-
+	// TODO later
 	return
 }
 
 func (*screen) AsyncFlush(timeout time.Duration) (err error) {
 	// Launch goroutine wich will continuously flush async display
+	// TODO
 	return
 }
 
 func (*screen) BlockTail(timeout time.Duration) (err error) {
 	// Tail async display blocking until end
+	// TODO
 	return
 }
 
 type session struct {
+	name            string
+	priorityOrder   int32
+	started, closed bool
+
+	outputs  printz.Outputs
+	printers map[string]printz.Printer
 }
 
-func (*session) Printer(name string) (p printz.Printer) {
+func (s *session) Printer(name string) printz.Printer {
+	if prtr, ok := s.printers[name]; ok {
+		return prtr
+	}
+	prtr := printz.New(s.outputs)
+	s.printers[name] = prtr
 
+	return prtr
+}
+
+func (s *session) Start() (err error) {
+	s.started = true
 	return
 }
 
-func (*session) Close() (err error) {
-
+func (s *session) Close() (err error) {
+	s.closed = true
 	return
 }
 
-func (*session) Flush() (err error) {
+func (s *session) Flush() (err error) {
+	// TODO
 	return
 }
 
 func NewScreen() *screen {
-	return &screen{}
+	return &screen{
+		sessions: make(map[string]*session),
+		outputs:  printz.NewStandardOutputs(),
+	}
 }
 
 func NewAsyncScreen(tmpPath string) *screen {
-	return &screen{}
+	return &screen{
+		sessions: make(map[string]*session),
+		outputs:  printz.NewStandardOutputs(),
+		tmpPath:  tmpPath,
+	}
 }
