@@ -60,10 +60,19 @@ func (s *screen) Session(name string, priorityOrder int32) *session {
 		panic(err)
 	}
 
+	tmpOutFile, err := os.CreateTemp(s.tmpPath, fmt.Sprintf("asyncDisplay-%s-out", name))
+	if err != nil {
+		panic(err)
+	}
+	tmpErrFile, err := os.CreateTemp(s.tmpPath, fmt.Sprintf("asyncDisplay-%s-err", name))
+	if err != nil {
+		panic(err)
+	}
+	tmpOutputs := printz.NewOutputs(tmpOutFile, tmpErrFile)
 	session := &session{
 		name:          name,
 		priorityOrder: priorityOrder,
-		outputs:       s.outputs,
+		tmpOutputs:    tmpOutputs,
 		printers:      make(map[string]printz.Printer),
 	}
 	s.sessions[name] = session
@@ -99,15 +108,15 @@ type session struct {
 	priorityOrder   int32
 	started, closed bool
 
-	outputs  printz.Outputs
-	printers map[string]printz.Printer
+	tmpOutputs printz.Outputs
+	printers   map[string]printz.Printer
 }
 
 func (s *session) Printer(name string) printz.Printer {
 	if prtr, ok := s.printers[name]; ok {
 		return prtr
 	}
-	prtr := printz.New(s.outputs)
+	prtr := printz.New(s.tmpOutputs)
 	s.printers[name] = prtr
 
 	return prtr
