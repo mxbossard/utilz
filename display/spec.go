@@ -2,13 +2,13 @@ package display
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"time"
 
 	"mby.fr/utils/collections"
+	"mby.fr/utils/filez"
 	"mby.fr/utils/printz"
 )
 
@@ -56,6 +56,7 @@ const (
 	printerDirPrefix  = "printers_"
 	outFileNameSuffix = "-out.*"
 	errFileNameSuffix = "-err.*"
+	bufLen            = 1024
 )
 
 type displayer interface {
@@ -67,9 +68,11 @@ type displayer interface {
 }
 
 type screen struct {
-	tmpPath  string
-	sessions map[string]*session
-	outputs  printz.Outputs
+	tmpPath            string
+	sessions           map[string]*session
+	outputs            printz.Outputs
+	openedSession      *session
+	sessionsByPriority map[int][]*session
 }
 
 func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
@@ -85,7 +88,7 @@ func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
 	return tmpOutputs, tmpOutFile, tmpErrFile
 }
 
-func (s *screen) Session(name string, priorityOrder int32) *session {
+func (s *screen) Session(name string, priorityOrder int) *session {
 	if session, ok := s.sessions[name]; ok {
 		return session
 	}
@@ -100,18 +103,21 @@ func (s *screen) Session(name string, priorityOrder int32) *session {
 		panic(err)
 	}
 
-	suiteTmpOutputs, _, _ := buildTmpOutputs(s.tmpPath, name)
+	_, tmpOut, tmpErr := buildTmpOutputs(s.tmpPath, name)
 	session := &session{
-		name:            name,
-		priorityOrder:   priorityOrder,
-		tmpPath:         sessionDirpath,
-		suiteTmpOutputs: suiteTmpOutputs,
+		name:          name,
+		priorityOrder: priorityOrder,
+		tmpPath:       sessionDirpath,
+		//suiteTmpOutputs: suiteTmpOutputs,
+		tmpOut: tmpOut,
+		tmpErr: tmpErr,
 		// tmpOutputs:         make(map[string]printz.Outputs),
 		// openedPrinters:     make(map[string]printz.Printer),
-		printersByPriority: make(map[int32][]*printer),
+		printersByPriority: make(map[int][]*printer),
 		printers:           make(map[string]*printer),
 	}
 	s.sessions[name] = session
+	s.sessionsByPriority[priorityOrder] = append(s.sessionsByPriority[priorityOrder], session)
 
 	return session
 }
@@ -121,21 +127,55 @@ func (*screen) ConfigPrinter(name string) (s *session) {
 	return
 }
 
-func (*screen) Flush() (err error) {
-	// Flush the display
+func (s *screen) Flush() (err error) {
+	// Flush the display : print sessions in order onto std outputs (keep written bytes count)
 	// TODO
+
+	if s.openedSession == nil {
+		priorities := collections.Keys(&s.sessionsByPriority)
+		slices.Sort(priorities)
+		for _, priority := range priorities {
+			sessions, ok := s.sessionsByPriority[priority]
+			if ok {
+				for _, session := range sessions {
+					if !session.started || session.ended {
+						continue
+					}
+					s.openedSession = session
+				}
+			}
+		}
+	}
+
+	if s.openedSession == nil {
+		return
+	}
+
+	buf := make([]byte, bufLen)
+	n, err := filez.PartialCopy(s.openedSession.tmpOut, s.outputs.Out(), buf, s.openedSession.cursorOut, -1)
+	if err != nil {
+		return err
+	}
+	s.openedSession.cursorOut += int64(n)
+
+	n, err = filez.PartialCopy(s.openedSession.tmpErr, s.outputs.Err(), buf, s.openedSession.cursorErr, -1)
+	if err != nil {
+		return err
+	}
+	s.openedSession.cursorErr += int64(n)
+
 	return
 }
 
 func (*screen) AsyncFlush(timeout time.Duration) (err error) {
 	// Launch goroutine wich will continuously flush async display
-	// TODO
+	// TODO later ?
 	return
 }
 
 func (*screen) BlockTail(timeout time.Duration) (err error) {
 	// Tail async display blocking until end
-	// TODO
+	// TODO later ?
 	return
 }
 
@@ -144,7 +184,7 @@ type printer struct {
 
 	name           string
 	opened, closed bool
-	priorityOrder  int32
+	priorityOrder  int
 
 	tmpOut, tmpErr       *os.File
 	cursorOut, cursorErr int64
@@ -152,21 +192,22 @@ type printer struct {
 
 type session struct {
 	name           string
-	priorityOrder  int32
+	priorityOrder  int
 	started, ended bool
 
-	tmpPath         string
-	suiteTmpOutputs printz.Outputs
+	tmpPath              string
+	tmpOut, tmpErr       *os.File
+	cursorOut, cursorErr int64
 
 	// tmpOutputs         map[string]printz.Outputs
 	// openedPrinters     map[string]printz.Printer
-	printersByPriority map[int32][]*printer
+	printersByPriority map[int][]*printer
 	printers           map[string]*printer
 
-	currentPriority *int32
+	currentPriority *int
 }
 
-func (s *session) Printer(name string, priorityOrder int32) printz.Printer {
+func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	if prtr, ok := s.printers[name]; ok {
 		return prtr
 	}
@@ -209,6 +250,7 @@ func (s *session) Close(name string) error {
 }
 
 func (s *session) Start(timeout time.Duration) (err error) {
+	// TODO: open files here
 	s.started = true
 	// TODO: manage timeout
 	return
@@ -244,10 +286,9 @@ func (s *session) Flush() error {
 		return nil
 	}
 
-	printers, _ := s.printersByPriority[*s.currentPriority]
-	if len(printers) > 0 {
+	printers, ok := s.printersByPriority[*s.currentPriority]
+	if ok && len(printers) > 0 {
 		openedPrinters := 0
-		bufLen := 1024
 		buf := make([]byte, bufLen)
 		for _, prtr := range printers {
 			if prtr.closed {
@@ -256,49 +297,17 @@ func (s *session) Flush() error {
 				openedPrinters++
 				prtr.Flush()
 
-				n, err := prtr.tmpOut.ReadAt(buf, prtr.cursorOut)
-				if err != nil && err != io.EOF {
+				n, err := filez.PartialCopy(prtr.tmpOut, s.tmpOut, buf, prtr.cursorOut, -1)
+				if err != nil {
 					return err
 				}
+				prtr.cursorOut += int64(n)
 
-				for n > 0 {
-					// Loop while buffer is full
-					prtr.cursorOut += int64(n)
-					k, err := s.suiteTmpOutputs.Out().Write(buf[0:n])
-					if err != nil {
-						return err
-					}
-					if k != n {
-						err = fmt.Errorf("bytes count read and written mismatch")
-						return err
-					}
-					n, err = prtr.tmpOut.ReadAt(buf, prtr.cursorOut)
-					if err != nil && err != io.EOF {
-						return err
-					}
-				}
-
-				n, err = prtr.tmpErr.ReadAt(buf, prtr.cursorErr)
-				if err != nil && err != io.EOF {
+				n, err = filez.PartialCopy(prtr.tmpErr, s.tmpErr, buf, prtr.cursorErr, -1)
+				if err != nil {
 					return err
 				}
-
-				for n > 0 {
-					// Loop while buffer is full
-					prtr.cursorErr += int64(n)
-					k, err := s.suiteTmpOutputs.Err().Write(buf[0:n])
-					if err != nil {
-						return err
-					}
-					if k != n {
-						err = fmt.Errorf("bytes count read and written mismatch")
-						return err
-					}
-					n, err = prtr.tmpErr.ReadAt(buf, prtr.cursorErr)
-					if err != nil && err != io.EOF {
-						return err
-					}
-				}
+				prtr.cursorErr += int64(n)
 			}
 		}
 
@@ -329,8 +338,9 @@ func NewAsyncScreen(outputs printz.Outputs, tmpPath string) *screen {
 	}
 
 	return &screen{
-		sessions: make(map[string]*session),
-		outputs:  outputs,
-		tmpPath:  tmpPath,
+		sessions:           make(map[string]*session),
+		sessionsByPriority: make(map[int][]*session),
+		outputs:            outputs,
+		tmpPath:            tmpPath,
 	}
 }

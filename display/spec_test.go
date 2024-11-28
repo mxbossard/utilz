@@ -133,6 +133,9 @@ func TestAsyncPrint(t *testing.T) {
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
+	err = session.Start(1)
+	assert.NoError(t, err)
+
 	err = screen.Flush()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, outW.String())
