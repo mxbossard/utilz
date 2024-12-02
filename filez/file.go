@@ -185,7 +185,7 @@ func Copy(f *os.File, w io.Writer, buffer []byte) (p int64, err error) {
 	return p, nil
 }
 
-func PartialCopy(src *os.File, dest io.Writer, buf []byte, start, end int64) (int, error) {
+func PartialCopy(src *os.File, dest io.Writer, buf []byte, start, end int64) (int64, error) {
 	limit := len(buf)
 	if end > -1 && int(end-start) < limit {
 		// Stop copy before EOF
@@ -197,11 +197,11 @@ func PartialCopy(src *os.File, dest io.Writer, buf []byte, start, end int64) (in
 		return 0, err
 	}
 
-	var total int
+	var total int64
 	for n > 0 {
 		// Loop while buffer is full
 		k, err := dest.Write(buf[0:n])
-		total += k
+		total += int64(k)
 		if err != nil {
 			return total, err
 		}
@@ -214,9 +214,10 @@ func PartialCopy(src *os.File, dest io.Writer, buf []byte, start, end int64) (in
 			return total, err
 		}
 
-		if end > -1 && int(end-start)-total < limit {
+		if end > -1 && (end-start-total) < int64(limit) {
 			// Stop copy before EOF
-			limit = int(end-start) - total
+
+			limit = int(end - start - total)
 		}
 	}
 

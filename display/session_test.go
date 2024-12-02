@@ -12,35 +12,20 @@ import (
 	"mby.fr/utils/printz"
 )
 
-func TestGetScreen(t *testing.T) {
-	outW := &strings.Builder{}
-	errW := &strings.Builder{}
-	outs := printz.NewOutputs(outW, errW)
-	s := NewScreen(outs)
-	assert.NotNil(t, s)
-}
-
-func TestGetAsyncScreen(t *testing.T) {
-	outW := &strings.Builder{}
-	errW := &strings.Builder{}
-	outs := printz.NewOutputs(outW, errW)
-	tmpDir := "/tmp/foo42"
-	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(outs, tmpDir)
-	assert.NotNil(t, s)
-	assert.DirExists(t, tmpDir)
-}
-
 func TestGetSession(t *testing.T) {
-	outW := &strings.Builder{}
-	errW := &strings.Builder{}
-	outs := printz.NewOutputs(outW, errW)
+	// outW := &strings.Builder{}
+	// errW := &strings.Builder{}
+	// outs := printz.NewOutputs(outW, errW)
 	tmpDir := "/tmp/foo42"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(outs, tmpDir)
+	s := NewAsyncScreen(tmpDir)
 	require.NotNil(t, s)
 	session := s.Session("bar", 42)
 	assert.NotNil(t, session)
+	assert.NoDirExists(t, tmpDir+"/printers_bar")
+
+	err := session.Start(1000)
+	require.NoError(t, err)
 	assert.DirExists(t, tmpDir+"/printers_bar")
 	matches, err := filepath.Glob(tmpDir + "/bar" + outFileNameSuffix)
 	require.NoError(t, err)
@@ -51,26 +36,24 @@ func TestGetSession(t *testing.T) {
 }
 
 func TestGetSessionPrinter(t *testing.T) {
-	outW := &strings.Builder{}
-	errW := &strings.Builder{}
-	outs := printz.NewOutputs(outW, errW)
+	// outW := &strings.Builder{}
+	// errW := &strings.Builder{}
+	// outs := printz.NewOutputs(outW, errW)
 	tmpDir := "/tmp/foo42"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(outs, tmpDir)
+	s := NewAsyncScreen(tmpDir)
 	require.NotNil(t, s)
 	session := s.Session("foo", 42)
+	session.Start(1000)
 	require.NotNil(t, session)
 	prtr := session.Printer("bar", 10)
 	assert.NotNil(t, prtr)
 }
 
-func TestAsyncPrint(t *testing.T) {
-	outW := &strings.Builder{}
-	errW := &strings.Builder{}
-	outs := printz.NewOutputs(outW, errW)
+func TestAsyncPrint_Basic(t *testing.T) {
 	tmpDir := "/tmp/foo42"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(outs, tmpDir)
+	screen := NewAsyncScreen(tmpDir)
 	require.NotNil(t, screen)
 
 	expectedSession := "foo"
@@ -79,9 +62,12 @@ func TestAsyncPrint(t *testing.T) {
 
 	session := screen.Session(expectedSession, 42)
 	require.NotNil(t, session)
+	err := session.Start(1000)
+	assert.NoError(t, err)
 	prtr := session.Printer(expectedPrinter, 10)
 	require.NotNil(t, prtr)
 
+	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
 	sessionDirTmpFilepath := filepath.Join(tmpDir, printerDirPrefix+expectedSession)
 	sessionTmpOutFilepath := func() string {
 		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + outFileNameSuffix)
@@ -102,23 +88,29 @@ func TestAsyncPrint(t *testing.T) {
 
 	require.DirExists(t, tmpDir)
 	require.DirExists(t, sessionDirTmpFilepath)
-	require.FileExists(t, sessionTmpOutFilepath)
-	require.FileExists(t, sessionTmpErrFilepath)
-	require.FileExists(t, printerTmpOutFilepath)
-	require.FileExists(t, printerTmpErrFilepath)
+	assert.FileExists(t, sessionSerFilepath)
+	assert.FileExists(t, sessionTmpOutFilepath)
+	assert.FileExists(t, sessionTmpErrFilepath)
+	assert.FileExists(t, printerTmpOutFilepath)
+	assert.FileExists(t, printerTmpErrFilepath)
+
+	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s })
+	ser, err := deserializeSession(sessionSerFilepath)
+	require.NoError(t, err)
+	assert.NotNil(t, ser)
 
 	prtr.Out(expectedMessage)
-	assert.Empty(t, outW.String())
-	assert.Empty(t, errW.String())
+	// assert.Empty(t, outW.String())
+	// assert.Empty(t, errW.String())
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
-	err := prtr.Flush()
+	err = prtr.Flush()
 	assert.NoError(t, err)
-	assert.Empty(t, outW.String())
-	assert.Empty(t, errW.String())
+	// assert.Empty(t, outW.String())
+	// assert.Empty(t, errW.String())
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
@@ -126,17 +118,19 @@ func TestAsyncPrint(t *testing.T) {
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Empty(t, outW.String())
-	assert.Empty(t, errW.String())
+	// assert.Empty(t, outW.String())
+	// assert.Empty(t, errW.String())
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
-	err = session.Start(1)
-	assert.NoError(t, err)
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
 
-	err = screen.Flush()
+	err = screenTailer.Flush()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, outW.String())
 	assert.Equal(t, expectedMessage, outW.String())
@@ -145,5 +139,13 @@ func TestAsyncPrint(t *testing.T) {
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+}
+
+func TestAsyncPrint_MultiplePrinters(t *testing.T) {
+
+}
+
+func TestAsyncPrint_MultipleSessions(t *testing.T) {
 
 }
