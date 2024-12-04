@@ -29,8 +29,8 @@ type printer struct {
 }
 
 func serializeSession(s *session) (err error) {
-	filePath := filepath.Join(filepath.Dir(s.tmpPath), s.name+serializedExtension)
-	f, err := os.OpenFile(filePath, os.O_CREATE, 0644)
+	filePath := filepath.Join(filepath.Dir(s.TmpPath), s.Name+serializedExtension)
+	f, err := os.OpenFile(filePath, os.O_CREATE+os.O_RDWR, 0644)
 	if err != nil {
 		return
 	}
@@ -47,18 +47,19 @@ func deserializeSession(path string) (s *session, err error) {
 	}
 	defer func() { f.Close() }()
 	dec := gob.NewDecoder(f)
+	s = &session{}
 	err = dec.Decode(s)
 	return s, err
 }
 
 type session struct {
-	name           string
-	priorityOrder  int
-	started, ended bool
+	Name           string
+	PriorityOrder  int
+	Started, Ended bool
 	readOnly       bool
 
-	tmpPath                string
-	tmpOutName, tmpErrName string
+	TmpPath                string
+	TmpOutName, TmpErrName string
 	tmpOut, tmpErr         *os.File
 	cursorOut, cursorErr   int64
 
@@ -71,17 +72,17 @@ type session struct {
 }
 
 func (s *session) Printer(name string, priorityOrder int) printz.Printer {
-	if !s.started {
-		panic(fmt.Sprintf("session [%s] not started", s.name))
+	if !s.Started {
+		panic(fmt.Sprintf("session [%s] not started", s.Name))
 	}
-	if s.ended {
-		panic(fmt.Sprintf("session [%s] ended", s.name))
+	if s.Ended {
+		panic(fmt.Sprintf("session [%s] ended", s.Name))
 	}
 	if prtr, ok := s.printers[name]; ok {
 		panic(fmt.Sprintf("printer [%s] already exists", name))
 		return prtr
 	}
-	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(s.tmpPath, name)
+	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(s.TmpPath, name)
 	prtr := printz.New(tmpOutputs)
 	// s.tmpOutputs[name] = tmpOutputs
 	// s.openedPrinters[name] = prtr
@@ -120,12 +121,12 @@ func (s *session) Close(name string) error {
 }
 
 func (s *session) Start(timeout time.Duration) (err error) {
-	err = os.MkdirAll(s.tmpPath, 0755)
+	err = os.MkdirAll(s.TmpPath, 0755)
 	if err != nil {
 		panic(err)
 	}
 
-	s.started = true
+	s.Started = true
 	// TODO: manage timeout
 
 	err = serializeSession(s)
@@ -133,7 +134,7 @@ func (s *session) Start(timeout time.Duration) (err error) {
 }
 
 func (s *session) End() (err error) {
-	s.ended = true
+	s.Ended = true
 	err = serializeSession(s)
 	return
 }

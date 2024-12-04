@@ -32,13 +32,13 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 
 	_, tmpOut, tmpErr := buildTmpOutputs(s.tmpPath, name)
 	session := &session{
-		name:          name,
-		priorityOrder: priorityOrder,
+		Name:          name,
+		PriorityOrder: priorityOrder,
 		readOnly:      false,
-		tmpPath:       sessionDirpath,
+		TmpPath:       sessionDirpath,
 		//suiteTmpOutputs: suiteTmpOutputs,
-		tmpOutName: tmpOut.Name(),
-		tmpErrName: tmpErr.Name(),
+		TmpOutName: tmpOut.Name(),
+		TmpErrName: tmpErr.Name(),
 		tmpOut:     tmpOut,
 		tmpErr:     tmpErr,
 		// tmpOutputs:         make(map[string]printz.Outputs),
@@ -91,25 +91,23 @@ func (s *screenTailer) Flush() (err error) {
 			session.tmpOut = nil
 			session.tmpErr = nil
 
-			if exists, ok := s.sessions[session.name]; !ok {
+			if exists, ok := s.sessions[session.Name]; !ok {
 				// init session
-				outPath := filepath.Join(s.tmpPath, session.tmpOutName)
-				errPath := filepath.Join(s.tmpPath, session.tmpErrName)
-				session.tmpOut, err = os.OpenFile(outPath, os.O_RDONLY, 0)
+				session.tmpOut, err = os.OpenFile(session.TmpOutName, os.O_RDONLY, 0)
 				if err != nil {
 					return err
 				}
-				session.tmpErr, err = os.OpenFile(errPath, os.O_RDONLY, 0)
+				session.tmpErr, err = os.OpenFile(session.TmpErrName, os.O_RDONLY, 0)
 				if err != nil {
 					return err
 				}
 
-				s.sessions[session.name] = session
-				s.sessionsByPriority[session.priorityOrder] = append(s.sessionsByPriority[session.priorityOrder], session)
+				s.sessions[session.Name] = session
+				s.sessionsByPriority[session.PriorityOrder] = append(s.sessionsByPriority[session.PriorityOrder], session)
 			} else {
 				// update session
-				exists.started = session.started
-				exists.ended = session.ended
+				exists.Started = session.Started
+				exists.Ended = session.Ended
 			}
 
 		}
@@ -120,7 +118,7 @@ func (s *screenTailer) Flush() (err error) {
 			sessions, ok := s.sessionsByPriority[priority]
 			if ok {
 				for _, session := range sessions {
-					if !session.started || session.ended {
+					if !session.Started || session.Ended {
 						continue
 					}
 					s.openedSession = session

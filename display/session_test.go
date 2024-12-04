@@ -22,6 +22,7 @@ func TestGetSession(t *testing.T) {
 	require.NotNil(t, s)
 	session := s.Session("bar", 42)
 	assert.NotNil(t, session)
+	assert.DirExists(t, tmpDir)
 	assert.NoDirExists(t, tmpDir+"/printers_bar")
 
 	err := session.Start(1000)
@@ -64,8 +65,8 @@ func TestAsyncPrint_Basic(t *testing.T) {
 	require.NotNil(t, session)
 	err := session.Start(1000)
 	assert.NoError(t, err)
-	prtr := session.Printer(expectedPrinter, 10)
-	require.NotNil(t, prtr)
+	prtr10 := session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
 
 	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
 	sessionDirTmpFilepath := filepath.Join(tmpDir, printerDirPrefix+expectedSession)
@@ -99,7 +100,7 @@ func TestAsyncPrint_Basic(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, ser)
 
-	prtr.Out(expectedMessage)
+	prtr10.Out(expectedMessage)
 	// assert.Empty(t, outW.String())
 	// assert.Empty(t, errW.String())
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
@@ -107,7 +108,7 @@ func TestAsyncPrint_Basic(t *testing.T) {
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
-	err = prtr.Flush()
+	err = prtr10.Flush()
 	assert.NoError(t, err)
 	// assert.Empty(t, outW.String())
 	// assert.Empty(t, errW.String())
@@ -143,7 +144,96 @@ func TestAsyncPrint_Basic(t *testing.T) {
 }
 
 func TestAsyncPrint_MultiplePrinters(t *testing.T) {
+	tmpDir := "/tmp/foo42"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
 
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	expectedSession := "foo"
+	expectedPrinter10a := "bar10a"
+	expectedPrinter20a := "bar20a"
+	expectedPrinter20b := "bar20b"
+	expectedPrinter30a := "bar30a"
+
+	session := screen.Session(expectedSession, 42)
+	err := session.Start(1000)
+	assert.NoError(t, err)
+	prtr10a := session.Printer(expectedPrinter10a, 10)
+	prtr20a := session.Printer(expectedPrinter20a, 20)
+	prtr20b := session.Printer(expectedPrinter20b, 20)
+	prtr30a := session.Printer(expectedPrinter30a, 30)
+
+	prtr20a.Out("20a-1,")
+	prtr20a.Out("20a-2,")
+	prtr10a.Out("10a-1,")
+	prtr30a.Out("30a-1,")
+	prtr10a.Out("10a-2,")
+	prtr20b.Out("20b-1,")
+	prtr20a.Out("20a-3,")
+
+	// First flush, nothing is Closed => first printers should be written only
+	err = session.Flush()
+	assert.NoError(t, err)
+
+	assert.Empty(t, outW.String())
+	assert.Empty(t, errW.String())
+
+	err = screenTailer.Flush()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "10a-1,10a-2,", outW.String())
+	assert.Empty(t, errW.String())
+
+	// Close a printer which is not first => nothing more should be written
+	session.Close(expectedPrinter20a)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	err = screenTailer.Flush()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "10a-1,10a-2,", outW.String())
+	assert.Empty(t, errW.String())
+
+	prtr10a.Out("10a-3,")
+	prtr20b.Out("20b-2,")
+
+	// Close first printer => should write next printers
+	session.Close(expectedPrinter10a)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	err = screenTailer.Flush()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20b-1,20a-3,20b-2,", outW.String())
+	assert.Empty(t, errW.String())
+
+	// Close a printer which is not first => should not write anything
+	session.Close(expectedPrinter30a)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	err = screenTailer.Flush()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20b-1,20a-3,20b-2,", outW.String())
+	assert.Empty(t, errW.String())
+
+	// Close last printer => should write everything
+	session.Close(expectedPrinter20b)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	err = screenTailer.Flush()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20b-1,20a-3,20b-2,"+"30a-1", outW.String())
+	assert.Empty(t, errW.String())
 }
 
 func TestAsyncPrint_MultipleSessions(t *testing.T) {
