@@ -28,8 +28,13 @@ type printer struct {
 	cursorOut, cursorErr int64
 }
 
-func serializeSession(s *session) (err error) {
+func serializedPath(s *session) string {
 	filePath := filepath.Join(filepath.Dir(s.TmpPath), s.Name+serializedExtension)
+	return filePath
+}
+
+func serializeSession(s *session) (err error) {
+	filePath := serializedPath(s)
 	f, err := os.OpenFile(filePath, os.O_CREATE+os.O_RDWR, 0644)
 	if err != nil {
 		return
@@ -53,10 +58,10 @@ func deserializeSession(path string) (s *session, err error) {
 }
 
 type session struct {
-	Name           string
-	PriorityOrder  int
-	Started, Ended bool
-	readOnly       bool
+	Name                    string
+	PriorityOrder           int
+	Started, Ended, flushed bool
+	readOnly                bool
 
 	TmpPath                string
 	TmpOutName, TmpErrName string
@@ -134,6 +139,7 @@ func (s *session) Start(timeout time.Duration) (err error) {
 
 func (s *session) End() (err error) {
 	s.Ended = true
+	s.Flush()
 	err = serializeSession(s)
 	return
 }
@@ -150,7 +156,7 @@ func (s *session) Flush() error {
 			for _, priorityOrder := range priorityOrders {
 				printers := s.printersByPriority[priorityOrder]
 				for _, printer := range printers {
-					fmt.Printf("selecting printer: [%s] ? prio: [%d]\n", printer.name, priorityOrder)
+					// fmt.Printf("selecting printer: [%s] ? prio: [%d]\n", printer.name, priorityOrder)
 					if !printer.flushed {
 						// set current priority of first opened printer
 						s.currentPriority = &priorityOrder
@@ -173,10 +179,10 @@ func (s *session) Flush() error {
 		buf := make([]byte, bufLen)
 		for _, prtr := range printers {
 			if prtr.closed && prtr.flushed {
-				fmt.Printf("printer closed: [%s]\n", prtr.name)
+				// fmt.Printf("printer closed: [%s]\n", prtr.name)
 				continue
 			} else {
-				fmt.Printf("flushing printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
+				// fmt.Printf("flushing printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
 				prtr.Flush()
 
 				n, err := filez.PartialCopy(prtr.tmpOut, s.tmpOut, buf, prtr.cursorOut, -1)
@@ -192,7 +198,7 @@ func (s *session) Flush() error {
 				prtr.cursorErr += int64(n)
 			}
 			prtr.flushed = true
-			fmt.Printf("flushed printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
+			// fmt.Printf("flushed printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
 			if prtr.closed {
 				// Close files
 				err := prtr.tmpOut.Close()
@@ -208,7 +214,7 @@ func (s *session) Flush() error {
 			}
 		}
 
-		fmt.Printf("opened printers: [%d]\n", openedPrinters)
+		// fmt.Printf("opened printers: [%d]\n", openedPrinters)
 		if openedPrinters == 0 {
 			// all printers are closed => clear current priority
 			s.currentPriority = nil
@@ -220,7 +226,9 @@ func (s *session) Flush() error {
 		}
 	}
 
+	s.flushed = true
 	err := serializeSession(s)
+
 	return err
 }
 

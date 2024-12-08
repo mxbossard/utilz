@@ -296,5 +296,77 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 }
 
 func TestAsyncScreen_MultipleSessions(t *testing.T) {
-	// TODO
+	tmpDir := "/tmp/foo42"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	expectedSessionA := "barA"
+	expectedPrinterA10a := "bar10a"
+	expectedPrinterA20a := "bar20a"
+	expectedSessionB := "barB"
+	expectedPrinterB10a := "bar20b"
+	expectedPrinterB30a := "bar30a"
+
+	sessionA := screen.Session(expectedSessionA, 12)
+	err := sessionA.Start(1000)
+	assert.NoError(t, err)
+	prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
+	prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+
+	sessionB := screen.Session(expectedSessionB, 42)
+	err = sessionB.Start(1000)
+	assert.NoError(t, err)
+	prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
+	prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+
+	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
+
+	prtrB10a.Out("B10a1,")
+	prtrB30a.Out("B30a1,")
+	prtrA10a.Out("A10a1,")
+	prtrB30a.Out("B30a2,")
+	err = sessionB.Close(expectedPrinterB30a)
+	assert.NoError(t, err)
+	prtrB10a.Out("B10a2,")
+	err = sessionB.Close(expectedPrinterB10a)
+	assert.NoError(t, err)
+	err = sessionB.End()
+	assert.NoError(t, err)
+	prtrA20a.Out("A20a1,")
+	prtrA20a.Out("A20a2,")
+	err = sessionA.Close(expectedPrinterA20a)
+	assert.NoError(t, err)
+	prtrA10a.Out("A10a2,")
+	err = sessionA.Close(expectedPrinterA10a)
+	assert.NoError(t, err)
+
+	assert.Empty(t, outW.String())
+	err = screenTailer.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
+	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
+
+	err = sessionA.End()
+	assert.NoError(t, err)
+
+	//err = sessionB.Flush()
+	//assert.NoError(t, err)
+	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
+
+	//err = sessionA.Flush()
+	//assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	err = screenTailer.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,B10a1,B10a2,B30a1,B30a2,", outW.String())
+
 }

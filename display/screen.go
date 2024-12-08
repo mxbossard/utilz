@@ -41,15 +41,29 @@ func (*screen) ConfigPrinter(name string) (s *session) {
 type screenTailer struct {
 	tmpPath            string
 	outputs            printz.Outputs
-	openedSession      *session
+	electedSession     *session
 	sessions           map[string]*session
 	sessionsByPriority map[int][]*session
+}
+
+func updateSession(exists *session, filePath string) error {
+	session, err := deserializeSession(filePath)
+	if err != nil {
+		return err
+	}
+	session.currentPriority = nil
+	session.tmpOut = nil
+	session.tmpErr = nil
+	exists.Started = session.Started
+	exists.Ended = session.Ended
+
+	return nil
 }
 
 func (s *screenTailer) Flush() (err error) {
 	// Flush the display : print sessions in order onto std outputs (keep written bytes count)
 
-	if s.openedSession == nil {
+	if s.electedSession == nil {
 		// TODO: scan tmp dir to refresh maps sessions & sessionsByPriority
 		// TODO: must build all sessions from files
 
@@ -95,35 +109,54 @@ func (s *screenTailer) Flush() (err error) {
 
 		priorities := collections.Keys(&s.sessionsByPriority)
 		slices.Sort(priorities)
+	end:
 		for _, priority := range priorities {
 			sessions, ok := s.sessionsByPriority[priority]
 			if ok {
 				for _, session := range sessions {
-					if !session.Started || session.Ended {
+					fmt.Printf("electing session: [%s] ; ended: %v ; flushed: %v\n", session.Name, session.Ended, session.flushed)
+
+					if !session.Started || session.Ended && session.flushed {
 						continue
 					}
-					s.openedSession = session
+					fmt.Printf("electing session: [%s]\n", session.Name)
+					s.electedSession = session
+					break end
 				}
 			}
 		}
+	} else {
+		path := serializedPath(s.electedSession)
+		err = updateSession(s.electedSession, path)
+		if err != nil {
+			return err
+		}
 	}
 
-	if s.openedSession == nil {
+	if s.electedSession == nil {
 		return
 	}
+	fmt.Printf("flushtailing session: [%s] ; ended: %v ; flushed: %v\n", s.electedSession.Name, s.electedSession.Ended, s.electedSession.flushed)
 
 	buf := make([]byte, bufLen)
-	n, err := filez.PartialCopy(s.openedSession.tmpOut, s.outputs.Out(), buf, s.openedSession.cursorOut, -1)
+	n, err := filez.PartialCopy(s.electedSession.tmpOut, s.outputs.Out(), buf, s.electedSession.cursorOut, -1)
 	if err != nil {
 		return err
 	}
-	s.openedSession.cursorOut += int64(n)
+	s.electedSession.cursorOut += int64(n)
 
-	n, err = filez.PartialCopy(s.openedSession.tmpErr, s.outputs.Err(), buf, s.openedSession.cursorErr, -1)
+	n, err = filez.PartialCopy(s.electedSession.tmpErr, s.outputs.Err(), buf, s.electedSession.cursorErr, -1)
 	if err != nil {
 		return err
 	}
-	s.openedSession.cursorErr += int64(n)
+	s.electedSession.cursorErr += int64(n)
+
+	if s.electedSession.Ended {
+		s.electedSession.flushed = true
+		s.electedSession = nil
+		// FIXME: do not use a recusrsive call
+		s.Flush()
+	}
 
 	return
 }
