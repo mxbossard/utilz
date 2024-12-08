@@ -20,9 +20,9 @@ const (
 type printer struct {
 	printz.Printer
 
-	name           string
-	opened, closed bool
-	priorityOrder  int
+	name                    string
+	opened, closed, flushed bool
+	priorityOrder           int
 
 	tmpOut, tmpErr       *os.File
 	cursorOut, cursorErr int64
@@ -78,9 +78,9 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	if s.Ended {
 		panic(fmt.Sprintf("session [%s] ended", s.Name))
 	}
-	if prtr, ok := s.printers[name]; ok {
+	if _, ok := s.printers[name]; ok {
 		panic(fmt.Sprintf("printer [%s] already exists", name))
-		return prtr
+		//return prtr
 	}
 	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(s.TmpPath, name)
 	prtr := printz.New(tmpOutputs)
@@ -105,18 +105,17 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 func (s *session) Close(name string) error {
 	// Close a printer
 	if prtr, ok := s.printers[name]; ok {
+		// err := prtr.Flush()
+		// if err != nil {
+		// 	return err
+		// }
+		// set flushed to false to enforce a final flush
+		prtr.flushed = false
 		prtr.closed = true
-		err := prtr.tmpOut.Close()
-		if err != nil {
-			return err
-		}
-		err = prtr.tmpErr.Close()
-		if err != nil {
-			return err
-		}
 	} else {
 		return fmt.Errorf("no printer opened with name: [%s]", name)
 	}
+	//fmt.Printf("Closed printer: [%s]\n", name)
 	return nil
 }
 
@@ -147,12 +146,15 @@ func (s *session) Flush() error {
 		priorityOrders := collections.Keys(&s.printersByPriority)
 		if len(priorityOrders) > 0 {
 			slices.Sort(priorityOrders)
+		out:
 			for _, priorityOrder := range priorityOrders {
 				printers := s.printersByPriority[priorityOrder]
 				for _, printer := range printers {
-					if !printer.closed {
+					fmt.Printf("selecting printer: [%s] ? prio: [%d]\n", printer.name, priorityOrder)
+					if !printer.flushed {
 						// set current priority of first opened printer
-						s.currentPriority = &priorityOrders[0]
+						s.currentPriority = &priorityOrder
+						break out
 					}
 				}
 			}
@@ -161,6 +163,7 @@ func (s *session) Flush() error {
 
 	if s.currentPriority == nil {
 		// Nothing to flush
+		//panic("no printer found")
 		return nil
 	}
 
@@ -169,10 +172,11 @@ func (s *session) Flush() error {
 		openedPrinters := 0
 		buf := make([]byte, bufLen)
 		for _, prtr := range printers {
-			if prtr.closed {
+			if prtr.closed && prtr.flushed {
+				fmt.Printf("printer closed: [%s]\n", prtr.name)
 				continue
 			} else {
-				openedPrinters++
+				fmt.Printf("flushing printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
 				prtr.Flush()
 
 				n, err := filez.PartialCopy(prtr.tmpOut, s.tmpOut, buf, prtr.cursorOut, -1)
@@ -187,14 +191,61 @@ func (s *session) Flush() error {
 				}
 				prtr.cursorErr += int64(n)
 			}
+			prtr.flushed = true
+			fmt.Printf("flushed printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
+			if prtr.closed {
+				// Close files
+				err := prtr.tmpOut.Close()
+				if err != nil {
+					return err
+				}
+				err = prtr.tmpErr.Close()
+				if err != nil {
+					return err
+				}
+			} else {
+				openedPrinters++
+			}
 		}
 
+		fmt.Printf("opened printers: [%d]\n", openedPrinters)
 		if openedPrinters == 0 {
 			// all printers are closed => clear current priority
 			s.currentPriority = nil
+			// FIXME: do not use a recursive call.
+			err := s.Flush()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	err := serializeSession(s)
 	return err
+}
+
+func buildSession(name string, priorityOrder int, screenDirPath string) *session {
+	sessionDirpath := filepath.Join(screenDirPath, printerDirPrefix+name)
+	if _, err := os.Stat(sessionDirpath); err == nil {
+		panic(fmt.Sprintf("unable to create async screen session: [%s] path already exists", sessionDirpath))
+	}
+
+	_, tmpOut, tmpErr := buildTmpOutputs(screenDirPath, name)
+	session := &session{
+		Name:          name,
+		PriorityOrder: priorityOrder,
+		readOnly:      false,
+		TmpPath:       sessionDirpath,
+		//suiteTmpOutputs: suiteTmpOutputs,
+		TmpOutName: tmpOut.Name(),
+		TmpErrName: tmpErr.Name(),
+		tmpOut:     tmpOut,
+		tmpErr:     tmpErr,
+		// tmpOutputs:         make(map[string]printz.Outputs),
+		// openedPrinters:     make(map[string]printz.Printer),
+		printersByPriority: make(map[int][]*printer),
+		printers:           make(map[string]*printer),
+	}
+
+	return session
 }

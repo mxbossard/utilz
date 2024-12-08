@@ -25,27 +25,8 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 		return session
 	}
 
-	sessionDirpath := filepath.Join(s.tmpPath, printerDirPrefix+name)
-	if _, err := os.Stat(sessionDirpath); err == nil {
-		panic(fmt.Sprintf("unable to create async screen session: [%s] path already exists", sessionDirpath))
-	}
+	session := buildSession(name, priorityOrder, s.tmpPath)
 
-	_, tmpOut, tmpErr := buildTmpOutputs(s.tmpPath, name)
-	session := &session{
-		Name:          name,
-		PriorityOrder: priorityOrder,
-		readOnly:      false,
-		TmpPath:       sessionDirpath,
-		//suiteTmpOutputs: suiteTmpOutputs,
-		TmpOutName: tmpOut.Name(),
-		TmpErrName: tmpErr.Name(),
-		tmpOut:     tmpOut,
-		tmpErr:     tmpErr,
-		// tmpOutputs:         make(map[string]printz.Outputs),
-		// openedPrinters:     make(map[string]printz.Printer),
-		printersByPriority: make(map[int][]*printer),
-		printers:           make(map[string]*printer),
-	}
 	s.sessions[name] = session
 	s.sessionsByPriority[priorityOrder] = append(s.sessionsByPriority[priorityOrder], session)
 

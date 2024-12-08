@@ -3,31 +3,26 @@ package display
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"mby.fr/utils/filez"
-	"mby.fr/utils/printz"
 )
 
-func TestGetSession(t *testing.T) {
-	// outW := &strings.Builder{}
-	// errW := &strings.Builder{}
-	// outs := printz.NewOutputs(outW, errW)
+func TestSessionStart(t *testing.T) {
 	tmpDir := "/tmp/foo42"
+	expectedSession := "bar"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(tmpDir)
-	require.NotNil(t, s)
-	session := s.Session("bar", 42)
+	os.MkdirAll(tmpDir, 0744)
+
+	session := buildSession(expectedSession, 42, tmpDir)
 	assert.NotNil(t, session)
-	assert.DirExists(t, tmpDir)
-	assert.NoDirExists(t, tmpDir+"/printers_bar")
+	assert.NoDirExists(t, session.TmpPath)
 
 	err := session.Start(1000)
 	require.NoError(t, err)
-	assert.DirExists(t, tmpDir+"/printers_bar")
+	assert.DirExists(t, session.TmpPath)
 	matches, err := filepath.Glob(tmpDir + "/bar" + outFileNameSuffix)
 	require.NoError(t, err)
 	require.Len(t, matches, 1)
@@ -36,40 +31,52 @@ func TestGetSession(t *testing.T) {
 	require.Len(t, matches, 1)
 }
 
-func TestGetSessionPrinter(t *testing.T) {
-	// outW := &strings.Builder{}
-	// errW := &strings.Builder{}
-	// outs := printz.NewOutputs(outW, errW)
+func TestSessionGetPrinter(t *testing.T) {
 	tmpDir := "/tmp/foo42"
+	expectedSession := "bar"
+	expectedPrinter := "baz"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(tmpDir)
-	require.NotNil(t, s)
-	session := s.Session("foo", 42)
+	os.MkdirAll(tmpDir, 0744)
+
+	session := buildSession(expectedSession, 42, tmpDir)
+	assert.NotNil(t, session)
+
 	session.Start(1000)
 	require.NotNil(t, session)
-	prtr := session.Printer("bar", 10)
+	prtr := session.Printer(expectedPrinter, 10)
 	assert.NotNil(t, prtr)
+
+	printerTmpOutFilepath := func() string {
+		matches, _ := filepath.Glob(session.TmpPath + "/" + expectedPrinter + outFileNameSuffix)
+		return matches[0]
+	}()
+	printerTmpErrFilepath := func() string {
+		matches, _ := filepath.Glob(session.TmpPath + "/" + expectedPrinter + errFileNameSuffix)
+		return matches[0]
+	}()
+	assert.FileExists(t, printerTmpOutFilepath)
+	assert.FileExists(t, printerTmpErrFilepath)
 }
 
-func TestAsyncPrint_Basic(t *testing.T) {
+func TestSession_Basic(t *testing.T) {
 	tmpDir := "/tmp/foo42"
+	expectedSession := "bar"
+	expectedPrinter := "baz"
+	expectedMessage := "msg"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
-	require.NotNil(t, screen)
+	os.MkdirAll(tmpDir, 0744)
 
-	expectedSession := "foo"
-	expectedPrinter := "bar"
-	expectedMessage := "baz"
-
-	session := screen.Session(expectedSession, 42)
-	require.NotNil(t, session)
+	session := buildSession(expectedSession, 42, tmpDir)
+	assert.NotNil(t, session)
 	err := session.Start(1000)
 	assert.NoError(t, err)
 	prtr10 := session.Printer(expectedPrinter, 10)
 	require.NotNil(t, prtr10)
 
+	require.DirExists(t, tmpDir)
+	require.DirExists(t, session.TmpPath)
+
 	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
-	sessionDirTmpFilepath := filepath.Join(tmpDir, printerDirPrefix+expectedSession)
 	sessionTmpOutFilepath := func() string {
 		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + outFileNameSuffix)
 		return matches[0]
@@ -79,16 +86,14 @@ func TestAsyncPrint_Basic(t *testing.T) {
 		return matches[0]
 	}()
 	printerTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedPrinter + outFileNameSuffix)
+		matches, _ := filepath.Glob(session.TmpPath + "/" + expectedPrinter + outFileNameSuffix)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedPrinter + errFileNameSuffix)
+		matches, _ := filepath.Glob(session.TmpPath + "/" + expectedPrinter + errFileNameSuffix)
 		return matches[0]
 	}()
 
-	require.DirExists(t, tmpDir)
-	require.DirExists(t, sessionDirTmpFilepath)
 	assert.FileExists(t, sessionSerFilepath)
 	assert.FileExists(t, sessionTmpOutFilepath)
 	assert.FileExists(t, sessionTmpErrFilepath)
@@ -101,8 +106,6 @@ func TestAsyncPrint_Basic(t *testing.T) {
 	assert.NotNil(t, ser)
 
 	prtr10.Out(expectedMessage)
-	// assert.Empty(t, outW.String())
-	// assert.Empty(t, errW.String())
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
@@ -110,8 +113,6 @@ func TestAsyncPrint_Basic(t *testing.T) {
 
 	err = prtr10.Flush()
 	assert.NoError(t, err)
-	// assert.Empty(t, outW.String())
-	// assert.Empty(t, errW.String())
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
@@ -119,123 +120,118 @@ func TestAsyncPrint_Basic(t *testing.T) {
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	// assert.Empty(t, outW.String())
-	// assert.Empty(t, errW.String())
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
-
-	outW := &strings.Builder{}
-	errW := &strings.Builder{}
-	outs := printz.NewOutputs(outW, errW)
-	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
-
-	err = screenTailer.Flush()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, outW.String())
-	assert.Equal(t, expectedMessage, outW.String())
-	assert.Empty(t, errW.String())
-	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
-	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
-
 }
 
-func TestAsyncPrint_MultiplePrinters(t *testing.T) {
+func TestSession_MultiplePrinters(t *testing.T) {
 	tmpDir := "/tmp/foo42"
+	expectedSession := "bar"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	os.MkdirAll(tmpDir, 0744)
 
-	outW := &strings.Builder{}
-	errW := &strings.Builder{}
-	outs := printz.NewOutputs(outW, errW)
-	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
-
-	expectedSession := "foo"
 	expectedPrinter10a := "bar10a"
+	expectedPrinter15a := "bar15a"
 	expectedPrinter20a := "bar20a"
 	expectedPrinter20b := "bar20b"
+	expectedPrinter20c := "bar20c"
 	expectedPrinter30a := "bar30a"
 
-	session := screen.Session(expectedSession, 42)
+	session := buildSession(expectedSession, 42, tmpDir)
 	err := session.Start(1000)
 	assert.NoError(t, err)
+
+	// sessionTmpOutFilepath := func() string {
+	// 	matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + outFileNameSuffix)
+	// 	return matches[0]
+	// }()
+	sessionTmpOutFilepath := session.TmpOutName
+	assert.FileExists(t, sessionTmpOutFilepath)
+
 	prtr10a := session.Printer(expectedPrinter10a, 10)
+	prtr15a := session.Printer(expectedPrinter15a, 15)
 	prtr20a := session.Printer(expectedPrinter20a, 20)
 	prtr20b := session.Printer(expectedPrinter20b, 20)
+	prtr20c := session.Printer(expectedPrinter20c, 20)
 	prtr30a := session.Printer(expectedPrinter30a, 30)
 
-	prtr20a.Out("20a-1,")
-	prtr20a.Out("20a-2,")
-	prtr10a.Out("10a-1,")
-	prtr30a.Out("30a-1,")
-	prtr10a.Out("10a-2,")
-	prtr20b.Out("20b-1,")
-	prtr20a.Out("20a-3,")
-
-	// First flush, nothing is Closed => first printers should be written only
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	err = session.Flush()
 	assert.NoError(t, err)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	assert.Empty(t, outW.String())
-	assert.Empty(t, errW.String())
-
-	err = screenTailer.Flush()
+	// First print on not first printer => should not write
+	prtr20a.Out("20a-1,")
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	err = session.Flush()
 	assert.NoError(t, err)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	assert.Equal(t, "10a-1,10a-2,", outW.String())
-	assert.Empty(t, errW.String())
+	prtr20a.Out("20a-2,")
+	prtr10a.Out("10a-1,")
+
+	// First flush, nothing is Closed => first printers should be written only
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, "10a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+
+	prtr15a.Out("15a-1,")
+	prtr30a.Out("30a-1,")
+	prtr10a.Out("10a-2,")
+	prtr20c.Out("20c-1,")
+	prtr20b.Out("20b-1,")
+
+	// Nothing is Closed => first printers should be written only
+	assert.Equal(t, "10a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, "10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close a printer which is not first => nothing more should be written
 	session.Close(expectedPrinter20a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	err = screenTailer.Flush()
-	assert.NoError(t, err)
+	assert.Equal(t, "10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	assert.Equal(t, "10a-1,10a-2,", outW.String())
-	assert.Empty(t, errW.String())
-
+	prtr20a.Out("20a-3,")
 	prtr10a.Out("10a-3,")
-	prtr20b.Out("20b-2,")
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, "10a-1,10a-2,10a-3,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close first printer => should write next printers
 	session.Close(expectedPrinter10a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	err = screenTailer.Flush()
-	assert.NoError(t, err)
+	assert.Equal(t, "10a-1,10a-2,10a-3,"+"15a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20b-1,20a-3,20b-2,", outW.String())
-	assert.Empty(t, errW.String())
+	session.Close(expectedPrinter15a)
+	session.Close(expectedPrinter20c)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, "10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+
+	prtr20b.Out("20b-2,")
 
 	// Close a printer which is not first => should not write anything
 	session.Close(expectedPrinter30a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	err = screenTailer.Flush()
-	assert.NoError(t, err)
-
-	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20b-1,20a-3,20b-2,", outW.String())
-	assert.Empty(t, errW.String())
+	assert.Equal(t, "10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close last printer => should write everything
 	session.Close(expectedPrinter20b)
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	err = screenTailer.Flush()
-	assert.NoError(t, err)
-
-	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20b-1,20a-3,20b-2,"+"30a-1", outW.String())
-	assert.Empty(t, errW.String())
-}
-
-func TestAsyncPrint_MultipleSessions(t *testing.T) {
+	assert.Equal(t, "10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,"+"30a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 }
