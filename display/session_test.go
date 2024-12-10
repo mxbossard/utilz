@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 
 func TestSessionStart(t *testing.T) {
 	tmpDir := "/tmp/foo42"
-	expectedSession := "bar"
+	expectedSession := "bar101"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
 
@@ -20,20 +21,20 @@ func TestSessionStart(t *testing.T) {
 	assert.NotNil(t, session)
 	assert.NoDirExists(t, session.TmpPath)
 
-	err := session.Start(1000)
+	err := session.Start(10 * time.Millisecond)
 	require.NoError(t, err)
 	assert.DirExists(t, session.TmpPath)
-	matches, err := filepath.Glob(tmpDir + "/bar" + outFileNameSuffix)
+	matches, err := filepath.Glob(tmpDir + "/bar101" + outFileNameSuffix)
 	require.NoError(t, err)
 	require.Len(t, matches, 1)
-	matches, err = filepath.Glob(tmpDir + "/bar" + errFileNameSuffix)
+	matches, err = filepath.Glob(tmpDir + "/bar101" + errFileNameSuffix)
 	require.NoError(t, err)
 	require.Len(t, matches, 1)
 }
 
 func TestSessionGetPrinter(t *testing.T) {
 	tmpDir := "/tmp/foo42"
-	expectedSession := "bar"
+	expectedSession := "bar201"
 	expectedPrinter := "baz"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
@@ -41,7 +42,7 @@ func TestSessionGetPrinter(t *testing.T) {
 	session := buildSession(expectedSession, 42, tmpDir)
 	assert.NotNil(t, session)
 
-	session.Start(1000)
+	session.Start(10 * time.Millisecond)
 	require.NotNil(t, session)
 	prtr := session.Printer(expectedPrinter, 10)
 	assert.NotNil(t, prtr)
@@ -60,21 +61,33 @@ func TestSessionGetPrinter(t *testing.T) {
 
 func TestSession_Basic(t *testing.T) {
 	tmpDir := "/tmp/foo42"
-	expectedSession := "bar"
+	expectedSession := "bar301"
 	expectedPrinter := "baz"
 	expectedMessage := "msg"
+	sessionTimeout := 10 * time.Millisecond
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
 
 	session := buildSession(expectedSession, 42, tmpDir)
 	assert.NotNil(t, session)
-	err := session.Start(1000)
+
+	// Opening a printer in a not started session should panic
+	assert.Panics(t, func() {
+		session.Printer(expectedPrinter, 42)
+	})
+
+	err := session.Start(sessionTimeout)
 	assert.NoError(t, err)
 	prtr10 := session.Printer(expectedPrinter, 10)
 	require.NotNil(t, prtr10)
 
 	require.DirExists(t, tmpDir)
 	require.DirExists(t, session.TmpPath)
+
+	// ReOpening a printer should panic
+	assert.Panics(t, func() {
+		session.Printer(expectedPrinter, 42)
+	})
 
 	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
 	sessionTmpOutFilepath := func() string {
@@ -124,11 +137,17 @@ func TestSession_Basic(t *testing.T) {
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	time.Sleep(sessionTimeout + 2*time.Millisecond)
+	// Opening a printer after session timeout should panic
+	assert.Panics(t, func() {
+		session.Printer("another", 42)
+	})
 }
 
 func TestSession_MultiplePrinters(t *testing.T) {
 	tmpDir := "/tmp/foo42"
-	expectedSession := "bar"
+	expectedSession := "bar401"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
 
@@ -140,13 +159,9 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	expectedPrinter30a := "bar30a"
 
 	session := buildSession(expectedSession, 42, tmpDir)
-	err := session.Start(1000)
+	err := session.Start(10 * time.Millisecond)
 	assert.NoError(t, err)
 
-	// sessionTmpOutFilepath := func() string {
-	// 	matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + outFileNameSuffix)
-	// 	return matches[0]
-	// }()
 	sessionTmpOutFilepath := session.TmpOutName
 	assert.FileExists(t, sessionTmpOutFilepath)
 

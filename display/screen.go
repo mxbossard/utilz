@@ -15,9 +15,7 @@ import (
 type screen struct {
 	tmpPath  string
 	sessions map[string]*session
-	//outputs            printz.Outputs
-	//openedSession      *session
-	sessionsByPriority map[int][]*session
+	//sessionsByPriority map[int][]*session
 }
 
 func (s *screen) Session(name string, priorityOrder int) *session {
@@ -28,7 +26,7 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	session := buildSession(name, priorityOrder, s.tmpPath)
 
 	s.sessions[name] = session
-	s.sessionsByPriority[priorityOrder] = append(s.sessionsByPriority[priorityOrder], session)
+	//s.sessionsByPriority[priorityOrder] = append(s.sessionsByPriority[priorityOrder], session)
 
 	return session
 }
@@ -67,21 +65,17 @@ func (s *screenTailer) Flush() (err error) {
 		// TODO: scan tmp dir to refresh maps sessions & sessionsByPriority
 		// TODO: must build all sessions from files
 
-		//dirs, err := os.ReadDir(s.tmpPath)
 		sers, err := filepath.Glob(s.tmpPath + "/*.ser")
 		if err != nil {
 			return err
 		}
 		for _, filePath := range sers {
-			// filePath := filepath.Join(s.tmpPath, filename)
 			session, err := deserializeSession(filePath)
 			if err != nil {
 				return err
 			}
 
 			// clear session
-			//session.printers = nil
-			//session.printersByPriority = nil
 			session.currentPriority = nil
 			session.tmpOut = nil
 			session.tmpErr = nil
@@ -119,7 +113,7 @@ func (s *screenTailer) Flush() (err error) {
 					if !session.Started || session.Ended && session.flushed {
 						continue
 					}
-					fmt.Printf("electing session: [%s]\n", session.Name)
+					fmt.Printf("elected session: [%s]\n", session.Name)
 					s.electedSession = session
 					break end
 				}
@@ -191,9 +185,9 @@ func NewAsyncScreen(tmpPath string) *screen {
 	}
 
 	return &screen{
-		tmpPath:            tmpPath,
-		sessions:           make(map[string]*session),
-		sessionsByPriority: make(map[int][]*session),
+		tmpPath:  tmpPath,
+		sessions: make(map[string]*session),
+		//sessionsByPriority: make(map[int][]*session),
 	}
 }
 
