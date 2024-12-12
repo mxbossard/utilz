@@ -1,4 +1,4 @@
-package display
+package screen
 
 import (
 	"os"
@@ -19,6 +19,18 @@ func TestGetScreen(t *testing.T) {
 	outs := printz.NewOutputs(outW, errW)
 	s := NewScreen(outs)
 	assert.NotNil(t, s)
+	assert.Implements(t, (*Screen)(nil), s)
+}
+
+func TestGetTailer(t *testing.T) {
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	tmpDir := "/tmp/foo42"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	s := NewAsyncScreenTailer(outs, tmpDir)
+	assert.NotNil(t, s)
+	assert.Implements(t, (*Tailer)(nil), s)
 }
 
 func TestGetAsyncScreen(t *testing.T) {

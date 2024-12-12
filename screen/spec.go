@@ -1,4 +1,4 @@
-package display
+package screen
 
 import (
 	"fmt"
@@ -45,6 +45,7 @@ import (
 - screen.ConfigPrinter(name, formaters)
 - change format.Formatter for signature: Format(string|Stringer...) Formatted
 - use templates ?
+- add notifications push wich will be displayed between sessions
 */
 
 const (

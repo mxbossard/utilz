@@ -1,4 +1,4 @@
-package display
+package screen
 
 import (
 	"os"
@@ -10,6 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"mby.fr/utils/filez"
 )
+
+func TestGetSession(t *testing.T) {
+	tmpDir := "/tmp/foo42"
+	expectedSession := "bar101"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	os.MkdirAll(tmpDir, 0744)
+
+	session := buildSession(expectedSession, 42, tmpDir)
+	assert.NotNil(t, session)
+	assert.Implements(t, (*Session)(nil), session)
+}
 
 func TestSessionStart(t *testing.T) {
 	tmpDir := "/tmp/foo42"

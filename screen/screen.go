@@ -1,4 +1,4 @@
-package display
+package screen
 
 import (
 	"fmt"
@@ -11,6 +11,24 @@ import (
 	"mby.fr/utils/filez"
 	"mby.fr/utils/printz"
 )
+
+type Screen interface {
+	Session(string, int) *session
+	NotifyPrinter() printz.Printer
+	//Flush() error
+}
+
+type Session interface {
+	Start(time.Duration) error
+	End() error
+	Flush() error
+	Printer(string, int) printz.Printer
+	Close(string) error
+}
+
+type Tailer interface {
+	Flush() error
+}
 
 type screen struct {
 	tmpPath  string
