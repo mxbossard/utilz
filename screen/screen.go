@@ -32,7 +32,7 @@ type Session interface {
 	End() error
 	Flush() error
 	Printer(string, int) printz.Printer
-	Close(string) error
+	ClosePrinter(string) error
 }
 
 type Tailer interface {

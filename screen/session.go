@@ -79,26 +79,13 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 		panic(fmt.Sprintf("session [%s] not started", s.Name))
 	}
 	if s.Ended {
-		panic(fmt.Sprintf("session [%s] ended", s.Name))
+		panic(fmt.Sprintf("session [%s] already ended", s.Name))
 	}
 	if _, ok := s.printers[name]; ok {
 		panic(fmt.Sprintf("printer [%s] already exists", name))
 		//return prtr
 	}
-	/*
-		tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(s.TmpPath, name)
-		prtr := printz.New(tmpOutputs)
 
-		p := &printer{
-			Printer:       prtr,
-			name:          name,
-			tmpOut:        tmpOut,
-			tmpErr:        tmpErr,
-			opened:        false,
-			closed:        false,
-			priorityOrder: priorityOrder,
-		}
-	*/
 	p := buildTmpPrinter(s.TmpPath, name, priorityOrder)
 	s.printers[name] = p
 	s.printersByPriority[priorityOrder] = append(s.printersByPriority[priorityOrder], p)
@@ -106,8 +93,11 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	return p.Printer
 }
 
-func (s *session) Close(name string) error {
-	// Close a printer
+func (s *session) ClosePrinter(name string) error {
+	if s.Ended {
+		return fmt.Errorf("session: [%s] already ended", s.Name)
+	}
+	// Mark a printer closed, but do not close backing tmp files.
 	if prtr, ok := s.printers[name]; ok {
 		if prtr.closed {
 			// Printer already closed
@@ -116,6 +106,7 @@ func (s *session) Close(name string) error {
 		// set flushed to false to enforce a final flush
 		prtr.flushed = false
 		prtr.closed = true
+
 	} else {
 		return fmt.Errorf("no printer opened with name: [%s]", name)
 	}
@@ -127,6 +118,9 @@ func (s *session) Close(name string) error {
 func (s *session) Start(timeout time.Duration) (err error) {
 	if s.Started {
 		panic(fmt.Sprintf("session: [%s] already started", s.Name))
+	}
+	if s.Ended {
+		return fmt.Errorf("session: [%s] already ended", s.Name)
 	}
 	err = os.MkdirAll(s.TmpPath, 0755)
 	if err != nil {
@@ -153,11 +147,9 @@ func (s *session) End() (err error) {
 
 	// close all opened printers
 	for _, prtr := range s.printers {
-		if !prtr.closed {
-			err = s.Close(prtr.name)
-			if err != nil {
-				return err
-			}
+		err = s.ClosePrinter(prtr.name)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -172,8 +164,11 @@ func (s *session) End() (err error) {
 }
 
 func (s *session) Flush() error {
-	// concat closed printers + current printer into a session tmp file ()
+	if s.Ended {
+		return fmt.Errorf("session: [%s] already ended", s.Name)
+	}
 
+	// concat closed printers + current printer into a session tmp file ()
 	if s.currentPriority == nil {
 		//  Find next priority
 		priorityOrders := collections.Keys(&s.printersByPriority)
@@ -226,6 +221,7 @@ func (s *session) Flush() error {
 			prtr.flushed = true
 			// fmt.Printf("flushed printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
 			if prtr.closed {
+				//fmt.Printf("closing printer: [%s] in Flush()\n", prtr.name)
 				// Close files
 				err := prtr.tmpOut.Close()
 				if err != nil {
@@ -259,7 +255,7 @@ func (s *session) Flush() error {
 }
 
 func buildSession(name string, priorityOrder int, screenDirPath string) *session {
-	sessionDirpath := filepath.Join(screenDirPath, printerDirPrefix+name)
+	sessionDirpath := filepath.Join(screenDirPath, sessionDirPrefix+name)
 	if _, err := os.Stat(sessionDirpath); err == nil {
 		panic(fmt.Sprintf("unable to create async screen session: [%s] path already exists", sessionDirpath))
 	}

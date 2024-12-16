@@ -74,11 +74,11 @@ func TestScreenGetSession(t *testing.T) {
 	session := s.Session("bar1001", 42)
 	assert.NotNil(t, session)
 	assert.DirExists(t, tmpDir)
-	assert.NoDirExists(t, tmpDir+"/printers_bar1001")
+	assert.NoDirExists(t, tmpDir+"/"+sessionDirPrefix+"bar1001")
 
-	err := session.Start(10 * time.Millisecond)
+	err := session.Start(100 * time.Millisecond)
 	require.NoError(t, err)
-	assert.DirExists(t, tmpDir+"/printers_bar1001")
+	assert.DirExists(t, tmpDir+"/"+sessionDirPrefix+"bar1001")
 	matches, err := filepath.Glob(tmpDir + "/bar1001" + outFileNameSuffix)
 	require.NoError(t, err)
 	require.Len(t, matches, 1)
@@ -93,7 +93,7 @@ func TestScreenGetPrinter(t *testing.T) {
 	s := NewAsyncScreen(tmpDir)
 	require.NotNil(t, s)
 	session := s.Session("foo2001", 42)
-	session.Start(10 * time.Millisecond)
+	session.Start(100 * time.Millisecond)
 	require.NotNil(t, session)
 	prtr := session.Printer("bar", 10)
 	assert.NotNil(t, prtr)
@@ -111,13 +111,13 @@ func TestAsyncScreen_Basic(t *testing.T) {
 
 	session := screen.Session(expectedSession, 42)
 	require.NotNil(t, session)
-	err := session.Start(10 * time.Millisecond)
+	err := session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 	prtr10 := session.Printer(expectedPrinter, 10)
 	require.NotNil(t, prtr10)
 
 	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
-	sessionDirTmpFilepath := filepath.Join(tmpDir, printerDirPrefix+expectedSession)
+	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
 	sessionTmpOutFilepath := func() string {
 		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + outFileNameSuffix)
 		return matches[0]
@@ -202,7 +202,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	expectedPrinter30a := "bar30a"
 
 	session := screen.Session(expectedSession, 42)
-	err := session.Start(10 * time.Millisecond)
+	err := session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 
 	sessionTmpOutFilepath := func() string {
@@ -240,7 +240,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close a printer which is not first => nothing more should be written
-	session.Close(expectedPrinter20a)
+	session.ClosePrinter(expectedPrinter20a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -256,7 +256,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	prtr20b.Out("20b-2,")
 
 	// Close first printer => should write next printers
-	session.Close(expectedPrinter10a)
+	session.ClosePrinter(expectedPrinter10a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -269,7 +269,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close a printer which is not first => should not write anything
-	session.Close(expectedPrinter30a)
+	session.ClosePrinter(expectedPrinter30a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -282,7 +282,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close last printer => should write everything
-	session.Close(expectedPrinter20b)
+	session.ClosePrinter(expectedPrinter20b)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -309,27 +309,27 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	expectedPrinterA10a := "barA10a"
 	expectedPrinterA20a := "barA20a"
 	expectedSessionB := "barB5001"
-	expectedPrinterB10a := "barB20b"
+	expectedPrinterB10a := "barB10a"
 	expectedPrinterB30a := "barB30a"
 	expectedSessionC := "barC5001"
-	expectedPrinterC10a := "barC20b"
+	expectedPrinterC10a := "barC10a"
 	expectedPrinterC30a := "barC30a"
 	expectedPrinterC40a := "barC40a"
 
 	sessionA := screen.Session(expectedSessionA, 12)
-	err := sessionA.Start(10 * time.Millisecond)
+	err := sessionA.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 	prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
 	prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
 
 	sessionB := screen.Session(expectedSessionB, 42)
-	err = sessionB.Start(10 * time.Millisecond)
+	err = sessionB.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 	prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
 	prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
 
 	sessionC := screen.Session(expectedSessionC, 42)
-	err = sessionC.Start(10 * time.Millisecond)
+	err = sessionC.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 	prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
 	prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
@@ -342,19 +342,21 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	prtrB30a.Out("B30a1,")
 	prtrA10a.Out("A10a1,")
 	prtrB30a.Out("B30a2,")
-	err = sessionB.Close(expectedPrinterB30a)
+	err = sessionB.ClosePrinter(expectedPrinterB30a)
 	assert.NoError(t, err)
 	prtrB10a.Out("B10a2,")
-	err = sessionB.Close(expectedPrinterB10a)
+	err = sessionB.ClosePrinter(expectedPrinterB10a)
+	assert.NoError(t, err)
+	err = sessionB.End()
 	assert.NoError(t, err)
 	err = sessionB.End()
 	assert.NoError(t, err)
 	prtrA20a.Out("A20a1,")
 	prtrA20a.Out("A20a2,")
-	err = sessionA.Close(expectedPrinterA20a)
+	err = sessionA.ClosePrinter(expectedPrinterA20a)
 	assert.NoError(t, err)
 	prtrA10a.Out("A10a2,")
-	err = sessionA.Close(expectedPrinterA10a)
+	err = sessionA.ClosePrinter(expectedPrinterA10a)
 	assert.NoError(t, err)
 
 	prtrC10a.Out("C10a1,")
@@ -403,7 +405,7 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,", outW.String())
 
-	err = sessionC.Close(expectedPrinterC10a)
+	err = sessionC.ClosePrinter(expectedPrinterC10a)
 	assert.NoError(t, err)
 	err = sessionC.Flush()
 	assert.NoError(t, err)
@@ -433,27 +435,27 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	expectedPrinterA10a := "barA10a"
 	expectedPrinterA20a := "barA20a"
 	expectedSessionB := "barB6001"
-	expectedPrinterB10a := "barB20b"
+	expectedPrinterB10a := "barB10a"
 	expectedPrinterB30a := "barB30a"
 	expectedSessionC := "barC6001"
-	expectedPrinterC10a := "barC20b"
+	expectedPrinterC10a := "barC20a"
 	expectedPrinterC30a := "barC30a"
 	expectedPrinterC40a := "barC40a"
 
 	sessionA := screen.Session(expectedSessionA, 12)
-	err := sessionA.Start(10 * time.Millisecond)
+	err := sessionA.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 	prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
 	prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
 
 	sessionB := screen.Session(expectedSessionB, 42)
-	err = sessionB.Start(10 * time.Millisecond)
+	err = sessionB.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 	prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
 	prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
 
 	sessionC := screen.Session(expectedSessionC, 42)
-	err = sessionC.Start(10 * time.Millisecond)
+	err = sessionC.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 	prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
 	prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
@@ -468,19 +470,19 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	prtrB30a.Out("B30a1,")
 	prtrA10a.Out("A10a1,")
 	prtrB30a.Out("B30a2,")
-	err = sessionB.Close(expectedPrinterB30a)
+	err = sessionB.ClosePrinter(expectedPrinterB30a)
 	assert.NoError(t, err)
 	prtrB10a.Out("B10a2,")
-	err = sessionB.Close(expectedPrinterB10a)
+	err = sessionB.ClosePrinter(expectedPrinterB10a)
 	assert.NoError(t, err)
 	err = sessionB.End()
 	assert.NoError(t, err)
 	prtrA20a.Out("A20a1,")
 	prtrA20a.Out("A20a2,")
-	err = sessionA.Close(expectedPrinterA20a)
+	err = sessionA.ClosePrinter(expectedPrinterA20a)
 	assert.NoError(t, err)
 	prtrA10a.Out("A10a2,")
-	err = sessionA.Close(expectedPrinterA10a)
+	err = sessionA.ClosePrinter(expectedPrinterA10a)
 	assert.NoError(t, err)
 
 	screen.NotifyPrinter().Out("notif2,")
@@ -541,7 +543,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	err = screen.NotifyPrinter().Flush()
 	assert.NoError(t, err)
 
-	err = sessionC.Close(expectedPrinterC10a)
+	err = sessionC.ClosePrinter(expectedPrinterC10a)
 	assert.NoError(t, err)
 	err = sessionC.Flush()
 	assert.NoError(t, err)

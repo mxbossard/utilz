@@ -217,7 +217,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	assert.Equal(t, "10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close a printer which is not first => nothing more should be written
-	session.Close(expectedPrinter20a)
+	session.ClosePrinter(expectedPrinter20a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -231,14 +231,14 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	assert.Equal(t, "10a-1,10a-2,10a-3,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close first printer => should write next printers
-	session.Close(expectedPrinter10a)
+	session.ClosePrinter(expectedPrinter10a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "10a-1,10a-2,10a-3,"+"15a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	session.Close(expectedPrinter15a)
-	session.Close(expectedPrinter20c)
+	session.ClosePrinter(expectedPrinter15a)
+	session.ClosePrinter(expectedPrinter20c)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -247,14 +247,14 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	prtr20b.Out("20b-2,")
 
 	// Close a printer which is not first => should not write anything
-	session.Close(expectedPrinter30a)
+	session.ClosePrinter(expectedPrinter30a)
 
 	err = session.Flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close last printer => should write everything
-	session.Close(expectedPrinter20b)
+	session.ClosePrinter(expectedPrinter20b)
 
 	err = session.Flush()
 	assert.NoError(t, err)
