@@ -12,10 +12,19 @@ import (
 	"mby.fr/utils/printz"
 )
 
-type Screen interface {
+const (
+	notifierPrinterName = "notifier"
+)
+
+var (
+	buf = make([]byte, bufLen)
+)
+
+type Sink interface {
 	Session(string, int) *session
 	NotifyPrinter() printz.Printer
-	//Flush() error
+	Flush() error
+	Close() error
 }
 
 type Session interface {
@@ -33,7 +42,7 @@ type Tailer interface {
 type screen struct {
 	tmpPath  string
 	sessions map[string]*session
-	//sessionsByPriority map[int][]*session
+	notifier *printer
 }
 
 func (s *screen) Session(name string, priorityOrder int) *session {
@@ -42,11 +51,26 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	}
 
 	session := buildSession(name, priorityOrder, s.tmpPath)
-
 	s.sessions[name] = session
-	//s.sessionsByPriority[priorityOrder] = append(s.sessionsByPriority[priorityOrder], session)
-
 	return session
+}
+
+func (s *screen) NotifyPrinter() printz.Printer {
+	return s.notifier.Printer
+}
+
+func (s *screen) Flush() (err error) {
+	//TODO
+	return
+}
+
+func (s *screen) Close() (err error) {
+	err = s.notifier.tmpOut.Close()
+	if err != nil {
+		return err
+	}
+	err = s.notifier.tmpErr.Close()
+	return
 }
 
 func (*screen) ConfigPrinter(name string) (s *session) {
@@ -60,6 +84,7 @@ type screenTailer struct {
 	electedSession     *session
 	sessions           map[string]*session
 	sessionsByPriority map[int][]*session
+	notifier           *printer
 }
 
 func updateSession(exists *session, filePath string) error {
@@ -80,9 +105,19 @@ func (s *screenTailer) Flush() (err error) {
 	// Flush the display : print sessions in order onto std outputs (keep written bytes count)
 
 	if s.electedSession == nil {
-		// TODO: scan tmp dir to refresh maps sessions & sessionsByPriority
-		// TODO: must build all sessions from files
+		// 1- If no elected session, firstly print notifications
+		n, err := filez.PartialCopy(s.notifier.tmpOut, s.outputs.Out(), buf, s.notifier.cursorOut, -1)
+		if err != nil {
+			return err
+		}
+		s.notifier.cursorOut += int64(n)
+		n, err = filez.PartialCopy(s.notifier.tmpErr, s.outputs.Err(), buf, s.notifier.cursorErr, -1)
+		if err != nil {
+			return err
+		}
+		s.notifier.cursorErr += int64(n)
 
+		// 2- Scan serialized session
 		sers, err := filepath.Glob(s.tmpPath + "/*.ser")
 		if err != nil {
 			return err
@@ -119,6 +154,7 @@ func (s *screenTailer) Flush() (err error) {
 
 		}
 
+		// 3- Elect a new session to tail
 		priorities := collections.Keys(&s.sessionsByPriority)
 		slices.Sort(priorities)
 	end:
@@ -148,9 +184,8 @@ func (s *screenTailer) Flush() (err error) {
 	if s.electedSession == nil {
 		return
 	}
-	fmt.Printf("flushtailing session: [%s] ; ended: %v ; flushed: %v\n", s.electedSession.Name, s.electedSession.Ended, s.electedSession.flushed)
+	fmt.Printf("flushtailing session: [%s](%s) ; ended: %v ; flushed: %v\n", s.electedSession.Name, s.electedSession.tmpOut.Name(), s.electedSession.Ended, s.electedSession.flushed)
 
-	buf := make([]byte, bufLen)
 	n, err := filez.PartialCopy(s.electedSession.tmpOut, s.outputs.Out(), buf, s.electedSession.cursorOut, -1)
 	if err != nil {
 		return err
@@ -165,6 +200,14 @@ func (s *screenTailer) Flush() (err error) {
 
 	if s.electedSession.Ended {
 		s.electedSession.flushed = true
+		err = s.electedSession.tmpOut.Close()
+		if err != nil {
+			return err
+		}
+		err = s.electedSession.tmpErr.Close()
+		if err != nil {
+			return err
+		}
 		s.electedSession = nil
 		// FIXME: do not use a recusrsive call
 		s.Flush()
@@ -205,7 +248,7 @@ func NewAsyncScreen(tmpPath string) *screen {
 	return &screen{
 		tmpPath:  tmpPath,
 		sessions: make(map[string]*session),
-		//sessionsByPriority: make(map[int][]*session),
+		notifier: buildPrinter(tmpPath, notifierPrinterName, 0),
 	}
 }
 
@@ -214,10 +257,12 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 		panic(fmt.Sprintf("unable to create read only async screen: [%s] path do not exists", tmpPath))
 	}
 
+	notifier := buildPrinter(tmpPath, notifierPrinterName, 0)
 	return &screenTailer{
 		outputs:            outputs,
 		tmpPath:            tmpPath,
 		sessions:           make(map[string]*session),
 		sessionsByPriority: make(map[int][]*session),
+		notifier:           notifier,
 	}
 }

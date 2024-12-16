@@ -3,6 +3,7 @@ package screen
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"mby.fr/utils/printz"
 )
@@ -55,23 +56,54 @@ const (
 	bufLen            = 1024
 )
 
-type displayer interface {
-	// Replaced by printz.Printer ?
-	Stdout()
-	Stderr()
-	Flush() error
-	//Quiet(bool)
-}
-
 func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
-	tmpOutFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s"+outFileNameSuffix, name))
+	tmpOutFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix))
 	if err != nil {
 		panic(err)
 	}
-	tmpErrFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s"+errFileNameSuffix, name))
+	tmpErrFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix))
 	if err != nil {
 		panic(err)
 	}
 	tmpOutputs := printz.NewOutputs(tmpOutFile, tmpErrFile)
 	return tmpOutputs, tmpOutFile, tmpErrFile
+}
+
+func buildTmpPrinter(tmpDir, name string, priorityOrder int) *printer {
+	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, name)
+	prtr := printz.New(tmpOutputs)
+	p := &printer{
+		Printer:       prtr,
+		name:          name,
+		tmpOut:        tmpOut,
+		tmpErr:        tmpErr,
+		opened:        false,
+		closed:        false,
+		priorityOrder: priorityOrder,
+	}
+	return p
+}
+
+func buildPrinter(tmpDir, name string, priorityOrder int) *printer {
+	tmpOutFile, err := os.Create(filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix)))
+	if err != nil {
+		panic(err)
+	}
+	tmpErrFile, err := os.Create(filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix)))
+	if err != nil {
+		panic(err)
+	}
+	tmpOutputs := printz.NewOutputs(tmpOutFile, tmpErrFile)
+
+	prtr := printz.New(tmpOutputs)
+	p := &printer{
+		Printer:       prtr,
+		name:          name,
+		tmpOut:        tmpOutFile,
+		tmpErr:        tmpErrFile,
+		opened:        false,
+		closed:        false,
+		priorityOrder: priorityOrder,
+	}
+	return p
 }

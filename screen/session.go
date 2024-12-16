@@ -85,31 +85,34 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 		panic(fmt.Sprintf("printer [%s] already exists", name))
 		//return prtr
 	}
-	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(s.TmpPath, name)
-	prtr := printz.New(tmpOutputs)
+	/*
+		tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(s.TmpPath, name)
+		prtr := printz.New(tmpOutputs)
 
-	p := &printer{
-		Printer:       prtr,
-		name:          name,
-		tmpOut:        tmpOut,
-		tmpErr:        tmpErr,
-		opened:        false,
-		closed:        false,
-		priorityOrder: priorityOrder,
-	}
+		p := &printer{
+			Printer:       prtr,
+			name:          name,
+			tmpOut:        tmpOut,
+			tmpErr:        tmpErr,
+			opened:        false,
+			closed:        false,
+			priorityOrder: priorityOrder,
+		}
+	*/
+	p := buildTmpPrinter(s.TmpPath, name, priorityOrder)
 	s.printers[name] = p
 	s.printersByPriority[priorityOrder] = append(s.printersByPriority[priorityOrder], p)
 
-	return prtr
+	return p.Printer
 }
 
 func (s *session) Close(name string) error {
 	// Close a printer
 	if prtr, ok := s.printers[name]; ok {
-		// err := prtr.Flush()
-		// if err != nil {
-		// 	return err
-		// }
+		if prtr.closed {
+			// Printer already closed
+			return nil
+		}
 		// set flushed to false to enforce a final flush
 		prtr.flushed = false
 		prtr.closed = true
@@ -117,7 +120,8 @@ func (s *session) Close(name string) error {
 		return fmt.Errorf("no printer opened with name: [%s]", name)
 	}
 	//fmt.Printf("Closed printer: [%s]\n", name)
-	return nil
+	err := serializeSession(s)
+	return err
 }
 
 func (s *session) Start(timeout time.Duration) (err error) {
