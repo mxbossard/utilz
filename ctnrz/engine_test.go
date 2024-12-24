@@ -22,7 +22,9 @@ func TestWaitRun(t *testing.T) {
 	exitCode, err := run.BlockRun()
 
 	assert.Equal(t, expectedOut+"\n", outBuff.String())
-	assert.Empty(t, errBuff.String())
+	// stderr could contains some warnings
+	//assert.Empty(t, errBuff.String())
+	assert.NotContains(t, errBuff.String(), "error")
 	require.NoError(t, err)
 	assert.Equal(t, 0, exitCode)
 }

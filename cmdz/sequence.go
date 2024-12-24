@@ -122,21 +122,21 @@ func (e *seq) Stderr() io.Writer {
 
 // ----- Recorder methods -----
 func (s *seq) StdinRecord() string {
-	stdins := collections.Map[Executer, string](s.inners, func(e Executer) string {
+	stdins := collections.Map[Executer, string](&s.inners, func(e Executer) string {
 		return e.StdinRecord()
 	})
 	return strings.Join(stdins, "")
 }
 
 func (s *seq) StdoutRecord() string {
-	stdouts := collections.Map[Executer, string](s.outers, func(e Executer) string {
+	stdouts := collections.Map[Executer, string](&s.outers, func(e Executer) string {
 		return e.StdoutRecord()
 	})
 	return strings.Join(stdouts, "")
 }
 
 func (s *seq) StderrRecord() string {
-	stderrs := collections.Map[Executer, string](s.outers, func(e Executer) string {
+	stderrs := collections.Map[Executer, string](&s.outers, func(e Executer) string {
 		return e.StderrRecord()
 	})
 	return strings.Join(stderrs, "")
@@ -240,7 +240,7 @@ func (s serialSeq) String() string {
 }
 
 func (s serialSeq) ReportError() string {
-	errors := collections.Map[Executer, string](s.seq.execs, func(e Executer) string {
+	errors := collections.Map[Executer, string](&s.seq.execs, func(e Executer) string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
@@ -408,7 +408,7 @@ func (s *orSeq) Add(execs ...Executer) *orSeq {
 }
 
 func (s orSeq) ReportError() string {
-	errors := collections.Map[Executer, string](s.seq.execs, func(e Executer) string {
+	errors := collections.Map[Executer, string](&s.seq.execs, func(e Executer) string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
@@ -581,7 +581,7 @@ func (s parallelSeq) String() string {
 }
 
 func (s parallelSeq) ReportError() string {
-	errors := collections.Map[Executer, string](s.seq.execs, func(e Executer) string {
+	errors := collections.Map[Executer, string](&s.seq.execs, func(e Executer) string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")

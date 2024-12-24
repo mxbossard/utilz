@@ -171,7 +171,7 @@ func (s *session) Flush() error {
 	// concat closed printers + current printer into a session tmp file ()
 	if s.currentPriority == nil {
 		//  Find next priority
-		priorityOrders := collections.Keys(&s.printersByPriority)
+		priorityOrders := collections.Keys(s.printersByPriority)
 		if len(priorityOrders) > 0 {
 			slices.Sort(priorityOrders)
 		out:
@@ -206,13 +206,13 @@ func (s *session) Flush() error {
 				// fmt.Printf("flushing printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
 				prtr.Flush()
 
-				n, err := filez.PartialCopy(prtr.tmpOut, s.tmpOut, buf, prtr.cursorOut, -1)
+				n, err := filez.CopyChunk(prtr.tmpOut, s.tmpOut, buf, prtr.cursorOut, -1)
 				if err != nil {
 					return err
 				}
 				prtr.cursorOut += int64(n)
 
-				n, err = filez.PartialCopy(prtr.tmpErr, s.tmpErr, buf, prtr.cursorErr, -1)
+				n, err = filez.CopyChunk(prtr.tmpErr, s.tmpErr, buf, prtr.cursorErr, -1)
 				if err != nil {
 					return err
 				}

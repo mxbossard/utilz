@@ -106,12 +106,12 @@ func (s *screenTailer) Flush() (err error) {
 
 	if s.electedSession == nil {
 		// 1- If no elected session, firstly print notifications
-		n, err := filez.PartialCopy(s.notifier.tmpOut, s.outputs.Out(), buf, s.notifier.cursorOut, -1)
+		n, err := filez.CopyChunk(s.notifier.tmpOut, s.outputs.Out(), buf, s.notifier.cursorOut, -1)
 		if err != nil {
 			return err
 		}
 		s.notifier.cursorOut += int64(n)
-		n, err = filez.PartialCopy(s.notifier.tmpErr, s.outputs.Err(), buf, s.notifier.cursorErr, -1)
+		n, err = filez.CopyChunk(s.notifier.tmpErr, s.outputs.Err(), buf, s.notifier.cursorErr, -1)
 		if err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func (s *screenTailer) Flush() (err error) {
 		}
 
 		// 3- Elect a new session to tail
-		priorities := collections.Keys(&s.sessionsByPriority)
+		priorities := collections.Keys(s.sessionsByPriority)
 		slices.Sort(priorities)
 	end:
 		for _, priority := range priorities {
@@ -186,13 +186,13 @@ func (s *screenTailer) Flush() (err error) {
 	}
 	fmt.Printf("flushtailing session: [%s](%s) ; ended: %v ; flushed: %v\n", s.electedSession.Name, s.electedSession.tmpOut.Name(), s.electedSession.Ended, s.electedSession.flushed)
 
-	n, err := filez.PartialCopy(s.electedSession.tmpOut, s.outputs.Out(), buf, s.electedSession.cursorOut, -1)
+	n, err := filez.CopyChunk(s.electedSession.tmpOut, s.outputs.Out(), buf, s.electedSession.cursorOut, -1)
 	if err != nil {
 		return err
 	}
 	s.electedSession.cursorOut += int64(n)
 
-	n, err = filez.PartialCopy(s.electedSession.tmpErr, s.outputs.Err(), buf, s.electedSession.cursorErr, -1)
+	n, err = filez.CopyChunk(s.electedSession.tmpErr, s.outputs.Err(), buf, s.electedSession.cursorErr, -1)
 	if err != nil {
 		return err
 	}
