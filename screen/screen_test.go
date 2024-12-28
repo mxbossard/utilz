@@ -26,7 +26,7 @@ func TestGetTailer(t *testing.T) {
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
-	tmpDir := "/tmp/foo40a"
+	tmpDir := "/tmp/utilz.zcreen.foo40a"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	err := os.MkdirAll(tmpDir, 0755)
 	require.NoError(t, err)
@@ -36,7 +36,7 @@ func TestGetTailer(t *testing.T) {
 }
 
 func TestGetAsyncScreen(t *testing.T) {
-	tmpDir := "/tmp/foo40b"
+	tmpDir := "/tmp/utilz.zcreen.foo40b"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir)
 	assert.NotNil(t, s)
@@ -48,7 +48,7 @@ func TestGetAsyncScreen(t *testing.T) {
 }
 
 func TestGetReadOnlyAsyncScreen(t *testing.T) {
-	tmpDir := "/tmp/foo40c"
+	tmpDir := "/tmp/utilz.zcreen.foo40c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir)
 	assert.NotNil(t, s)
@@ -67,7 +67,7 @@ func TestGetReadOnlyAsyncScreen(t *testing.T) {
 }
 
 func TestScreenGetSession(t *testing.T) {
-	tmpDir := "/tmp/foo1001"
+	tmpDir := "/tmp/utilz.zcreen.foo1001"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir)
 	require.NotNil(t, s)
@@ -88,7 +88,7 @@ func TestScreenGetSession(t *testing.T) {
 }
 
 func TestScreenGetPrinter(t *testing.T) {
-	tmpDir := "/tmp/foo2001"
+	tmpDir := "/tmp/utilz.zcreen.foo2001"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir)
 	require.NotNil(t, s)
@@ -100,7 +100,7 @@ func TestScreenGetPrinter(t *testing.T) {
 }
 
 func TestAsyncScreen_Basic(t *testing.T) {
-	tmpDir := "/tmp/foo3001"
+	tmpDir := "/tmp/utilz.zcreen.foo3001"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
 	require.NotNil(t, screen)
@@ -186,7 +186,7 @@ func TestAsyncScreen_Basic(t *testing.T) {
 }
 
 func TestAsyncScreen_MultiplePrinters(t *testing.T) {
-	tmpDir := "/tmp/foo4001"
+	tmpDir := "/tmp/utilz.zcreen.foo4001"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
 
@@ -296,7 +296,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 }
 
 func TestAsyncScreen_MultipleSessions(t *testing.T) {
-	tmpDir := "/tmp/foo5001c"
+	tmpDir := "/tmp/utilz.zcreen.foo5001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
 
@@ -422,7 +422,7 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 }
 
 func TestAsyncScreen_Notifications(t *testing.T) {
-	tmpDir := "/tmp/foo6001"
+	tmpDir := "/tmp/utilz.zcreen.foo6001"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
 
@@ -557,4 +557,450 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	err = screenTailer.Flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,"+"notif5,", outW.String())
+}
+
+func TestContinuousFlushBlocking_InOrder(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo7001c"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	expectedSessionA := "barA7001"
+	expectedPrinterA10a := "barA10a"
+	expectedPrinterA20a := "barA20a"
+	expectedSessionB := "barB7001"
+	expectedPrinterB10a := "barB10a"
+	expectedPrinterB30a := "barB30a"
+	expectedSessionC := "barC7001"
+	expectedPrinterC10a := "barC10a"
+	expectedPrinterC30a := "barC30a"
+	expectedPrinterC40a := "barC40a"
+
+	go func() {
+		// Wait before printing
+		time.Sleep(10 * continuousFlushPeriod)
+
+		sessionA := screen.Session(expectedSessionA, 12)
+		err := sessionA.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
+		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+
+		prtrA10a.Out("A10a1,")
+		prtrA10a.Out("A10a2,")
+		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		assert.NoError(t, err)
+		prtrA20a.Out("A20a1,")
+		prtrA20a.Out("A20a2,")
+		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		assert.NoError(t, err)
+		err = sessionA.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+
+		// Wait before printing
+		time.Sleep(30 * continuousFlushPeriod)
+
+		sessionB := screen.Session(expectedSessionB, 42)
+		err = sessionB.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
+		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+
+		prtrB10a.Out("B10a1,")
+		prtrB10a.Out("B10a2,")
+		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		assert.NoError(t, err)
+		prtrB30a.Out("B30a1,")
+		prtrB30a.Out("B30a2,")
+		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		assert.NoError(t, err)
+		err = sessionB.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+
+		// Wait before printing
+		time.Sleep(30 * continuousFlushPeriod)
+
+		sessionC := screen.Session(expectedSessionC, 42)
+		err = sessionC.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
+		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
+		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+
+		prtrC10a.Out("C10a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		assert.NoError(t, err)
+		prtrC30a.Out("C30a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		assert.NoError(t, err)
+		prtrC40a.Out("C40a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		assert.NoError(t, err)
+		err = sessionC.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+	}()
+
+	err := screenTailer.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	// Should Flush A before B because A is the first session available.
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionB, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
+
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionA, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
+
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionC, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,", outW.String())
+}
+
+func TestContinuousFlushBlocking_InParallel(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo7201c"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	expectedSessionA := "barA7201"
+	expectedPrinterA10a := "barA10a"
+	expectedPrinterA20a := "barA20a"
+	expectedSessionB := "barB7201"
+	expectedPrinterB10a := "barB10a"
+	expectedPrinterB30a := "barB30a"
+	expectedSessionC := "barC7201"
+	expectedPrinterC10a := "barC10a"
+	expectedPrinterC30a := "barC30a"
+	expectedPrinterC40a := "barC40a"
+
+	go func() {
+		// Wait before printing
+		time.Sleep(10 * continuousFlushPeriod)
+
+		sessionA := screen.Session(expectedSessionA, 12)
+		err := sessionA.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
+		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+
+		prtrA10a.Out("A10a1,")
+		prtrA10a.Out("A10a2,")
+		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		assert.NoError(t, err)
+		prtrA20a.Out("A20a1,")
+		prtrA20a.Out("A20a2,")
+		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		assert.NoError(t, err)
+		err = sessionA.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+	}()
+
+	go func() {
+		// Wait before printing
+		time.Sleep(10 * continuousFlushPeriod)
+
+		sessionB := screen.Session(expectedSessionB, 42)
+		err := sessionB.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
+		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+
+		prtrB10a.Out("B10a1,")
+		prtrB10a.Out("B10a2,")
+		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		assert.NoError(t, err)
+		prtrB30a.Out("B30a1,")
+		prtrB30a.Out("B30a2,")
+		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		assert.NoError(t, err)
+		err = sessionB.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+	}()
+
+	// async prints
+	go func() {
+		// Wait before printing
+		time.Sleep(30 * continuousFlushPeriod)
+
+		sessionC := screen.Session(expectedSessionC, 42)
+		err := sessionC.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
+		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
+		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+
+		prtrC10a.Out("C10a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		assert.NoError(t, err)
+		prtrC30a.Out("C30a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		assert.NoError(t, err)
+		prtrC40a.Out("C40a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		assert.NoError(t, err)
+		err = sessionC.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+	}()
+
+	err := screenTailer.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	// Should Flush B before A despite of priority because 2 sessions will be available simultaneously
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionB, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionA, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionC, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
+}
+
+func TestContinuousFlushBlocking_OutOfOrder(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo8001c"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	expectedSessionA := "barA8001"
+	expectedPrinterA10a := "barA10a"
+	expectedPrinterA20a := "barA20a"
+	expectedSessionB := "barB8001"
+	expectedPrinterB10a := "barB10a"
+	expectedPrinterB30a := "barB30a"
+	expectedSessionC := "barC8001"
+	expectedPrinterC10a := "barC10a"
+	expectedPrinterC30a := "barC30a"
+	expectedPrinterC40a := "barC40a"
+
+	go func() {
+		// Wait before printing
+		time.Sleep(10 * continuousFlushPeriod)
+
+		sessionA := screen.Session(expectedSessionA, 12)
+		err := sessionA.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
+		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+
+		prtrA10a.Out("A10a1,")
+		prtrA20a.Out("A20a1,")
+		prtrA20a.Out("A20a2,")
+		prtrA10a.Out("A10a2,")
+
+		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		assert.NoError(t, err)
+		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		assert.NoError(t, err)
+
+		err = sessionA.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+	}()
+
+	go func() {
+		// Wait before printing
+		time.Sleep(10 * continuousFlushPeriod)
+
+		sessionB := screen.Session(expectedSessionB, 42)
+		err := sessionB.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
+		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+
+		prtrB30a.Out("B30a1,")
+		prtrB30a.Out("B30a2,")
+		prtrB10a.Out("B10a1,")
+		prtrB10a.Out("B10a2,")
+
+		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		assert.NoError(t, err)
+		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		assert.NoError(t, err)
+
+		err = sessionB.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+	}()
+
+	// async prints
+	go func() {
+		// Wait before printing
+		time.Sleep(30 * continuousFlushPeriod)
+
+		sessionC := screen.Session(expectedSessionC, 42)
+		err := sessionC.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
+		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
+		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+
+		prtrC10a.Out("C10a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		assert.NoError(t, err)
+		prtrC30a.Out("C30a1,")
+		prtrC40a.Out("C40a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		assert.NoError(t, err)
+		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		assert.NoError(t, err)
+
+		err = sessionC.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+	}()
+
+	err := screenTailer.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	// Should Flush B before A despite of priority because 2 sessions will be available simultaneously
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionB, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionA, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	err = screenTailer.ContinuousFlushBlocking(expectedSessionC, 100*continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
+}
+
+func TestContinuousFlushAllBlocking_InOrder(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo9001c"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	expectedSessionA := "barA9001"
+	expectedPrinterA10a := "barA10a"
+	expectedPrinterA20a := "barA20a"
+	expectedSessionB := "barB9001"
+	expectedPrinterB10a := "barB10a"
+	expectedPrinterB30a := "barB30a"
+	expectedSessionC := "barC9001"
+	expectedPrinterC10a := "barC10a"
+	expectedPrinterC30a := "barC30a"
+	expectedPrinterC40a := "barC40a"
+
+	go func() {
+		// Wait before printing
+		time.Sleep(10 * continuousFlushPeriod)
+
+		sessionA := screen.Session(expectedSessionA, 12)
+		err := sessionA.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
+		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+
+		prtrA10a.Out("A10a1,")
+		prtrA10a.Out("A10a2,")
+		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		assert.NoError(t, err)
+		prtrA20a.Out("A20a1,")
+		prtrA20a.Out("A20a2,")
+		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		assert.NoError(t, err)
+		err = sessionA.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+
+		// Wait before printing
+		time.Sleep(30 * continuousFlushPeriod)
+
+		sessionB := screen.Session(expectedSessionB, 42)
+		err = sessionB.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
+		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+
+		prtrB10a.Out("B10a1,")
+		prtrB10a.Out("B10a2,")
+		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		assert.NoError(t, err)
+		prtrB30a.Out("B30a1,")
+		prtrB30a.Out("B30a2,")
+		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		assert.NoError(t, err)
+		err = sessionB.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+
+		// Wait before printing
+		time.Sleep(30 * continuousFlushPeriod)
+
+		sessionC := screen.Session(expectedSessionC, 42)
+		err = sessionC.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
+		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
+		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+
+		prtrC10a.Out("C10a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		assert.NoError(t, err)
+		prtrC30a.Out("C30a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		assert.NoError(t, err)
+		prtrC40a.Out("C40a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		assert.NoError(t, err)
+		err = sessionC.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+	}()
+
+	err := screenTailer.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	// Should Flush A before B because A is the first session available.
+	err = screenTailer.ContinuousFlushAllBlocking(100 * continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+
+	time.Sleep(20 * continuousFlushPeriod)
+	err = screenTailer.ContinuousFlushAllBlocking(100 * continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	time.Sleep(30 * continuousFlushPeriod)
+	err = screenTailer.ContinuousFlushAllBlocking(100 * continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
+
+	time.Sleep(30 * continuousFlushPeriod)
+	err = screenTailer.ContinuousFlushAllBlocking(100 * continuousFlushPeriod)
+	assert.NoError(t, err)
+	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }

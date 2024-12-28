@@ -123,3 +123,13 @@ func Deduplicate[T comparable](slices ...*[]T) []T {
 	return Keys(mapSet)
 }
 
+/** Keep slice order */
+func Remove[T any](slice []T, pos int) []T {
+	return append(slice[:pos], slice[pos+1:]...)
+}
+
+/** Do not keep slice order */
+func RemoveFast[T any](slice []T, pos int) []T {
+	slice[pos] = slice[len(slice)-1]
+	return slice[:len(slice)-1]
+}
