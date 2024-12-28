@@ -57,6 +57,7 @@ func deserializeSession(path string) (s *session, err error) {
 	return s, err
 }
 
+// FIXME: use a different struct for serialization with exported fields.
 type session struct {
 	Name                    string
 	PriorityOrder           int
