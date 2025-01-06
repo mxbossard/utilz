@@ -165,10 +165,12 @@ func (s *session) End() (err error) {
 }
 
 func (s *session) Flush() error {
+	pt := logger.PerfTimer("session", s.Name)
+	defer pt.End()
+
 	if s.Ended {
 		return fmt.Errorf("session: [%s] already ended", s.Name)
 	}
-
 	// concat closed printers + current printer into a session tmp file ()
 	if s.currentPriority == nil {
 		//  Find next priority
@@ -205,7 +207,10 @@ func (s *session) Flush() error {
 				continue
 			} else {
 				// fmt.Printf("flushing printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
-				prtr.Flush()
+				err := prtr.Flush()
+				if err != nil {
+					return err
+				}
 
 				n, err := filez.CopyChunk(prtr.tmpOut, s.tmpOut, buf, prtr.cursorOut, -1)
 				if err != nil {

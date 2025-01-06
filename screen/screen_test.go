@@ -173,7 +173,7 @@ func TestAsyncScreen_Basic(t *testing.T) {
 	outs := printz.NewOutputs(outW, errW)
 	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, outW.String())
 	assert.Equal(t, expectedMessage, outW.String())
@@ -233,7 +233,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, outW.String())
 	assert.Empty(t, errW.String())
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 
 	assert.Equal(t, "10a-1,10a-2,", outW.String())
@@ -246,7 +246,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 
 	assert.Equal(t, "10a-1,10a-2,", outW.String())
@@ -262,7 +262,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 
 	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,", outW.String())
@@ -275,7 +275,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 
 	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,", outW.String())
@@ -288,7 +288,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,"+"30a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 
 	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,"+"30a-1,", outW.String())
@@ -364,14 +364,14 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	prtrC40a.Out("C40a1,")
 
 	assert.Empty(t, outW.String())
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
 	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
 	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "", outW.String())
 
@@ -380,18 +380,18 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 
 	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", outW.String())
 
 	err = sessionA.End()
 	assert.NoError(t, err)
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,B10a1,B10a2,B30a1,B30a2,", outW.String())
 
@@ -401,7 +401,7 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,", outW.String())
 
@@ -410,13 +410,13 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	err = sessionC.Flush()
 	assert.NoError(t, err)
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,", outW.String())
 
 	err = sessionC.End()
 	assert.NoError(t, err)
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }
@@ -495,7 +495,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	prtrC40a.Out("C40a1,")
 
 	assert.Empty(t, outW.String())
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	screen.NotifyPrinter().Out("notif4,")
 	err = screen.NotifyPrinter().Flush()
@@ -505,7 +505,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
 	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,", outW.String())
 
@@ -514,18 +514,18 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 
 	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
 	err = sessionA.End()
 	assert.NoError(t, err)
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
@@ -535,7 +535,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,", outW.String())
 
@@ -548,18 +548,18 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	err = sessionC.Flush()
 	assert.NoError(t, err)
 
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,", outW.String())
 
 	err = sessionC.End()
 	assert.NoError(t, err)
-	err = screenTailer.Flush()
+	err = screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,"+"notif5,", outW.String())
 }
 
-func TestContinuousFlushBlocking_InOrder(t *testing.T) {
+func TestTailBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
@@ -647,25 +647,25 @@ func TestContinuousFlushBlocking_InOrder(t *testing.T) {
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 	}()
 
-	err := screenTailer.Flush()
+	err := screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
 	// Should Flush A before B because A is the first session available.
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionB, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionB, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionA, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionA, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionC, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionC, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }
 
-func TestContinuousFlushBlocking_InParallel(t *testing.T) {
+func TestTailBlocking_InParallel(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7201c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
@@ -758,25 +758,25 @@ func TestContinuousFlushBlocking_InParallel(t *testing.T) {
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 	}()
 
-	err := screenTailer.Flush()
+	err := screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
 	// Should Flush B before A despite of priority because 2 sessions will be available simultaneously
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionB, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionB, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionA, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionA, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionC, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionC, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }
 
-func TestContinuousFlushBlocking_OutOfOrder(t *testing.T) {
+func TestTailBlocking_OutOfOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo8001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
@@ -874,25 +874,25 @@ func TestContinuousFlushBlocking_OutOfOrder(t *testing.T) {
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 	}()
 
-	err := screenTailer.Flush()
+	err := screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
 	// Should Flush B before A despite of priority because 2 sessions will be available simultaneously
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionB, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionB, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionA, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionA, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = screenTailer.ContinuousFlushBlocking(expectedSessionC, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionC, 100*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }
 
-func TestContinuousFlushAllBlocking_InOrder(t *testing.T) {
+func TestTailAllBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo9001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
@@ -980,27 +980,27 @@ func TestContinuousFlushAllBlocking_InOrder(t *testing.T) {
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 	}()
 
-	err := screenTailer.Flush()
+	err := screenTailer.flush()
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
 	// Should Flush A before B because A is the first session available.
-	err = screenTailer.ContinuousFlushAllBlocking(100 * continuousFlushPeriod)
+	err = screenTailer.TailAllBlocking(100 * continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "", outW.String())
 
 	time.Sleep(20 * continuousFlushPeriod)
-	err = screenTailer.ContinuousFlushAllBlocking(100 * continuousFlushPeriod)
+	err = screenTailer.TailAllBlocking(100 * continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", outW.String())
 
 	time.Sleep(30 * continuousFlushPeriod)
-	err = screenTailer.ContinuousFlushAllBlocking(100 * continuousFlushPeriod)
+	err = screenTailer.TailAllBlocking(100 * continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
 	time.Sleep(30 * continuousFlushPeriod)
-	err = screenTailer.ContinuousFlushAllBlocking(100 * continuousFlushPeriod)
+	err = screenTailer.TailAllBlocking(100 * continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }
