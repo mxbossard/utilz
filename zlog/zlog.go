@@ -31,8 +31,10 @@ func (t *perfTimer) End(args ...any) {
 		return
 	}
 	if t.ended {
-		msg := fmt.Sprintf("%s timer already ended", t.qualifier)
-		panic(msg)
+		// If already ended simply do nothing : allow end with defer and end prematurely.
+		// msg := fmt.Sprintf("%s timer already ended", t.qualifier)
+		// panic(msg)
+		return
 	}
 	duration := time.Since(*t.start)
 	msg := fmt.Sprintf("%s ended in %s", t.qualifier, duration)

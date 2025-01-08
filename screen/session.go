@@ -28,13 +28,19 @@ type printer struct {
 	cursorOut, cursorErr int64
 }
 
-func serializedPath(s *session) string {
+func serializedPath0(s *session) string {
 	filePath := filepath.Join(filepath.Dir(s.TmpPath), s.Name+serializedExtension)
 	return filePath
 }
 
+func sessionSerializedPath(dir, name string) string {
+	filePath := filepath.Join(dir, name+serializedExtension)
+	return filePath
+}
+
 func serializeSession(s *session) (err error) {
-	filePath := serializedPath(s)
+	//filePath := serializedPath0(s)
+	filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
 	f, err := os.OpenFile(filePath, os.O_CREATE+os.O_RDWR, 0644)
 	if err != nil {
 		return
@@ -42,6 +48,7 @@ func serializeSession(s *session) (err error) {
 	defer func() { f.Close() }()
 	enc := gob.NewEncoder(f)
 	err = enc.Encode(s)
+	logger.Debug("serialized session", "filepath", filePath)
 	return
 }
 
@@ -54,6 +61,7 @@ func deserializeSession(path string) (s *session, err error) {
 	dec := gob.NewDecoder(f)
 	s = &session{}
 	err = dec.Decode(s)
+	logger.Debug("deserialized session", "filepath", path)
 	return s, err
 }
 
@@ -161,6 +169,8 @@ func (s *session) End() (err error) {
 
 	s.Ended = true
 	err = serializeSession(s)
+	logger.Debug("session ended", "session", s.Name)
+
 	return
 }
 
@@ -169,7 +179,8 @@ func (s *session) Flush() error {
 	defer pt.End()
 
 	if s.Ended {
-		return fmt.Errorf("session: [%s] already ended", s.Name)
+		//return fmt.Errorf("session: [%s] already ended", s.Name)
+		return nil
 	}
 	// concat closed printers + current printer into a session tmp file ()
 	if s.currentPriority == nil {

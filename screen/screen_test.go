@@ -11,7 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"mby.fr/utils/filez"
 	"mby.fr/utils/printz"
+	"mby.fr/utils/zlog"
 )
+
+func TestMain(m *testing.M) {
+	// test context initialization here
+	zlog.ColoredConfig()
+	zlog.SetLogLevelThreshold(zlog.LevelPerf)
+	zlog.PerfTimerStartAsTrace(false)
+	os.Exit(m.Run())
+}
 
 func TestGetScreen(t *testing.T) {
 	outW := &strings.Builder{}
@@ -99,7 +108,7 @@ func TestScreenGetPrinter(t *testing.T) {
 	assert.NotNil(t, prtr)
 }
 
-func TestAsyncScreen_Basic(t *testing.T) {
+func TestAsyncScreen_BasicOut(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3001"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
@@ -182,7 +191,94 @@ func TestAsyncScreen_Basic(t *testing.T) {
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+}
 
+func TestAsyncScreen_BasicOutAndErr(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo3001"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+	require.NotNil(t, screen)
+
+	expectedSession := "foo3001"
+	expectedPrinter := "bar"
+	expectedOutMessage := "baz"
+	expectedErrMessage := "err"
+
+	session := screen.Session(expectedSession, 42)
+	require.NotNil(t, session)
+	err := session.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr10 := session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
+
+	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
+	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
+	sessionTmpOutFilepath := func() string {
+		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + outFileNameSuffix)
+		return matches[0]
+	}()
+	sessionTmpErrFilepath := func() string {
+		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + errFileNameSuffix)
+		return matches[0]
+	}()
+	printerTmpOutFilepath := func() string {
+		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedPrinter + outFileNameSuffix)
+		return matches[0]
+	}()
+	printerTmpErrFilepath := func() string {
+		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedPrinter + errFileNameSuffix)
+		return matches[0]
+	}()
+
+	require.DirExists(t, tmpDir)
+	require.DirExists(t, sessionDirTmpFilepath)
+	assert.FileExists(t, sessionSerFilepath)
+	assert.FileExists(t, sessionTmpOutFilepath)
+	assert.FileExists(t, sessionTmpErrFilepath)
+	assert.FileExists(t, printerTmpOutFilepath)
+	assert.FileExists(t, printerTmpErrFilepath)
+
+	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s })
+	ser, err := deserializeSession(sessionSerFilepath)
+	require.NoError(t, err)
+	assert.NotNil(t, ser)
+
+	prtr10.Out(expectedOutMessage)
+	prtr10.Err(expectedErrMessage)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	err = screenTailer.flush()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, outW.String())
+	assert.NotEmpty(t, errW.String())
+	assert.Equal(t, expectedOutMessage, outW.String())
+	assert.Equal(t, expectedErrMessage, errW.String())
+	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
 
 func TestAsyncScreen_MultiplePrinters(t *testing.T) {

@@ -71,6 +71,9 @@ func (s *screen) NotifyPrinter() printz.Printer {
 }
 
 func (s *screen) FlushBlocking(sessionName string, timeout time.Duration) (err error) {
+	pt := logger.PerfTimer("sessionName", sessionName)
+	defer pt.End()
+
 	s.Lock()
 	defer s.Unlock()
 	startTime := time.Now()
@@ -91,6 +94,9 @@ func (s *screen) FlushBlocking(sessionName string, timeout time.Duration) (err e
 }
 
 func (s *screen) FlushAllBlocking(timeout time.Duration) (err error) {
+	pt := logger.PerfTimer()
+	defer pt.End()
+
 	s.Lock()
 	defer s.Unlock()
 	startTime := time.Now()
@@ -151,11 +157,18 @@ func updateSession(exists *session, filePath string) error {
 	exists.Started = session.Started
 	exists.Ended = session.Ended
 
+	logger.Debug("updated session", "session", *exists)
+
 	return nil
 }
 
 func (s *screenTailer) scanSessions() (err error) {
-	sers, err := filepath.Glob(s.tmpPath + "/*.ser")
+	pt := logger.PerfTimer("tmpPath", s.tmpPath)
+	//defer func() { pt.End("sessionsCount", len(s.sessions)) }()
+	defer pt.End("sessionsCount", len(s.sessions))
+
+	wildcard := sessionSerializedPath(s.tmpPath, "*")
+	sers, err := filepath.Glob(wildcard)
 	if err != nil {
 		return err
 	}
@@ -189,11 +202,14 @@ func (s *screenTailer) scanSessions() (err error) {
 
 		}
 	}
+	pt.End("sessionsCount", len(s.sessions), "sers", sers)
 	return
 }
 
 func (s *screenTailer) flush() (err error) {
 	// Flush the display : print sessions in order onto std outputs (keep written bytes count)
+	pt := logger.PerfTimer("tmpPath", s.tmpPath, "electedSession", s.electedSession, "blockingSessionsQueueLen", s.blockingSessionsQueue.Len())
+	defer pt.End()
 
 	if s.electedSession == nil {
 		// 1- If no elected session, firstly print notifications
@@ -250,7 +266,8 @@ func (s *screenTailer) flush() (err error) {
 			}
 		}
 	} else {
-		path := serializedPath(s.electedSession)
+		//path := serializedPath(s.electedSession)
+		path := sessionSerializedPath(filepath.Dir(s.electedSession.TmpPath), s.electedSession.Name)
 		err = updateSession(s.electedSession, path)
 		if err != nil {
 			return err
@@ -295,6 +312,9 @@ func (s *screenTailer) flush() (err error) {
 /** Flush continuously until session is ended. */
 /** Put supplied session on top for next session election. */
 func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) error {
+	pt := logger.PerfTimer("sessionName", sessionName)
+	defer pt.End()
+
 	var blocking *session
 	startTime := time.Now()
 	// Push session on top of priority queue
@@ -329,6 +349,9 @@ func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) e
 
 /** Flush continuously until all sessions are ended. */
 func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
+	pt := logger.PerfTimer()
+	defer pt.End()
+
 	startTime := time.Now()
 
 	err := s.flush()
