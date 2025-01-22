@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"mby.fr/utils/collections"
+	"mby.fr/utils/errorz"
 	"mby.fr/utils/filez"
 	"mby.fr/utils/printz"
 	"mby.fr/utils/zlog"
@@ -80,7 +81,7 @@ func (s *screen) FlushBlocking(sessionName string, timeout time.Duration) (err e
 	if session, ok := s.sessions[sessionName]; ok {
 		for !session.Ended {
 			if time.Since(startTime) > timeout {
-				err := fmt.Errorf("timeout FlushBlocking() for session: [%s]", sessionName)
+				err := errorz.Timeoutf(timeout, "FlushBlocking() for session: [%s]", sessionName)
 				return err
 			}
 			err = session.Flush()
@@ -107,7 +108,7 @@ func (s *screen) FlushAllBlocking(timeout time.Duration) (err error) {
 			if time.Since(startTime) > timeout {
 				allSessions := collections.Values(s.sessions)
 				notEndedNames := collections.Map(&allSessions, func(s *session) string { return s.Name })
-				err := fmt.Errorf("timeout FlushAllBlocking() some sessions: [%s]", notEndedNames)
+				err := errorz.Timeoutf(timeout, "FlushAllBlocking() some sessions: [%s]", notEndedNames)
 				return err
 			}
 			if !ses.Ended {
@@ -323,7 +324,7 @@ func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) e
 
 	for blocking = s.sessions[sessionName]; blocking == nil || !blocking.Ended; {
 		if time.Since(startTime) > timeout {
-			err := fmt.Errorf("timeout TailBlocking() for session: [%s]", sessionName)
+			err := errorz.Timeoutf(timeout, "TailBlocking() for session: [%s]", sessionName)
 			return err
 		}
 
@@ -364,7 +365,7 @@ func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
 		notEndedNames := collections.Map(&notEnded, func(s *session) string { return s.Name })
 		//fmt.Printf("Flushing sessions: %v\n", notEndedNames)
 		if time.Since(startTime) > timeout {
-			err := fmt.Errorf("timeout TailAllBlocking(), some sessions not ended after timeout: %s", notEndedNames)
+			err := errorz.Timeoutf(timeout, "TailAllBlocking(), some sessions not ended after timeout: %s", notEndedNames)
 			return err
 		}
 
