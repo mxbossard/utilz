@@ -17,7 +17,7 @@ import (
 func TestMain(m *testing.M) {
 	// test context initialization here
 	zlog.ColoredConfig()
-	zlog.SetLogLevelThreshold(zlog.LevelPerf)
+	//zlog.SetLogLevelThreshold(zlog.LevelPerf)
 	zlog.PerfTimerStartAsTrace(false)
 	os.Exit(m.Run())
 }
