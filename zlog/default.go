@@ -236,7 +236,6 @@ func DefaultHandler() slog.Handler {
 func DefaultConfig(attrs ...slog.Attr) {
 	handler := defaultHandlerProxy.Handler
 	SetDefaultHandler(handler, attrs...)
-	//updateDefaultHandlers(handler)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 	slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -244,20 +243,14 @@ func DefaultConfig(attrs ...slog.Attr) {
 
 func updateDefaultHandlers(newDefault slog.Handler) {
 	// Update default handlers
-	//defaultHandler.Set(newDefault)
 	for _, h := range defaultHandlers {
 		h.Set(newDefault)
 	}
 }
 
 func ColoredConfig(attrs ...slog.Attr) {
-	var handler slog.Handler
-	handler = NewColoredHandler(defaultOutput, defaultHandlerOptions)
-	if len(attrs) > 0 {
-		handler = handler.WithAttrs(attrs)
-	}
+	handler := NewColoredHandler(defaultOutput, defaultHandlerOptions)
 	SetDefaultHandler(handler, attrs...)
-	//updateDefaultHandlers(handler)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 	slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -270,7 +263,6 @@ func UnstructuredConfig(attrs ...slog.Attr) {
 		handler = handler.WithAttrs(attrs)
 	}
 	SetDefaultHandler(handler, attrs...)
-	//updateDefaultHandlers(handler)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 	slog.SetLogLoggerLevel(slog.LevelDebug)

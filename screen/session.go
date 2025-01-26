@@ -126,7 +126,7 @@ func (s *session) ClosePrinter(name string) error {
 
 func (s *session) Start(timeout time.Duration) (err error) {
 	if s.Started {
-		panic(fmt.Sprintf("session: [%s] already started", s.Name))
+		return fmt.Errorf("session: [%s] already started", s.Name)
 	}
 	if s.Ended {
 		return fmt.Errorf("session: [%s] already ended", s.Name)

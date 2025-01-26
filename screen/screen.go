@@ -445,3 +445,14 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 		blockingSessionsQueue: collections.NewQueue[string](),
 	}
 }
+
+func NewAsyncScreenTailerWaiting(outputs printz.Outputs, tmpPath string, timeout time.Duration) *screenTailer {
+	startTime := time.Now()
+	for ok, _ := filez.IsDirectory(tmpPath); !ok; {
+		if time.Since(startTime) > timeout {
+			panic(fmt.Sprintf("unable to create read only async screen: [%s] path do not exists after timeout: [%s]", tmpPath, timeout))
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
+	return NewAsyncScreenTailer(outputs, tmpPath)
+}
