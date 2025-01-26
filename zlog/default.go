@@ -26,15 +26,17 @@ const (
 )
 
 var (
-	defaultLogLevel              *slog.LevelVar
-	defaultHandlerOptions        *slog.HandlerOptions
-	defaultOutput                *inout.WriterProxy
-	defaultHandlerProxy          *handlerProxy
-	defaultPart                  string
-	displayPerfStartTimerAsTrace = true
-	IgnorePC                     = false
-	QualifierPadding             = 30
-	TruncatedArgsLength          = 64
+	defaultLogLevel                  *slog.LevelVar
+	defaultHandlerOptions            *slog.HandlerOptions
+	defaultOutput                    *inout.WriterProxy
+	defaultHandlerProxy              *handlerProxy
+	defaultPart                      string
+	displayPerfStartTimerAsTrace     = true
+	loggingFilepath                  = ""
+	fileOutputLoggingReportedAlready = false
+	IgnorePC                         = false
+	QualifierPadding                 = 30
+	TruncatedArgsLength              = 64
 )
 
 type handlerProxy struct {
@@ -171,13 +173,13 @@ func validateThresholdLevel(lvl slog.Level) {
 	}
 }
 
-func SetLogLevelThreshold0IsTrace(n int) {
+func SetLogLevelThreshold0IsTrace6IsFatal(n int) {
 	lvl := slog.Level(int(LevelTrace) + 4*n)
 	validateThresholdLevel(lvl)
 	defaultLogLevel.Set(lvl)
 }
 
-func SetLogLevelThreshold0IsFatal(n int) {
+func SetLogLevelThreshold0IsFatal6IsTrace(n int) {
 	lvl := slog.Level(int(LevelFatal) - 4*n)
 	validateThresholdLevel(lvl)
 	defaultLogLevel.Set(lvl)
@@ -199,6 +201,7 @@ func SetDefaultTruncatingFileOutput(filepath string) {
 	}
 	out.WriteString("\n==================== Truncated log file ====================\n")
 	SetDefaultOutput(out)
+	loggingFilepath = filepath
 }
 
 func SetDefaultAppendingFileOutput(filepath string) {
@@ -208,6 +211,15 @@ func SetDefaultAppendingFileOutput(filepath string) {
 	}
 	out.WriteString("\n==================== Appending to log file ====================\n")
 	SetDefaultOutput(out)
+	loggingFilepath = filepath
+}
+
+func reportFileOutputLogging() {
+	if fileOutputLoggingReportedAlready {
+		return
+	}
+	fileOutputLoggingReportedAlready = true
+	fmt.Fprintf(os.Stderr, "Appending logs into file: [%s]\n", loggingFilepath)
 }
 
 func SetDefaultHandler(handler slog.Handler, attrs ...slog.Attr) {

@@ -211,6 +211,7 @@ func (l *zLogger) log(ctx context.Context, level slog.Level, msg string, args ..
 	if !l.Enabled(ctx, level) {
 		return
 	}
+	reportFileOutputLogging()
 	var pc uintptr
 	if !IgnorePC {
 		var pcs [1]uintptr
