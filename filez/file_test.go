@@ -22,6 +22,15 @@ func TestMkTemp(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, fs.ErrNotExist)
+
+	_, err = MkTemp("/")
+	assert.Error(t, err)
+}
+
+func TestMkTempOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		MkTempOrPanic("/")
+	})
 }
 
 func TestMkTemp2(t *testing.T) {
@@ -35,6 +44,16 @@ func TestMkTemp2(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, path, "/"+expectedDir)
 	assert.Contains(t, path, "/"+expected)
+
+	_, err = MkTemp2("-do-not-exists", expectedDir)
+	assert.Error(t, err)
+}
+
+func TestMkTemp2OrPanic(t *testing.T) {
+	expectedDir := "filez.dir20."
+	assert.Panics(t, func() {
+		MkTemp2OrPanic("-do-not-exists", expectedDir)
+	})
 }
 
 func TestOpenTemp(t *testing.T) {
@@ -48,6 +67,15 @@ func TestOpenTemp(t *testing.T) {
 	assert.False(t, info.IsDir())
 	assert.Contains(t, info.Name(), expected)
 	assert.Greater(t, len(info.Name()), len(expected))
+
+	_, err = OpenTemp("/")
+	assert.Error(t, err)
+}
+
+func TestOpenTempOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		OpenTempOrPanic("/")
+	})
 }
 
 func TestMkdirTemp(t *testing.T) {
@@ -63,6 +91,123 @@ func TestMkdirTemp(t *testing.T) {
 	assert.True(t, info.IsDir())
 	assert.Contains(t, info.Name(), expected)
 	assert.Greater(t, len(info.Name()), len(expected))
+
+	_, err = MkdirTemp("/")
+	assert.Error(t, err)
+}
+
+func TestMkdirTempOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		MkdirTempOrPanic("/")
+	})
+}
+
+func TestMkdirTemp2(t *testing.T) {
+	// TODO: test existing dir 
+	// TODO: test not existing dir
+
+	_, err := MkdirTemp2("", "/")
+	assert.Error(t, err)
+}
+
+func TestMkdirTemp2OrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		MkdirTemp2OrPanic("", "/")
+	})
+}
+
+func TestOpen(t *testing.T) {
+	// TODO
+
+	_, err := Open("/-do-not-exists-_")
+	assert.Error(t, err)
+}
+
+func TestOpenOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		OpenOrPanic("/-do-not-exists-_")
+	})
+}
+
+func TestOpen3(t *testing.T) {
+	// TODO
+
+	_, err := Open3("/-do-not-exists-_", 42, 0400)
+	assert.Error(t, err)
+}
+
+func TestOpen3OrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		Open3OrPanic("/-do-not-exists-_", 42, 0400)
+	})
+}
+
+func TestMkdirAll(t *testing.T) {
+	// TODO
+
+	err := MkdirAll("", 0000)
+	assert.Error(t, err)
+}
+
+func TestMkdirAllOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		MkdirAllOrPanic("", 0400)
+	})
+}
+
+func TestMkdir(t *testing.T) {
+	// TODO
+
+	err := Mkdir("", 0400)
+	assert.Error(t, err)
+}
+
+func TestMkdirOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		MkdirOrPanic("", 0400)
+	})
+}
+
+
+func TestChdirAndWorkingDir(t *testing.T) {
+	// TODO
+}
+
+func TestChdirOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		ChdirOrPanic("")
+	})
+}
+
+func TestWorkingDirOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		// TODO: how ?
+		panic("TODO: how test it ?")
+	})
+}
+
+func TestMkSubDirAll(t *testing.T) {
+	// TODO
+}
+
+func TestMkSubDirAll3(t *testing.T) {
+	// TODO
+}
+
+func TestMkSubDir(t *testing.T) {
+	// TODO
+}
+
+func TestMkSubDir3(t *testing.T) {
+	// TODO
+}
+
+func TestSoftInitFile(t *testing.T) {
+	// TODO
+}
+
+func TestSoftInitFile3(t *testing.T) {
+	// TODO
 }
 
 func TestWriteStringThenReadString(t *testing.T) {
@@ -81,6 +226,89 @@ func TestWriteStringThenReadString(t *testing.T) {
 	info, err := os.Stat(path)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedPerms, info.Mode().Perm())
+}
+
+func TestReadOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
+}
+
+func TestReadStringOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
+}
+
+func TestWriteOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
+}
+
+func TestWriteStringOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
+}
+
+func TestReadFile(t *testing.T) {
+	// TODO
+}
+
+func TestReadFileOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
+}
+
+func TestReadFileString(t *testing.T) {
+	// TODO
+}
+
+func TestReadFileStringOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
+}
+
+func TestPrint(t *testing.T) {
+	// TODO
+}
+
+func TestPrintOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
+}
+
+func TestPrintTree(t *testing.T) {
+	// TODO
+}
+
+func TestPrintTreeOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
+}
+
+func TestIsDirectory(t *testing.T) {
+	// TODO
+}
+
+func TestIsDirectoryOrPanic(t *testing.T) {
+	assert.Panics(t, func() {
+	// TODO
+		panic("TODO")
+	})
 }
 
 func TestCopy_SmallBuffer(t *testing.T) {

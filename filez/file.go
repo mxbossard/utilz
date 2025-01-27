@@ -21,6 +21,83 @@ func manageError(err error) bool {
 	return true
 }
 
+
+/** Return a temp file path. Do not touch the file. */
+func MkTemp(pattern string) (string, error) {
+	dir := os.TempDir()
+	return MkTemp2(dir, pattern)
+}
+
+/** Return a temp file path. Do not touch the file. */
+func MkTempOrPanic(pattern string) string {
+	f, err := MkTemp(pattern)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+/** Return a temp file path. Do not touch the file. */
+func MkTemp2(dir, pattern string) (string, error) {
+	f, err := os.CreateTemp(dir, pattern)
+	if err != nil {
+		return "", err
+	}
+	path := f.Name()
+	// FIXME: should not create/touch/open the file in first place !
+	defer func() { err = os.Remove(path) }()
+	return path, err
+}
+
+/** Return a temp file path. Do not touch the file. */
+func MkTemp2OrPanic(dir, pattern string) string {
+	f, err := MkTemp2(dir, pattern)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func OpenTemp(pattern string) (*os.File, error) {
+	f, err := os.CreateTemp("", pattern)
+	return f, err
+}
+
+func OpenTempOrPanic(pattern string) *os.File {
+	f, err := OpenTemp(pattern)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func MkdirTemp(pattern string) (string, error) {
+	dir := os.TempDir()
+	p, err := MkdirTemp2(dir, pattern)
+	return p, err
+}
+
+func MkdirTempOrPanic(pattern string) string {
+	p, err := MkdirTemp(pattern)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
+func MkdirTemp2(dir, pattern string) (string, error) {
+	p, err := os.MkdirTemp(dir, pattern)
+	return p, err
+}
+
+func MkdirTemp2OrPanic(dir, pattern string) string {
+	p, err := MkdirTemp2(dir, pattern)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
 func Open(name string) (*os.File, error) {
 	return os.Open(name)
 }
@@ -83,6 +160,18 @@ func MkdirOrPanic(path string, perm fs.FileMode) {
 	}
 }
 
+func Chdir(path string) (err error) {
+	err = os.Chdir(path)
+	return
+}
+
+func ChdirOrPanic(path string) {
+	err := os.Chdir(path)
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Get working directory path.
 // Fail if cannot get working directory.
 // FIXME: remove ?
@@ -102,18 +191,6 @@ func WorkingDirOrPanic() string {
 		panic(err)
 	}
 	return path
-}
-
-func Chdir(path string) (err error) {
-	err = os.Chdir(path)
-	return
-}
-
-func ChdirOrPanic(path string) {
-	err := os.Chdir(path)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func MkSubDirAll(parentDirPath, name string) (string, error) {
@@ -267,78 +344,6 @@ func IsDirectoryOrPanic(path string) bool {
 		panic(err)
 	}
 	return ok
-}
-
-func MkTemp(pattern string) (string, error) {
-	dir := os.TempDir()
-	return MkTemp2(dir, pattern)
-}
-
-func MkTempOrPanic(pattern string) string {
-	f, err := MkTemp(pattern)
-	if err != nil {
-		panic(err)
-	}
-	return f
-}
-
-func MkTemp2(dir, pattern string) (string, error) {
-	f, err := os.CreateTemp(dir, pattern)
-	if err != nil {
-		return "", err
-	}
-	path := f.Name()
-	// FIXME: should not create/touch/open the file in first place !
-	defer func() { err = os.Remove(path) }()
-	return path, err
-}
-
-func MkTemp2OrPanic(dir, pattern string) string {
-	f, err := MkTemp2(dir, pattern)
-	if err != nil {
-		panic(err)
-	}
-	return f
-}
-
-func OpenTemp(pattern string) (*os.File, error) {
-	f, err := os.CreateTemp("", pattern)
-	return f, err
-}
-
-func OpenTempOrPanic(pattern string) *os.File {
-	f, err := OpenTemp(pattern)
-	if err != nil {
-		panic(err)
-	}
-	return f
-}
-
-func MkdirTemp(pattern string) (string, error) {
-	dir := os.TempDir()
-	p, err := MkdirTemp2(dir, pattern)
-	return p, err
-}
-
-func MkdirTempOrPanic(pattern string) string {
-	p, err := MkdirTemp(pattern)
-	if err != nil {
-		panic(err)
-	}
-	return p
-}
-
-func MkdirTemp2(dir, pattern string) (string, error) {
-	p, err := os.MkdirTemp(dir, pattern)
-	return p, err
-}
-
-func MkdirTemp2OrPanic(dir, pattern string) string {
-	p, err := MkdirTemp2(dir, pattern)
-	if err != nil {
-		panic(err)
-	}
-	return p
 }
 
 func Copy(f *os.File, w io.Writer, buffer []byte) (p int64, err error) {
