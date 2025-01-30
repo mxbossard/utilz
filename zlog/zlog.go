@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"mby.fr/utils/utilz"
 )
 
 func init() {
@@ -23,6 +25,7 @@ type perfTimer struct {
 	args      []any
 	start     *time.Time
 	ended     bool
+	uid       string
 }
 
 func (t *perfTimer) End(args ...any) {
@@ -37,10 +40,17 @@ func (t *perfTimer) End(args ...any) {
 		return
 	}
 	duration := time.Since(*t.start)
-	msg := fmt.Sprintf("%s ended in %s", t.qualifier, duration)
+	msg := fmt.Sprintf("%s{%s} ended in %s", t.qualifier, t.uid, duration)
 	allArgs := append(t.args, args...)
 	t.logger.log(context.Background(), t.level, msg, allArgs...)
 	t.ended = true
+}
+
+func (t perfTimer) SinceStart() time.Duration {
+	if t.start == nil {
+		return -1 * time.Millisecond
+	}
+	return time.Since(*t.start)
 }
 
 type zLogger struct {
@@ -93,19 +103,21 @@ func (l *zLogger) startTimer(t *perfTimer, qualifier string) {
 }
 
 func (l *zLogger) QualifiedTraceTimer(qualifier string, args ...any) *perfTimer {
-	t := perfTimer{level: LevelTrace, args: args}
+	uid := utilz.ShortUidOrPanic()
+	t := perfTimer{level: LevelTrace, args: args, uid: uid}
 	if l.level.Level() > LevelTrace {
 		return &t
 	}
 
 	l.startTimer(&t, qualifier)
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	msg := fmt.Sprintf("%s{%s} timer started ...", qualifier, t.uid)
 	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) TraceTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelTrace, args: args}
+	uid := utilz.ShortUidOrPanic()
+	t := perfTimer{level: LevelTrace, args: args, uid: uid}
 	if l.level.Level() > LevelTrace {
 		return &t
 	}
@@ -114,25 +126,27 @@ func (l *zLogger) TraceTimer(args ...any) *perfTimer {
 	qualifier += "()"
 
 	l.startTimer(&t, qualifier)
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	msg := fmt.Sprintf("%s{%s} timer started ...", qualifier, t.uid)
 	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) QualifiedPerfTimer(qualifier string, args ...any) *perfTimer {
-	t := perfTimer{level: LevelPerf, args: args}
+	uid := utilz.ShortUidOrPanic()
+	t := perfTimer{level: LevelPerf, args: args, uid: uid}
 	if l.level.Level() > LevelPerf {
 		return &t
 	}
 
 	l.startTimer(&t, qualifier)
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	msg := fmt.Sprintf("%s{%s} timer started ...", qualifier, t.uid)
 	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) PerfTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelPerf, args: args}
+	uid := utilz.ShortUidOrPanic()
+	t := perfTimer{level: LevelPerf, args: args, uid: uid}
 	if l.level.Level() > LevelPerf {
 		return &t
 	}
@@ -141,7 +155,7 @@ func (l *zLogger) PerfTimer(args ...any) *perfTimer {
 	qualifier += "()"
 
 	l.startTimer(&t, qualifier)
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	msg := fmt.Sprintf("%s{%s} timer started ...", qualifier, t.uid)
 	lvl := LevelPerf
 	if displayPerfStartTimerAsTrace {
 		lvl = LevelTrace
@@ -151,19 +165,21 @@ func (l *zLogger) PerfTimer(args ...any) *perfTimer {
 }
 
 func (l *zLogger) QualifiedDebugTimer(qualifier string, args ...any) *perfTimer {
-	t := perfTimer{level: LevelDebug, args: args}
+	uid := utilz.ShortUidOrPanic()
+	t := perfTimer{level: LevelDebug, args: args, uid: uid}
 	if l.level.Level() > LevelDebug {
 		return &t
 	}
 
 	l.startTimer(&t, qualifier)
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	msg := fmt.Sprintf("%s{%s} timer started ...", qualifier, t.uid)
 	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) DebugTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelDebug, args: args}
+	uid := utilz.ShortUidOrPanic()
+	t := perfTimer{level: LevelDebug, args: args, uid: uid}
 	if l.level.Level() > LevelDebug {
 		return &t
 	}
@@ -172,25 +188,27 @@ func (l *zLogger) DebugTimer(args ...any) *perfTimer {
 	qualifier += "()"
 
 	l.startTimer(&t, qualifier)
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	msg := fmt.Sprintf("%s{%s} timer started ...", qualifier, t.uid)
 	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) QualifiedInfoTimer(qualifier string, args ...any) *perfTimer {
-	t := perfTimer{level: LevelInfo, args: args}
+	uid := utilz.ShortUidOrPanic()
+	t := perfTimer{level: LevelInfo, args: args, uid: uid}
 	if l.level.Level() > LevelInfo {
 		return &t
 	}
 
 	l.startTimer(&t, qualifier)
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	msg := fmt.Sprintf("%s{%s} timer started ...", qualifier, t.uid)
 	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }
 
 func (l *zLogger) InfoTimer(args ...any) *perfTimer {
-	t := perfTimer{level: LevelInfo, args: args}
+	uid := utilz.ShortUidOrPanic()
+	t := perfTimer{level: LevelInfo, args: args, uid: uid}
 	if l.level.Level() > LevelInfo {
 		return &t
 	}
@@ -199,7 +217,7 @@ func (l *zLogger) InfoTimer(args ...any) *perfTimer {
 	qualifier += "()"
 
 	l.startTimer(&t, qualifier)
-	msg := fmt.Sprintf("%s timer started ...", qualifier)
+	msg := fmt.Sprintf("%s{%s} timer started ...", qualifier, t.uid)
 	l.log(context.Background(), LevelTrace, msg, args...)
 	return &t
 }

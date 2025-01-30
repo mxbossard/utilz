@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	DefaultDirPerms = fs.FileMode(0700)
+	DefaultDirPerms  = fs.FileMode(0700)
 	DefaultFilePerms = fs.FileMode(0600)
 )
 
@@ -20,7 +20,6 @@ func manageError(err error) bool {
 	}
 	return true
 }
-
 
 /** Return a temp file path. Do not touch the file. */
 func MkTemp(pattern string) (string, error) {
@@ -104,6 +103,18 @@ func Open(name string) (*os.File, error) {
 
 func OpenOrPanic(name string) *os.File {
 	f, err := Open(name)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func Touch(name string) (*os.File, error) {
+	return Open3(name, os.O_CREATE, DefaultFilePerms)
+}
+
+func TouchOrPanic(name string) *os.File {
+	f, err := Open3(name, os.O_CREATE, DefaultFilePerms)
 	if err != nil {
 		panic(err)
 	}
@@ -394,7 +405,7 @@ func CopyChunk(src *os.File, dest io.Writer, buf []byte, start, end int64) (int6
 		}
 
 		// Adjust limit
-		if end > -1 && (length - total) < int64(limit) {
+		if end > -1 && (length-total) < int64(limit) {
 			// Stop copy before EOF
 			limit = int(length - total)
 		}
@@ -408,4 +419,3 @@ func CopyChunk(src *os.File, dest io.Writer, buf []byte, start, end int64) (int6
 
 	return total, nil
 }
-

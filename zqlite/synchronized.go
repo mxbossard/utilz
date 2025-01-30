@@ -8,6 +8,8 @@ import (
 )
 
 func OpenSynchronizedDB(backingFile, opts string, busyTimeout time.Duration) (*zql.SynchronizedDB, error) {
+	return zql.NewSynchronizedDB2("sqlite", backingFile, opts, busyTimeout, false), nil
+
 	dataSourceName := backingFile
 	if opts != "" {
 		dataSourceName += "?" + opts
@@ -19,4 +21,8 @@ func OpenSynchronizedDB(backingFile, opts string, busyTimeout time.Duration) (*z
 	}
 
 	return zql.NewSynchronizedDB(db, backingFile, opts, busyTimeout), nil
+}
+
+func OpenSynchronizedClosingDB(backingFile, opts string, busyTimeout time.Duration) (*zql.SynchronizedDB, error) {
+	return zql.NewSynchronizedDB2("sqlite", backingFile, opts, busyTimeout, true), nil
 }

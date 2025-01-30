@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -240,11 +241,16 @@ func TestStartPerf(t *testing.T) {
 
 	logger := New("foo")
 	p := logger.PerfTimer()
+	d := p.SinceStart()
+	assert.NotNil(t, p)
+	assert.Greater(t, d, 0*time.Millisecond)
 	p.End()
 
 	logged := b.String()
-	assert.Contains(t, logged, "TRACE [foo] TestStartPerf() timer started ...")
-	assert.Contains(t, logged, "PERF [foo] TestStartPerf() ended in")
+	assert.Contains(t, logged, "TRACE [foo] TestStartPerf(){")
+	assert.Contains(t, logged, "} timer started ...")
+	assert.Contains(t, logged, "PERF [foo] TestStartPerf(){")
+	assert.Contains(t, logged, "} ended in")
 	assert.Contains(t, logged, "source=zlog/zlog_test.go:")
 	assert.NotContains(t, logged, "source=zlog/zlog.go:")
 }

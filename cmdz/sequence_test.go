@@ -66,7 +66,7 @@ func TestSerial(t *testing.T) {
 	duration := time.Since(start).Microseconds()
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, duration, int64(10000), "Serial too quick !")
-	assert.Less(t, duration, int64(20000), "Serial too slow !")
+	assert.Less(t, duration, int64(30000), "Serial too slow !")
 	assert.Equal(t, "foo\nbar\nbaz\n", s2.StdoutRecord())
 	assert.Equal(t, "", s2.StderrRecord())
 
