@@ -27,9 +27,11 @@ var (
 
 type Sink interface {
 	Session(string, int) *session
+	ClearSession(string) error
 	NotifyPrinter() printz.Printer
 	//Flush() error
 	Close() error
+	Clear() error
 	FlushBlocking(string, time.Duration) error
 	FlushAllBlocking(time.Duration) error
 }
@@ -65,6 +67,23 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	session := buildSession(name, priorityOrder, s.tmpPath)
 	s.sessions[name] = session
 	return session
+}
+
+func (s *screen) ClearSession(name string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if session, ok := s.sessions[name]; ok {
+		err := session.Clear()
+		if err != nil {
+			return err
+		}
+		delete(s.sessions, name)
+	} else {
+		return fmt.Errorf("session: [%s] does not exists", name)
+	}
+
+	return nil
 }
 
 func (s *screen) NotifyPrinter() printz.Printer {
@@ -129,6 +148,16 @@ func (s *screen) Close() (err error) {
 		return err
 	}
 	err = s.notifier.tmpErr.Close()
+	return
+}
+
+func (s *screen) Clear() (err error) {
+	for session, _ := range s.sessions {
+		err := s.ClearSession(session)
+		if err != nil {
+			return err
+		}
+	}
 	return
 }
 

@@ -215,7 +215,7 @@ func SetDefaultAppendingFileOutput(filepath string) {
 }
 
 func reportFileOutputLogging() {
-	if fileOutputLoggingReportedAlready {
+	if fileOutputLoggingReportedAlready || defaultLogLevel.Level() < slog.LevelDebug {
 		return
 	}
 	fileOutputLoggingReportedAlready = true

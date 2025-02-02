@@ -131,7 +131,7 @@ func (d *SynchronizedDB) lock(session bool) (err error) {
 			return err
 		}
 	}
-	logger.Perf("just acquired the lock", "lock duration", perf.SinceStart())
+	logger.Perf("just acquired the lock", "lock_duration", perf.SinceStart())
 	d.fileLock = fileLock
 
 	if d.openCloseSync {
@@ -165,6 +165,7 @@ func (d *SynchronizedDB) unlock(session bool) (err error) {
 	}
 
 	if d.fileLock != nil {
+		//time.Sleep(100 * time.Millisecond)
 		err = d.fileLock.Unlock()
 		if err != nil {
 			return
@@ -193,6 +194,8 @@ func (d *SynchronizedDB) ExecContext(ctx context.Context, query string, args ...
 		return nil, err
 	}
 	defer d.unlock(false)
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
 	return d.DB.ExecContext(ctx, query, args...)
 }
 
@@ -202,6 +205,8 @@ func (d *SynchronizedDB) Query(query string, args ...any) (*sql.Rows, error) {
 		return nil, err
 	}
 	defer d.unlock(false)
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
 	return d.DB.Query(query, args...)
 }
 
@@ -211,6 +216,8 @@ func (d *SynchronizedDB) QueryContext(ctx context.Context, query string, args ..
 		return nil, err
 	}
 	defer d.unlock(false)
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
 	return d.DB.QueryContext(ctx, query, args...)
 }
 
@@ -220,6 +227,8 @@ func (d *SynchronizedDB) QueryRow(query string, args ...any) *sql.Row {
 		panic(err)
 	}
 	defer d.unlock(false)
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
 	return d.DB.QueryRow(query, args...)
 }
 
@@ -229,6 +238,8 @@ func (d *SynchronizedDB) QueryRowContext(ctx context.Context, query string, args
 		panic(err)
 	}
 	defer d.unlock(false)
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
 	return d.DB.QueryRowContext(ctx, query, args...)
 }
 

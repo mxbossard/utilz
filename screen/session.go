@@ -90,9 +90,9 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	if s.Ended {
 		panic(fmt.Sprintf("session [%s] already ended", s.Name))
 	}
-	if _, ok := s.printers[name]; ok {
-		panic(fmt.Sprintf("printer [%s] already exists", name))
-		//return prtr
+	if prtr, ok := s.printers[name]; ok {
+		//panic(fmt.Sprintf("printer [%s] already exists", name))
+		return prtr
 	}
 
 	p := buildTmpPrinter(s.TmpPath, name, priorityOrder)
@@ -126,7 +126,9 @@ func (s *session) ClosePrinter(name string) error {
 
 func (s *session) Start(timeout time.Duration) (err error) {
 	if s.Started {
-		return fmt.Errorf("session: [%s] already started", s.Name)
+		// already started
+		return nil
+		//return fmt.Errorf("session: [%s] already started", s.Name)
 	}
 	if s.Ended {
 		return fmt.Errorf("session: [%s] already ended", s.Name)
@@ -172,6 +174,14 @@ func (s *session) End() (err error) {
 	logger.Debug("session ended", "session", s.Name)
 
 	return
+}
+
+func (s *session) Clear() (err error) {
+	if !s.Ended {
+		return fmt.Errorf("session: [%s] not ended", s.Name)
+	}
+	err = os.RemoveAll(s.TmpPath)
+	return err
 }
 
 func (s *session) Flush() error {
