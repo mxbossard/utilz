@@ -12,7 +12,6 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/gofrs/flock"
-	"github.com/juju/fslock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"mby.fr/utils/filez"
@@ -121,40 +120,6 @@ func TestFcntlFlock(t *testing.T) {
 			time.Sleep(2 * time.Millisecond)
 			_, err = file.WriteString("foo")
 			require.NoError(t, err)
-			epsilon--
-
-		}()
-	}
-	wg.Wait()
-
-	require.Equal(t, 0, epsilon)
-}
-
-func TestFslock(t *testing.T) {
-	t.Skip()
-	filepath := filez.MkTempOrPanic("zqlite-TestFslock")
-	filepath = "/var/lock/flock.lock"
-	os.Remove(filepath)
-	defer os.Remove(filepath)
-	fl := fslock.New(filepath)
-	m := &sync.Mutex{}
-
-	count := 10
-	epsilon := 0
-	var wg sync.WaitGroup
-	for k := 0; k < count; k++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			m.Lock()
-			err := fl.Lock()
-			require.NoError(t, err)
-			m.Unlock()
-			defer fl.Unlock()
-			epsilon++
-			// Epsilon should always be 1
-			require.Equal(t, 1, epsilon)
-			time.Sleep(2 * time.Millisecond)
 			epsilon--
 
 		}()

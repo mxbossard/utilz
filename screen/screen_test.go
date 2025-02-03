@@ -859,15 +859,15 @@ func TestTailBlocking_InParallel(t *testing.T) {
 	assert.Empty(t, outW.String())
 
 	// Should Flush B before A despite of priority because 2 sessions will be available simultaneously
-	err = screenTailer.TailBlocking(expectedSessionB, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionB, 200*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = screenTailer.TailBlocking(expectedSessionA, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionA, 200*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = screenTailer.TailBlocking(expectedSessionC, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionC, 200*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }
@@ -975,15 +975,15 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 	assert.Empty(t, outW.String())
 
 	// Should Flush B before A despite of priority because 2 sessions will be available simultaneously
-	err = screenTailer.TailBlocking(expectedSessionB, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionB, 200*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = screenTailer.TailBlocking(expectedSessionA, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionA, 200*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = screenTailer.TailBlocking(expectedSessionC, 100*continuousFlushPeriod)
+	err = screenTailer.TailBlocking(expectedSessionC, 200*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }

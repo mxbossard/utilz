@@ -7,7 +7,6 @@ toolchain go1.23.1
 require (
 	github.com/gofrs/flock v0.12.1
 	github.com/jcelliott/lumber v0.0.0-20160324203708-dd349441af25
-	github.com/juju/fslock v0.0.0-20160525022230-4d5c94c67b4b
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/mod v0.16.0
 	gopkg.in/yaml.v3 v3.0.1

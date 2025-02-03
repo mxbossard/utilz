@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"time"
 
 	"mby.fr/utils/collections"
@@ -67,6 +68,8 @@ func deserializeSession(path string) (s *session, err error) {
 
 // FIXME: use a different struct for serialization with exported fields.
 type session struct {
+	mutex *sync.Mutex
+
 	Name                    string
 	PriorityOrder           int
 	Started, Ended, flushed bool
@@ -84,6 +87,9 @@ type session struct {
 }
 
 func (s *session) Printer(name string, priorityOrder int) printz.Printer {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if !s.Started {
 		panic(fmt.Sprintf("session [%s] not started", s.Name))
 	}
@@ -103,6 +109,9 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 }
 
 func (s *session) ClosePrinter(name string) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if s.Ended {
 		return fmt.Errorf("session: [%s] already ended", s.Name)
 	}
@@ -177,6 +186,9 @@ func (s *session) End() (err error) {
 }
 
 func (s *session) Clear() (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if !s.Ended {
 		return fmt.Errorf("session: [%s] not ended", s.Name)
 	}
@@ -185,6 +197,10 @@ func (s *session) Clear() (err error) {
 }
 
 func (s *session) Flush() error {
+	// FIXME: cannot lock if recursive call used
+	// s.Lock()
+	// defer s.Unlock()
+
 	pt := logger.PerfTimer("session", s.Name)
 	defer pt.End()
 
@@ -289,6 +305,7 @@ func buildSession(name string, priorityOrder int, screenDirPath string) *session
 
 	_, tmpOut, tmpErr := buildTmpOutputs(screenDirPath, name)
 	session := &session{
+		mutex:              &sync.Mutex{},
 		Name:               name,
 		PriorityOrder:      priorityOrder,
 		readOnly:           false,

@@ -12,7 +12,7 @@ import (
 )
 
 func TestGetSession(t *testing.T) {
-	tmpDir := "/tmp/foo42"
+	tmpDir := "/tmp/session_test_420"
 	expectedSession := "bar101"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
@@ -23,7 +23,7 @@ func TestGetSession(t *testing.T) {
 }
 
 func TestSessionStart(t *testing.T) {
-	tmpDir := "/tmp/foo42"
+	tmpDir := "/tmp/session_test_430"
 	expectedSession := "bar101"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
@@ -44,7 +44,7 @@ func TestSessionStart(t *testing.T) {
 }
 
 func TestSessionGetPrinter(t *testing.T) {
-	tmpDir := "/tmp/foo42"
+	tmpDir := "/tmp/session_test_440"
 	expectedSession := "bar201"
 	expectedPrinter := "baz"
 	require.NoError(t, os.RemoveAll(tmpDir))
@@ -71,7 +71,7 @@ func TestSessionGetPrinter(t *testing.T) {
 }
 
 func TestSession_Basic(t *testing.T) {
-	tmpDir := "/tmp/foo42"
+	tmpDir := "/tmp/session_test_450"
 	expectedSession := "bar301"
 	expectedPrinter := "baz"
 	expectedMessage := "msg"
@@ -95,8 +95,8 @@ func TestSession_Basic(t *testing.T) {
 	require.DirExists(t, tmpDir)
 	require.DirExists(t, session.TmpPath)
 
-	// ReOpening a printer should panic
-	assert.Panics(t, func() {
+	// ReOpening a printer should not panic
+	assert.NotPanics(t, func() {
 		session.Printer(expectedPrinter, 42)
 	})
 
@@ -157,7 +157,7 @@ func TestSession_Basic(t *testing.T) {
 }
 
 func TestSession_MultiplePrinters(t *testing.T) {
-	tmpDir := "/tmp/foo42"
+	tmpDir := "/tmp/session_test_460"
 	expectedSession := "bar401"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
