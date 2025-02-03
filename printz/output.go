@@ -56,6 +56,10 @@ func NewStringOutputs() (outW, errW *strings.Builder, outs Outputs) {
 	return
 }
 
+func NewDiscardingOutputs() Outputs {
+	return NewOutputs(io.Discard, io.Discard)
+}
+
 type dummyWriter struct {
 	io.Writer
 }
