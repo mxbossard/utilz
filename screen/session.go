@@ -196,14 +196,7 @@ func (s *session) Clear() (err error) {
 	return err
 }
 
-func (s *session) Flush() error {
-	// FIXME: cannot lock if recursive call used
-	// s.Lock()
-	// defer s.Unlock()
-
-	pt := logger.PerfTimer("session", s.Name)
-	defer pt.End()
-
+func (s *session) flush() error {
 	if s.Ended {
 		//return fmt.Errorf("session: [%s] already ended", s.Name)
 		return nil
@@ -284,15 +277,34 @@ func (s *session) Flush() error {
 			// all printers are closed => clear current priority
 			s.currentPriority = nil
 			// FIXME: do not use a recursive call.
-			err := s.Flush()
+			err := s.flush()
 			if err != nil {
 				return err
 			}
 		}
 	}
+	return nil
+}
+
+func (s *session) Flush() error {
+	if s.Ended {
+		//return fmt.Errorf("session: [%s] already ended", s.Name)
+		return nil
+	}
+
+	pt := logger.PerfTimer("session", s.Name)
+	defer pt.End()
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	err := s.flush()
+	if err != nil {
+		return nil
+	}
 
 	s.flushed = true
-	err := serializeSession(s)
+	err = serializeSession(s)
 
 	return err
 }
