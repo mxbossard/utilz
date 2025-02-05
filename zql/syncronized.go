@@ -282,6 +282,42 @@ func (t SynchronizedTx) Rollback() error {
 	return t.Tx.Rollback()
 }
 
+func (t SynchronizedTx) Exec(query string, args ...any) (sql.Result, error) {
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
+	return t.Tx.Exec(query, args...)
+}
+
+func (t SynchronizedTx) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
+	return t.Tx.ExecContext(ctx, query, args...)
+}
+
+func (t SynchronizedTx) Query(query string, args ...any) (*sql.Rows, error) {
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
+	return t.Tx.Query(query, args...)
+}
+
+func (t SynchronizedTx) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
+	return t.Tx.QueryContext(ctx, query, args...)
+}
+
+func (t SynchronizedTx) QueryRow(query string, args ...any) *sql.Row {
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
+	return t.Tx.QueryRow(query, args...)
+}
+
+func (t SynchronizedTx) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	pt := logger.PerfTimer()
+	defer pt.End("query", query)
+	return t.Tx.QueryRowContext(ctx, query, args...)
+}
+
 func NewSynchronizedDB(db *sql.DB, lockingFile, opts string, busyTimeout time.Duration) *SynchronizedDB {
 	wrapper := SynchronizedDB{
 		DB:          db,
