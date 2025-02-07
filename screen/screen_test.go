@@ -590,12 +590,16 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	prtrC30a.Out("C30a1,")
 	prtrC40a.Out("C40a1,")
 
+	// Nothing should be flush yet
 	assert.Empty(t, outW.String())
+
 	err = screenTailer.flushAll()
 	assert.NoError(t, err)
 	screen.NotifyPrinter().Out("notif4,")
 	err = screen.NotifyPrinter().Flush()
 	assert.NoError(t, err)
+
+	// Only first 2 notifications are flushed. SessionB is flushed, SessionA is elected but not ended.
 	assert.Equal(t, "notif1,notif2,", outW.String())
 
 	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
@@ -603,6 +607,8 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 
 	err = screenTailer.flushAll()
 	assert.NoError(t, err)
+
+	// First 4 notifications are flushed. SessionB is flushed, SessionA is elected but not ended.
 	assert.Equal(t, "notif1,notif2,", outW.String())
 
 	err = sessionA.Flush()
@@ -612,6 +618,8 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 
 	err = screenTailer.flushAll()
 	assert.NoError(t, err)
+
+	// First 4 notifications are flushed. SessionA is flushed but not ended, SessionB is ended.
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
 	err = sessionA.End()
@@ -619,16 +627,22 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 
 	err = screenTailer.flushAll()
 	assert.NoError(t, err)
+
+	// First 4 notifications are flushed. SessionA & SessionB are ended. SessionC not flushed.
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
 	err = screenTailer.flushAll()
 	assert.NoError(t, err)
+
+	// SessionC still not flushed.
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
 	assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.TmpOutName))
 	err = sessionC.Flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+
+	// SessionC is flushed, but tailer not flushed
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
 	err = screenTailer.flushAll()

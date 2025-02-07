@@ -243,12 +243,14 @@ func (s *screenTailer) flushSession(session *session) (err error) {
 		return err
 	}
 	session.cursorOut += int64(n)
+	logger.Debug("flushing session out ...", "session", session.Name, "tmpOut", session.tmpOut.Name(), "n", n, "cursorOut", session.cursorOut)
 
 	n, err = filez.CopyChunk(session.tmpErr, s.outputs.Err(), buf, session.cursorErr, -1)
 	if err != nil {
 		return err
 	}
 	session.cursorErr += int64(n)
+	logger.Debug("flushing session err ...", "session", session.Name, "tmpErr", session.tmpErr.Name(), "n", n, "cursorErr", session.cursorErr)
 
 	if session.Ended {
 		session.flushed = true
@@ -260,6 +262,8 @@ func (s *screenTailer) flushSession(session *session) (err error) {
 		if err != nil {
 			return err
 		}
+		logger.Debug("end flushing closed session", "session", session.Name)
+
 	}
 	return
 }
@@ -318,6 +322,10 @@ func (s *screenTailer) electSession() (err error) {
 					}
 				}
 			}
+		}
+
+		if s.electedSession != nil {
+			logger.Debug("elected new session", "electedSession", s.electedSession.Name)
 		}
 	} else {
 		//path := serializedPath(s.electedSession)
@@ -553,7 +561,7 @@ func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
 	}
 
 	var notEnded []*session
-	for len(notEnded) > 0 {
+	for notEnded == nil || len(notEnded) > 0 {
 		notEndedNames := collections.Map(&notEnded, func(s *session) string { return s.Name })
 		//fmt.Printf("Flushing sessions: %v\n", notEndedNames)
 		if time.Since(startTime) > timeout {
@@ -561,22 +569,24 @@ func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
 			return err
 		}
 
-		notEnded := collections.Values(s.sessions)
-
+		// Updating not ended session list
+		notEnded = collections.Values(s.sessions)
 		var ended []int
 		for pos, s := range notEnded {
 			if s.Ended {
 				ended = append(ended, pos)
 			}
 		}
-
+		removed := 0
 		for _, pos := range ended {
-			collections.RemoveFast(notEnded, pos)
+			notEnded = collections.RemoveFast(notEnded, pos-removed)
+			removed++
 		}
 
 		if len(notEnded) > 0 {
 			time.Sleep(continuousFlushPeriod)
 		}
+		logger.Debug("TailAllBlocking flushAll ...", "notEnded", notEnded, "ended", ended)
 		err := s.flushAll()
 		if err != nil {
 			return err
