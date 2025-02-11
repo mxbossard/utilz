@@ -29,18 +29,12 @@ type printer struct {
 	cursorOut, cursorErr int64
 }
 
-func serializedPath0(s *session) string {
-	filePath := filepath.Join(filepath.Dir(s.TmpPath), s.Name+serializedExtension)
-	return filePath
-}
-
 func sessionSerializedPath(dir, name string) string {
 	filePath := filepath.Join(dir, name+serializedExtension)
 	return filePath
 }
 
 func serializeSession(s *session) (err error) {
-	//filePath := serializedPath0(s)
 	filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
 	f, err := os.OpenFile(filePath, os.O_CREATE+os.O_RDWR, 0644)
 	if err != nil {
@@ -97,7 +91,6 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 		panic(fmt.Sprintf("session [%s] already ended", s.Name))
 	}
 	if prtr, ok := s.printers[name]; ok {
-		//panic(fmt.Sprintf("printer [%s] already exists", name))
 		return prtr
 	}
 
@@ -128,7 +121,6 @@ func (s *session) ClosePrinter(name string) error {
 	} else {
 		return fmt.Errorf("no printer opened with name: [%s]", name)
 	}
-	//fmt.Printf("Closed printer: [%s]\n", name)
 	err := serializeSession(s)
 	return err
 }
@@ -137,7 +129,6 @@ func (s *session) Start(timeout time.Duration) (err error) {
 	if s.Started {
 		// already started
 		return nil
-		//return fmt.Errorf("session: [%s] already started", s.Name)
 	}
 	if s.Ended {
 		return fmt.Errorf("session: [%s] already ended", s.Name)
@@ -146,6 +137,13 @@ func (s *session) Start(timeout time.Duration) (err error) {
 	if err != nil {
 		panic(err)
 	}
+
+	screenDirPath := filepath.Dir(s.TmpPath)
+	_, tmpOut, tmpErr := buildTmpOutputs(screenDirPath, s.Name)
+	s.TmpOutName = tmpOut.Name()
+	s.TmpErrName = tmpErr.Name()
+	s.tmpOut = tmpOut
+	s.tmpErr = tmpErr
 
 	s.Started = true
 	go func() {
@@ -192,6 +190,46 @@ func (s *session) Clear() (err error) {
 	if !s.Ended {
 		return fmt.Errorf("session: [%s] not ended", s.Name)
 	}
+	fmt.Printf("Clearing session dir: [%s] ...\n", s.TmpPath)
+	s.Started = false
+	s.Ended = false
+	s.flushed = false
+
+	if s.tmpOut != nil {
+		s.tmpOut.Close()
+		s.tmpOut = nil
+	}
+	if s.tmpErr != nil {
+		s.tmpErr.Close()
+		s.tmpErr = nil
+	}
+
+	filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
+	err = os.RemoveAll(filePath)
+	if err != nil {
+		return err
+	}
+
+	if s.TmpOutName != "" {
+		err = os.RemoveAll(s.TmpOutName)
+		if err != nil {
+			return err
+		}
+		//s.TmpOutName = ""
+	}
+	if s.TmpErrName != "" {
+		err = os.RemoveAll(s.TmpErrName)
+		if err != nil {
+			return err
+		}
+		//s.TmpErrName = ""
+	}
+
+	s.cursorOut = 0
+	s.cursorErr = 0
+	s.printersByPriority = make(map[int][]*printer)
+	s.printers = make(map[string]*printer)
+
 	err = os.RemoveAll(s.TmpPath)
 	return err
 }
@@ -315,17 +353,16 @@ func buildSession(name string, priorityOrder int, screenDirPath string) *session
 		panic(fmt.Sprintf("unable to create async screen session: [%s] path already exists", sessionDirpath))
 	}
 
-	_, tmpOut, tmpErr := buildTmpOutputs(screenDirPath, name)
 	session := &session{
-		mutex:              &sync.Mutex{},
-		Name:               name,
-		PriorityOrder:      priorityOrder,
-		readOnly:           false,
-		TmpPath:            sessionDirpath,
-		TmpOutName:         tmpOut.Name(),
-		TmpErrName:         tmpErr.Name(),
-		tmpOut:             tmpOut,
-		tmpErr:             tmpErr,
+		mutex:         &sync.Mutex{},
+		Name:          name,
+		PriorityOrder: priorityOrder,
+		readOnly:      false,
+		TmpPath:       sessionDirpath,
+		// TmpOutName:         tmpOut.Name(),
+		// TmpErrName:         tmpErr.Name(),
+		// tmpOut:             tmpOut,
+		// tmpErr:             tmpErr,
 		printersByPriority: make(map[int][]*printer),
 		printers:           make(map[string]*printer),
 	}

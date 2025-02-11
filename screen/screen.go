@@ -27,7 +27,6 @@ var (
 
 type Sink interface {
 	Session(string, int) *session
-	ClearSession(string) error
 	NotifyPrinter() printz.Printer
 	//Flush() error
 	Close() error
@@ -49,6 +48,8 @@ type Tailer interface {
 	TailBlocking(string, time.Duration) error
 	TailOnlyBlocking(string, time.Duration) error
 	TailAllBlocking(time.Duration) error
+	ClearSession(string) error
+	Clear() error
 }
 
 type screen struct {
@@ -68,23 +69,6 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	session := buildSession(name, priorityOrder, s.tmpPath)
 	s.sessions[name] = session
 	return session
-}
-
-func (s *screen) ClearSession(name string) error {
-	s.Lock()
-	defer s.Unlock()
-
-	if session, ok := s.sessions[name]; ok {
-		err := session.Clear()
-		if err != nil {
-			return err
-		}
-		delete(s.sessions, name)
-	} else {
-		return fmt.Errorf("session: [%s] does not exists", name)
-	}
-
-	return nil
 }
 
 func (s *screen) NotifyPrinter() printz.Printer {
@@ -153,12 +137,18 @@ func (s *screen) Close() (err error) {
 }
 
 func (s *screen) Clear() (err error) {
-	for session, _ := range s.sessions {
-		err := s.ClearSession(session)
+	s.Lock()
+	defer s.Unlock()
+
+	for _, session := range s.sessions {
+		err := session.Clear()
 		if err != nil {
 			return err
 		}
 	}
+	s.sessions = make(map[string]*session)
+	// FIXME: delete previous notifier
+	s.notifier = buildPrinter(s.tmpPath, notifierPrinterName, 0)
 	return
 }
 
@@ -168,6 +158,7 @@ func (*screen) ConfigPrinter(name string) (s *session) {
 }
 
 type screenTailer struct {
+	sync.Mutex
 	tmpPath               string
 	outputs               printz.Outputs
 	electedSession        *session
@@ -348,70 +339,6 @@ func (s *screenTailer) flushAll() (err error) {
 	if err != nil {
 		return err
 	}
-	/*
-		if s.electedSession == nil {
-			// 1- If no elected session, firstly print notifications
-			n, err := filez.CopyChunk(s.notifier.tmpOut, s.outputs.Out(), buf, s.notifier.cursorOut, -1)
-			if err != nil {
-				return err
-			}
-			s.notifier.cursorOut += int64(n)
-			n, err = filez.CopyChunk(s.notifier.tmpErr, s.outputs.Err(), buf, s.notifier.cursorErr, -1)
-			if err != nil {
-				return err
-			}
-			s.notifier.cursorErr += int64(n)
-
-			// 2- Scan serialized session
-			err = s.scanSessions()
-			if err != nil {
-				return err
-			}
-
-			if s.blockingSessionsQueue.Len() > 0 {
-				// 3a- Dequeue next session to tail
-				sessionName := s.blockingSessionsQueue.Front()
-				//fmt.Printf("===== dequeuing prioritary session: [%s]\n", *sessionName)
-				if session, ok := s.sessions[*sessionName]; ok {
-					s.electedSession = session
-					// Remove item
-					s.blockingSessionsQueue.PopFront()
-				} else {
-					//fmt.Printf("=== ERROR session: [%s] not found\n", *sessionName)
-					//err = fmt.Errorf("session with name: [%s] not found", sessionName)
-					//return err
-				}
-			}
-
-			if s.electedSession == nil {
-				// 3b- Elect a new session to tail
-				priorities := collections.Keys(s.sessionsByPriority)
-				slices.Sort(priorities)
-			end:
-				for _, priority := range priorities {
-					sessions, ok := s.sessionsByPriority[priority]
-					if ok {
-						for _, session := range sessions {
-							//fmt.Printf("electing session #%d: [%s] ; ended: %v ; flushed: %v\n", k, session.Name, session.Ended, session.flushed)
-							if !session.Started || session.Ended && session.flushed {
-								continue
-							}
-							//fmt.Printf("elected session: [%s]\n", session.Name)
-							s.electedSession = session
-							break end
-						}
-					}
-				}
-			}
-		} else {
-			//path := serializedPath(s.electedSession)
-			path := sessionSerializedPath(filepath.Dir(s.electedSession.TmpPath), s.electedSession.Name)
-			err = updateSession(s.electedSession, path)
-			if err != nil {
-				return err
-			}
-		}
-	*/
 
 	if s.electedSession == nil {
 		return
@@ -429,34 +356,6 @@ func (s *screenTailer) flushAll() (err error) {
 		s.flushAll()
 	}
 
-	/*
-		n, err := filez.CopyChunk(s.electedSession.tmpOut, s.outputs.Out(), buf, s.electedSession.cursorOut, -1)
-		if err != nil {
-			return err
-		}
-		s.electedSession.cursorOut += int64(n)
-
-		n, err = filez.CopyChunk(s.electedSession.tmpErr, s.outputs.Err(), buf, s.electedSession.cursorErr, -1)
-		if err != nil {
-			return err
-		}
-		s.electedSession.cursorErr += int64(n)
-
-		if s.electedSession.Ended {
-			s.electedSession.flushed = true
-			err = s.electedSession.tmpOut.Close()
-			if err != nil {
-				return err
-			}
-			err = s.electedSession.tmpErr.Close()
-			if err != nil {
-				return err
-			}
-			s.electedSession = nil
-			// FIXME: do not use a recusrsive call
-			s.flushAll()
-		}
-	*/
 	return
 }
 
@@ -596,6 +495,34 @@ func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
 	return nil
 }
 
+func (s *screenTailer) ClearSession(name string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if session, ok := s.sessions[name]; ok {
+		err := session.Clear()
+		if err != nil {
+			return err
+		}
+		delete(s.sessions, name)
+	} else {
+		return fmt.Errorf("session: [%s] does not exists", name)
+	}
+
+	return nil
+}
+
+func (s *screenTailer) Clear() (err error) {
+	sessions := collections.Keys(s.sessions)
+	for _, session := range sessions {
+		err := s.ClearSession(session)
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
+
 func (*screenTailer) AsyncFlush0(timeout time.Duration) (err error) {
 	// Launch goroutine wich will continuously flush async display
 	// TODO later ?
@@ -609,9 +536,9 @@ func (*screenTailer) BlockTail0(timeout time.Duration) (err error) {
 }
 
 func NewScreen(outputs printz.Outputs) *screen {
+	// FIXME: not implemented
 	return &screen{
 		sessions: make(map[string]*session),
-		//outputs:  printz.NewStandardOutputs(),
 	}
 }
 

@@ -156,6 +156,171 @@ func TestSession_Basic(t *testing.T) {
 	})
 }
 
+func TestSession_ReOpen(t *testing.T) {
+	tmpDir := "/tmp/session_test_451"
+	expectedSession := "bar302"
+	expectedPrinter := "baz"
+	expectedMessage := "msg"
+	expectedMessage2 := "pouf"
+	sessionTimeout := 10 * time.Millisecond
+	require.NoError(t, os.RemoveAll(tmpDir))
+	os.MkdirAll(tmpDir, 0744)
+
+	session := buildSession(expectedSession, 42, tmpDir)
+	assert.NotNil(t, session)
+
+	err := session.Start(sessionTimeout)
+	assert.NoError(t, err)
+	prtr10 := session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
+
+	require.DirExists(t, tmpDir)
+	require.DirExists(t, session.TmpPath)
+
+	// ReOpening a printer should not panic
+	assert.NotPanics(t, func() {
+		session.Printer(expectedPrinter, 42)
+	})
+
+	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
+	sessionTmpOutFilepath := func() string {
+		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + outFileNameSuffix)
+		return matches[0]
+	}()
+	sessionTmpErrFilepath := func() string {
+		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + errFileNameSuffix)
+		return matches[0]
+	}()
+	printerTmpOutFilepath := func() string {
+		matches, _ := filepath.Glob(session.TmpPath + "/" + expectedPrinter + outFileNameSuffix)
+		return matches[0]
+	}()
+	printerTmpErrFilepath := func() string {
+		matches, _ := filepath.Glob(session.TmpPath + "/" + expectedPrinter + errFileNameSuffix)
+		return matches[0]
+	}()
+
+	assert.FileExists(t, sessionSerFilepath)
+	assert.FileExists(t, sessionTmpOutFilepath)
+	assert.FileExists(t, sessionTmpErrFilepath)
+	assert.FileExists(t, printerTmpOutFilepath)
+	assert.FileExists(t, printerTmpErrFilepath)
+
+	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s })
+	ser, err := deserializeSession(sessionSerFilepath)
+	require.NoError(t, err)
+	assert.NotNil(t, ser)
+
+	prtr10.Out(expectedMessage)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	time.Sleep(sessionTimeout + 2*time.Millisecond)
+	// Opening a printer after session timeout should panic
+	assert.Panics(t, func() {
+		session.Printer("another", 42)
+	})
+
+	// Clear & reOpen session
+	err = session.Clear()
+	assert.NoError(t, err)
+
+	//require.NoDirExists(t, tmpDir)
+	require.NoDirExists(t, session.TmpPath)
+	assert.NoFileExists(t, sessionSerFilepath)
+	assert.NoFileExists(t, sessionTmpOutFilepath)
+	assert.NoFileExists(t, sessionTmpErrFilepath)
+	assert.NoFileExists(t, printerTmpOutFilepath)
+	assert.NoFileExists(t, printerTmpErrFilepath)
+
+	session = buildSession(expectedSession, 42, tmpDir)
+	assert.NotNil(t, session)
+
+	err = session.Start(sessionTimeout)
+	assert.NoError(t, err)
+	prtr10 = session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
+
+	require.DirExists(t, tmpDir)
+	require.DirExists(t, session.TmpPath)
+
+	// ReOpening a printer should not panic
+	assert.NotPanics(t, func() {
+		session.Printer(expectedPrinter, 42)
+	})
+
+	sessionSerFilepath = filepath.Join(tmpDir, expectedSession+serializedExtension)
+	sessionTmpOutFilepath = func() string {
+		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + outFileNameSuffix)
+		return matches[0]
+	}()
+	sessionTmpErrFilepath = func() string {
+		matches, _ := filepath.Glob(tmpDir + "/" + expectedSession + errFileNameSuffix)
+		return matches[0]
+	}()
+	printerTmpOutFilepath = func() string {
+		matches, _ := filepath.Glob(session.TmpPath + "/" + expectedPrinter + outFileNameSuffix)
+		return matches[0]
+	}()
+	printerTmpErrFilepath = func() string {
+		matches, _ := filepath.Glob(session.TmpPath + "/" + expectedPrinter + errFileNameSuffix)
+		return matches[0]
+	}()
+
+	assert.FileExists(t, sessionSerFilepath)
+	assert.FileExists(t, sessionTmpOutFilepath)
+	assert.FileExists(t, sessionTmpErrFilepath)
+	assert.FileExists(t, printerTmpOutFilepath)
+	assert.FileExists(t, printerTmpErrFilepath)
+
+	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s })
+	ser, err = deserializeSession(sessionSerFilepath)
+	require.NoError(t, err)
+	assert.NotNil(t, ser)
+
+	prtr10.Out(expectedMessage2)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Equal(t, expectedMessage2, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage2, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Equal(t, expectedMessage2, filez.ReadStringOrPanic(printerTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	time.Sleep(sessionTimeout + 2*time.Millisecond)
+	// Opening a printer after session timeout should panic
+	assert.Panics(t, func() {
+		session.Printer("another", 42)
+	})
+}
+
 func TestSession_MultiplePrinters(t *testing.T) {
 	tmpDir := "/tmp/session_test_460"
 	expectedSession := "bar401"
