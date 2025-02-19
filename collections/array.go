@@ -103,6 +103,11 @@ func KeepLeft[T any](left, right *[]T) (res []T) {
 	return
 }
 
+// return items in left substracted from right items
+func Sub[T any](left, right *[]T) (res []T) {
+	return KeepLeft(left, right)
+}
+
 // return items in left and right
 func Intersect[T any](left, right *[]T) (res []T) {
 	for _, l := range *left {
@@ -132,4 +137,24 @@ func Remove[T any](slice []T, pos int) []T {
 func RemoveFast[T any](slice []T, pos int) []T {
 	slice[pos] = slice[len(slice)-1]
 	return slice[:len(slice)-1]
+}
+
+/** Keep slice order */
+func Delete[T comparable](slice []T, item T) []T {
+	for p, v := range slice {
+		if v == item {
+			return Remove(slice, p)
+		}
+	}
+	return slice
+}
+
+/** Do not keep slice order */
+func DeleteFast[T comparable](slice []T, item T) []T {
+	for p, v := range slice {
+		if v == item {
+			return RemoveFast(slice, p)
+		}
+	}
+	return slice
 }
