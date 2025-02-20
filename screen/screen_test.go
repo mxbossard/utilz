@@ -1,6 +1,7 @@
 package screen
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -982,6 +983,113 @@ func TestTailBlocking_InParallel(t *testing.T) {
 	err = screenTailer.TailBlocking(expectedSessionC, 200*continuousFlushPeriod)
 	assert.NoError(t, err)
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
+}
+
+func TestTailBlocking_ContinuousFlow(t *testing.T) {
+
+	// test TailBlocking() print messages contiously and not only at the end of a session
+	tmpDir := "/tmp/utilz.zcreen.foo7301c"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	expectedSessionA := "barA7201"
+	expectedPrinterA10a := "barA10a"
+	expectedPrinterA20a := "barA20a"
+	/*
+		expectedSessionB := "barB7201"
+		expectedPrinterB10a := "barB10a"
+		expectedPrinterB30a := "barB30a"
+		expectedSessionC := "barC7201"
+		expectedPrinterC10a := "barC10a"
+		expectedPrinterC30a := "barC30a"
+		expectedPrinterC40a := "barC40a"
+	*/
+
+	syncChan := make(chan string)
+	expectedMsgChan := make(chan string)
+
+	go func() {
+		sessionA := screen.Session(expectedSessionA, 12)
+		err := sessionA.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
+		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+
+		syncChan <- "A0"
+
+		syncChan <- "A1" // wait syncChan consumed
+		msg := "A10a1,"
+		prtrA10a.Out(msg)
+		err = sessionA.Flush()
+		assert.NoError(t, err)
+		expectedMsgChan <- msg // push expectedMessage
+
+		syncChan <- "A2"
+		msg = "A10a2,"
+		prtrA10a.Out(msg)
+		err = sessionA.Flush()
+		assert.NoError(t, err)
+		expectedMsgChan <- msg
+
+		syncChan <- "A3"
+		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		assert.NoError(t, err)
+		expectedMsgChan <- ""
+
+		syncChan <- "A4"
+		msg = "A20a1,"
+		prtrA20a.Out(msg)
+		err = sessionA.Flush()
+		assert.NoError(t, err)
+		expectedMsgChan <- msg
+
+		syncChan <- "A5"
+		msg = "A20a2,"
+		prtrA20a.Out(msg)
+		err = sessionA.Flush()
+		assert.NoError(t, err)
+		expectedMsgChan <- msg
+
+		syncChan <- "A6"
+		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		assert.NoError(t, err)
+		expectedMsgChan <- ""
+
+		syncChan <- "A7"
+		err = sessionA.End()
+		assert.NoError(t, err)
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+		expectedMsgChan <- ""
+
+		syncChan <- "END"
+	}()
+
+	// idea: launch printers with delays in a goroutine then launch tailBlocking in another goroutine sync
+	go func() {
+		err := screenTailer.TailBlocking(expectedSessionA, 2*time.Second)
+		assert.NoError(t, err)
+	}()
+
+	assert.Empty(t, outW.String())
+
+	var step string
+	var expectedOut string
+	step = <-syncChan // Start first print
+	fmt.Printf("Starting step: %s\n", step)
+	for step = <-syncChan; step != "END"; step = <-syncChan {
+		// Wait for tailing lag period
+		expectedOut += <-expectedMsgChan
+		time.Sleep(continuousFlushPeriod * 2)
+		fmt.Printf("testing step: %s ...\n", step)
+		out := outW.String()
+		assert.Equal(t, expectedOut, out, "testing step %s", step)
+	}
+
 }
 
 func TestTailBlocking_OutOfOrder(t *testing.T) {

@@ -28,10 +28,14 @@ var (
 type Sink interface {
 	Session(string, int) *session
 	NotifyPrinter() printz.Printer
-	//Flush() error
 	Close() error
-	Clear() error
+
+	// Clear each sessions workspaces.
+	//Clear() error
+
+	// Continuously Flush supplied session until it's end or timeout is reached.
 	FlushBlocking(string, time.Duration) error
+	// Continuously Flush all sessions until ends or timeout is reached.
 	FlushAllBlocking(time.Duration) error
 }
 
@@ -44,11 +48,15 @@ type Session interface {
 }
 
 type Tailer interface {
-	//Flush() error
-	TailBlocking(string, time.Duration) error
+	// Continuously Tail supplied session until it's end or timeout is reached.
 	TailOnlyBlocking(string, time.Duration) error
+	// Continuously Tail opened sessions in order until supplied session's end or timeout is reached.
+	TailBlocking(string, time.Duration) error
+	// Continuously Tail all opened sessions in order until ends or timeout is reached.
 	TailAllBlocking(time.Duration) error
+	// Clear session workspace.
 	ClearSession(string) error
+	// Clear each sessions workspaces.
 	Clear() error
 }
 
