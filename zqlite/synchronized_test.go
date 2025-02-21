@@ -410,7 +410,7 @@ func TestSimultaneousUsage_OpenCloseEveryTime(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			err = db.Lock()
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			defer func() {
 				err := db.Unlock()
 				require.NoError(t, err)
@@ -425,10 +425,10 @@ func TestSimultaneousUsage_OpenCloseEveryTime(t *testing.T) {
 				PRAGMA LOCKING_MODE = NORMAL;
 				UPDATE foo SET seq = (SELECT seq + 1 FROM foo);
 			`)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			err = db.Close()
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}()
 	}
 	wg.Wait()

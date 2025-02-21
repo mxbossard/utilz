@@ -63,20 +63,41 @@ func (l *zLogger) Trace(msg string, args ...any) {
 	l.log(context.Background(), LevelTrace, msg, args...)
 }
 
+func (l *zLogger) Tracef(format string, a ...any) {
+	l.log(context.Background(), LevelTrace, fmt.Sprintf(format, a...))
+}
+
 func (l *zLogger) TraceContext(ctx context.Context, msg string, args ...any) {
 	l.log(ctx, LevelTrace, msg, args...)
+}
+
+func (l *zLogger) TraceContextf(ctx context.Context, format string, a ...any) {
+	l.log(ctx, LevelTrace, fmt.Sprintf(format, a...))
 }
 
 func (l *zLogger) Perf(msg string, args ...any) {
 	l.log(context.Background(), LevelPerf, msg, args...)
 }
 
+func (l *zLogger) Perff(format string, a ...any) {
+	l.log(context.Background(), LevelPerf, fmt.Sprintf(format, a...))
+}
+
 func (l *zLogger) PerfContext(ctx context.Context, msg string, args ...any) {
 	l.log(ctx, LevelPerf, msg, args...)
 }
 
+func (l *zLogger) PerfContextf(ctx context.Context, format string, a ...any) {
+	l.log(ctx, LevelPerf, fmt.Sprintf(format, a...))
+}
+
 func (l *zLogger) Fatal(msg string, args ...any) {
 	l.log(context.Background(), LevelFatal, msg, args...)
+	os.Exit(1)
+}
+
+func (l *zLogger) Fatalf(format string, a ...any) {
+	l.log(context.Background(), LevelFatal, fmt.Sprintf(format, a...))
 	os.Exit(1)
 }
 
@@ -85,14 +106,67 @@ func (l *zLogger) FatalContext(ctx context.Context, msg string, args ...any) {
 	os.Exit(1)
 }
 
+func (l *zLogger) FatalContextf(ctx context.Context, format string, a ...any) {
+	l.log(ctx, LevelFatal, fmt.Sprintf(format, a...))
+	os.Exit(1)
+}
+
 func (l *zLogger) Panic(msg string, args ...any) {
 	l.log(context.Background(), LevelFatal, msg, args...)
+	panic(msg)
+}
+
+func (l *zLogger) Panicf(format string, a ...any) {
+	msg := fmt.Sprintf(format, a...)
+	l.log(context.Background(), LevelFatal, msg)
 	panic(msg)
 }
 
 func (l *zLogger) PanicContext(ctx context.Context, msg string, args ...any) {
 	l.log(ctx, LevelFatal, msg, args...)
 	panic(msg)
+}
+
+func (l *zLogger) PanicContextf(ctx context.Context, format string, a ...any) {
+	msg := fmt.Sprintf(format, a...)
+	l.log(ctx, LevelFatal, msg)
+	panic(msg)
+}
+
+func (l *zLogger) Debugf(format string, a ...any) {
+	l.Debug(fmt.Sprintf(format, a...))
+}
+
+func (l *zLogger) DebugContextf(ctx context.Context, format string, a ...any) {
+	l.DebugContext(ctx, fmt.Sprintf(format, a...))
+}
+
+func (l *zLogger) Errorf(format string, a ...any) {
+	l.Error(fmt.Sprintf(format, a...))
+}
+
+func (l *zLogger) ErrorContextf(ctx context.Context, format string, a ...any) {
+	l.ErrorContext(ctx, fmt.Sprintf(format, a...))
+}
+
+func (l *zLogger) Infof(format string, a ...any) {
+	l.Info(fmt.Sprintf(format, a...))
+}
+
+func (l *zLogger) InfoContextf(ctx context.Context, format string, a ...any) {
+	l.InfoContext(ctx, fmt.Sprintf(format, a...))
+}
+
+func (l *zLogger) Logf(ctx context.Context, level slog.Level, format string, a ...any) {
+	l.Log(ctx, level, fmt.Sprintf(format, a...))
+}
+
+func (l *zLogger) Warnf(format string, a ...any) {
+	l.Warn(fmt.Sprintf(format, a...))
+}
+
+func (l *zLogger) WarnContextf(ctx context.Context, format string, a ...any) {
+	l.WarnContext(ctx, fmt.Sprintf(format, a...))
 }
 
 func (l *zLogger) startTimer(t *perfTimer, qualifier string) {

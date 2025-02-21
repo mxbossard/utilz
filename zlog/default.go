@@ -1,12 +1,14 @@
 package zlog
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"log/slog"
 	"os"
+	"text/template"
 
 	"mby.fr/utils/inout"
 )
@@ -194,7 +196,28 @@ func SetDefaultOutput(out io.Writer) {
 	log.SetOutput(out)
 }
 
+func expandFilepathTemplate(filepath string) string {
+	tmpl, err := template.New("filepath").Parse(filepath)
+	if err != nil {
+		panic(err)
+	}
+
+	var sw bytes.Buffer
+	data := struct {
+		Pid int
+	}{
+		Pid: os.Getpid(),
+	}
+
+	err = tmpl.Execute(&sw, data)
+	if err != nil {
+		panic(err)
+	}
+	return sw.String()
+}
+
 func SetDefaultTruncatingFileOutput(filepath string) {
+	filepath = expandFilepathTemplate(filepath)
 	out, err := os.OpenFile(filepath, os.O_CREATE+os.O_WRONLY+os.O_TRUNC, 0644)
 	if err != nil {
 		panic(err)
@@ -205,6 +228,7 @@ func SetDefaultTruncatingFileOutput(filepath string) {
 }
 
 func SetDefaultAppendingFileOutput(filepath string) {
+	filepath = expandFilepathTemplate(filepath)
 	out, err := os.OpenFile(filepath, os.O_CREATE+os.O_WRONLY+os.O_APPEND, 0644)
 	if err != nil {
 		panic(err)

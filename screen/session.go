@@ -21,9 +21,10 @@ const (
 type printer struct {
 	printz.Printer
 
-	name                    string
-	opened, closed, flushed bool
-	priorityOrder           int
+	name           string
+	opened, closed bool
+	flushed        bool
+	priorityOrder  int
 
 	tmpOut, tmpErr       *os.File
 	cursorOut, cursorErr int64
@@ -50,7 +51,7 @@ func serializeSession(s *session) (err error) {
 func deserializeSession(path string) (s *session, err error) {
 	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("error opening ser file (%s): %w", path, err)
 	}
 	defer func() { f.Close() }()
 	dec := gob.NewDecoder(f)
@@ -64,10 +65,12 @@ func deserializeSession(path string) (s *session, err error) {
 type session struct {
 	mutex *sync.Mutex
 
-	Name                    string
-	PriorityOrder           int
-	Started, Ended, flushed bool
-	readOnly                bool
+	Name            string
+	PriorityOrder   int
+	Started, Ended  bool
+	flushed, tailed bool
+	readOnly        bool
+	timeouted       *time.Duration
 
 	TmpPath                string
 	TmpOutName, TmpErrName string
@@ -81,14 +84,21 @@ type session struct {
 }
 
 func (s *session) Printer(name string, priorityOrder int) printz.Printer {
+	if name == "" {
+		panic("cannot get printer of empty name")
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	if s.timeouted != nil {
+		panic(fmt.Sprintf("cannot get printer for session [%s] timeouted after: %s", s.Name, *s.timeouted))
+	}
 	if !s.Started {
-		panic(fmt.Sprintf("session [%s] not started", s.Name))
+		panic(fmt.Sprintf("cannot get printer for session [%s] not started", s.Name))
 	}
 	if s.Ended {
-		panic(fmt.Sprintf("session [%s] already ended", s.Name))
+		panic(fmt.Sprintf("cannot get printer for session [%s] already ended", s.Name))
 	}
 	if prtr, ok := s.printers[name]; ok {
 		return prtr
@@ -101,13 +111,10 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	return p.Printer
 }
 
-func (s *session) ClosePrinter(name string) error {
+func (s *session) closePrinter(name string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.Ended {
-		return fmt.Errorf("session: [%s] already ended", s.Name)
-	}
 	// Mark a printer closed, but do not close backing tmp files.
 	if prtr, ok := s.printers[name]; ok {
 		if prtr.closed {
@@ -125,13 +132,20 @@ func (s *session) ClosePrinter(name string) error {
 	return err
 }
 
+func (s *session) ClosePrinter(name string) error {
+	return s.closePrinter(name)
+}
+
 func (s *session) Start(timeout time.Duration) (err error) {
+	if s.timeouted != nil {
+		return fmt.Errorf("cannot start session [%s] timeouted after: %s", s.Name, *s.timeouted)
+	}
+	if s.Ended {
+		return fmt.Errorf("cannot start session: [%s] already ended", s.Name)
+	}
 	if s.Started {
 		// already started
 		return nil
-	}
-	if s.Ended {
-		return fmt.Errorf("session: [%s] already ended", s.Name)
 	}
 	err = os.MkdirAll(s.TmpPath, 0755)
 	if err != nil {
@@ -148,9 +162,12 @@ func (s *session) Start(timeout time.Duration) (err error) {
 	s.Started = true
 	go func() {
 		time.Sleep(timeout)
-		err := s.End()
-		if err != nil {
-			panic(err)
+		if !s.Ended {
+			s.timeouted = &timeout
+			err := s.End()
+			if err != nil {
+				panic(err)
+			}
 		}
 	}()
 
@@ -165,7 +182,7 @@ func (s *session) End() (err error) {
 
 	// close all opened printers
 	for _, prtr := range s.printers {
-		err = s.ClosePrinter(prtr.name)
+		err = s.closePrinter(prtr.name)
 		if err != nil {
 			return err
 		}
@@ -188,7 +205,7 @@ func (s *session) Clear() (err error) {
 	defer s.mutex.Unlock()
 
 	if !s.Ended {
-		return fmt.Errorf("session: [%s] not ended", s.Name)
+		return fmt.Errorf("cannot clear session: [%s] not ended", s.Name)
 	}
 	fmt.Printf("Clearing session dir: [%s] ...\n", s.TmpPath)
 	s.Started = false
