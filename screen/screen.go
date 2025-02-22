@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	notifierPrinterName   = "notifier"
+	tmpDirFileMode        = 0760
+	notifierPrinterName   = "_-_notifier"
 	continuousFlushPeriod = 1 * time.Millisecond
 )
 
@@ -24,49 +25,6 @@ var (
 	buf    = make([]byte, bufLen)
 	logger = zlog.New()
 )
-
-type Sink interface {
-	Session(string, int) *session
-	NotifyPrinter() printz.Printer
-	Close() error
-
-	// Clear each sessions workspaces.
-	//Clear() error
-
-	// Continuously Flush supplied session until it's end or timeout is reached.
-	FlushBlocking(string, time.Duration) error
-
-	// Continuously Flush all sessions until ends or timeout is reached.
-	FlushAllBlocking(time.Duration) error
-}
-
-type Session interface {
-	Start(time.Duration) error
-	End() error
-	Flush() error
-	Printer(string, int) printz.Printer
-	ClosePrinter(string) error
-}
-
-type Tailer interface {
-	// Continuously Tail supplied session until it's end or timeout is reached.
-	// Do not tail notifications
-	TailOnlyBlocking(string, time.Duration) error
-
-	// Continuously Tail opened sessions in order until supplied session's end or timeout is reached.
-	// tail notifications before session"s start and after session's end
-	TailBlocking(string, time.Duration) error
-
-	// Continuously Tail all opened sessions in order until ends or timeout is reached.
-	// tail notifications between sessions
-	TailAllBlocking(time.Duration) error
-
-	// Clear session workspace.
-	ClearSession(string) error
-
-	// Clear each sessions workspaces.
-	Clear() error
-}
 
 type screen struct {
 	sync.Mutex
@@ -165,8 +123,24 @@ func (s *screen) Clear() (err error) {
 			return err
 		}
 	}
+
+	// Attempt to close & remove notifier temp files
+	s.notifier.tmpOut.Close()
+	s.notifier.tmpErr.Close()
+	os.RemoveAll(s.notifier.tmpOut.Name())
+	os.RemoveAll(s.notifier.tmpErr.Name())
+
+	err = os.RemoveAll(s.tmpPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(s.tmpPath, tmpDirFileMode)
+	if err != nil {
+		return err
+	}
+
 	s.sessions = make(map[string]*session)
-	// FIXME: delete previous notifier
 	s.notifier = buildPrinter(s.tmpPath, notifierPrinterName, 0)
 	return
 }
@@ -187,25 +161,179 @@ type screenTailer struct {
 	blockingSessionsQueue *collections.Queue[string]
 }
 
-func updateSession(exists *session, filePath string) error {
-	session, err := deserializeSession(filePath)
+// Flush continuously until session is ended.
+// Tail only supplied session
+func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duration) error {
+	pt := logger.PerfTimer("sessionName", sessionName)
+	defer pt.End()
+
+	var blocking *session
+	startTime := time.Now()
+
+	for blocking == nil || !blocking.Ended {
+		if time.Since(startTime) > timeout {
+			err := errorz.Timeoutf(timeout, "TailOnlyBlocking() for session: [%s]", sessionName)
+			return err
+		}
+
+		err := s.scanSessions()
+		if err != nil {
+			return err
+		}
+
+		blocking = s.sessions[sessionName]
+
+		logger.Debug("tailing ...", "session", sessionName)
+		if blocking != nil {
+			err := s.tailSession(blocking)
+			if err != nil {
+				return err
+			}
+		}
+
+		if blocking == nil || !blocking.Ended {
+			time.Sleep(continuousFlushPeriod)
+		}
+	}
+
+	path := sessionSerializedPath(filepath.Dir(blocking.TmpPath), blocking.Name)
+	err := updateSession(blocking, path)
 	if err != nil {
 		return err
 	}
-	session.currentPriority = nil
-	session.tmpOut = nil
-	session.tmpErr = nil
-	exists.Started = session.Started
-	exists.Ended = session.Ended
-
-	logger.Debug("updated session", "session", *exists)
 
 	return nil
 }
 
+// Flush continuously until session is ended.
+// Put supplied session on top for next session election.
+func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) error {
+	pt := logger.PerfTimer("sessionName", sessionName)
+	defer pt.End()
+
+	var blocking *session
+	startTime := time.Now()
+	// Push session on top of priority queue
+	s.blockingSessionsQueue.PushFront(sessionName)
+	// Wait and find session
+
+	for blocking = s.sessions[sessionName]; blocking == nil || !blocking.Ended; {
+		if time.Since(startTime) > timeout {
+			err := errorz.Timeoutf(timeout, "TailBlocking() for session: [%s]", sessionName)
+			return err
+		}
+
+		logger.Debug("tailing ...", "session", sessionName)
+		err := s.tailAll()
+		if err != nil {
+			return err
+		}
+
+		blocking = s.sessions[sessionName]
+		if blocking == nil || !blocking.Ended {
+			time.Sleep(continuousFlushPeriod)
+		}
+	}
+
+	if blocking == nil || blocking.Ended {
+		// FIXME: could be called in loop ^^ if tailAll() managed all cases
+		err := s.tailNotifications()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Flush continuously until all sessions are ended.
+func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
+	pt := logger.PerfTimer()
+	defer pt.End()
+
+	startTime := time.Now()
+
+	err := s.tailAll()
+	if err != nil {
+		return err
+	}
+
+	var notEnded []*session
+	for notEnded == nil || len(notEnded) > 0 {
+		notEndedNames := collections.Map(&notEnded, func(s *session) string { return s.Name })
+		//fmt.Printf("Flushing sessions: %v\n", notEndedNames)
+		if time.Since(startTime) > timeout {
+			err := errorz.Timeoutf(timeout, "TailAllBlocking(), some sessions not ended after timeout: %s", notEndedNames)
+			return err
+		}
+
+		// Updating not ended session list
+		notEnded = collections.Values(s.sessions)
+		var ended []int
+		for pos, s := range notEnded {
+			if s.Ended {
+				ended = append(ended, pos)
+			}
+		}
+		removed := 0
+		for _, pos := range ended {
+			notEnded = collections.RemoveFast(notEnded, pos-removed)
+			removed++
+		}
+
+		if len(notEnded) > 0 {
+			time.Sleep(continuousFlushPeriod)
+		}
+		logger.Debug("TailAllBlocking flushAll ...", "notEnded", notEnded, "ended", ended)
+		err := s.tailAll()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *screenTailer) Reclaim(session string) error {
+	// TODO
+	return nil
+}
+
+func (s *screenTailer) ReclaimAll() error {
+	// TODO
+	return nil
+}
+
+func (s *screenTailer) ClearSession(name string) error {
+	s.Lock()
+	defer s.Unlock()
+
+	if session, ok := s.sessions[name]; ok {
+		err := session.Clear()
+		if err != nil {
+			return err
+		}
+		delete(s.sessions, name)
+	} else {
+		return fmt.Errorf("session: [%s] does not exists", name)
+	}
+
+	return nil
+}
+
+func (s *screenTailer) Clear() (err error) {
+	sessions := collections.Keys(s.sessions)
+	for _, session := range sessions {
+		err := s.ClearSession(session)
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
+
 func (s *screenTailer) scanSessions() (err error) {
 	pt := logger.PerfTimer("tmpPath", s.tmpPath)
-	//defer func() { pt.End("sessionsCount", len(s.sessions)) }()
 	defer pt.End("sessionsCount", len(s.sessions))
 
 	wildcard := sessionSerializedPath(s.tmpPath, "*")
@@ -326,7 +454,7 @@ func (s *screenTailer) tailNotifications() (err error) {
 		return fmt.Errorf("error tailing notifier err: %w", err)
 	}
 	s.notifier.cursorErr += int64(n)
-	//err = s.outputs.Flush()
+	err = s.outputs.Flush()
 	return
 }
 
@@ -351,10 +479,6 @@ func (s *screenTailer) tailSession(session *session) (err error) {
 	logger.Debug("flushing session err ...", "session", session.Name, "tmpErr", session.tmpErr.Name(), "n", n, "cursorErr", session.cursorErr)
 
 	if session.Ended {
-		// defer func() {
-		// 	err = s.flushNotifications()
-		// }()
-
 		session.flushed = true
 		err = session.tmpOut.Close()
 		if err != nil {
@@ -379,7 +503,7 @@ func (s *screenTailer) tailNext() (eneded bool, err error) {
 		return
 	}
 
-	if s.electedSession == nil || !s.electedSession.tailed { // || !s.electedSession.Started
+	if s.electedSession == nil || !s.electedSession.tailed {
 		err = s.tailNotifications()
 	}
 
@@ -414,216 +538,6 @@ func (s *screenTailer) tailAll() (err error) {
 	return
 }
 
-func (s *screenTailer) flushAll0() (err error) {
-	// Flush the display : print sessions in order onto std outputs (keep written bytes count)
-	pt := logger.PerfTimer("tmpPath", s.tmpPath, "electedSession", s.electedSession, "blockingSessionsQueueLen", s.blockingSessionsQueue.Len())
-	defer pt.End()
-
-	err = s.electSession()
-	if err != nil {
-		return err
-	}
-
-	if s.electedSession == nil {
-		return
-	}
-	//fmt.Printf("flushtailing session: [%s](%s) ; ended: %v ; flushed: %v\n", s.electedSession.Name, s.electedSession.tmpOut.Name(), s.electedSession.Ended, s.electedSession.flushed)
-
-	err = s.tailSession(s.electedSession)
-	if err != nil {
-		return err
-	}
-
-	if s.electedSession.Ended {
-		s.electedSession = nil
-		// FIXME: do not use a recusrsive call
-		s.flushAll0()
-	}
-
-	return
-}
-
-// Flush continuously until session is ended.
-// Tail only supplied session
-func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duration) error {
-	pt := logger.PerfTimer("sessionName", sessionName)
-	defer pt.End()
-
-	var blocking *session
-	startTime := time.Now()
-
-	for blocking == nil || !blocking.Ended {
-		if time.Since(startTime) > timeout {
-			err := errorz.Timeoutf(timeout, "TailOnlyBlocking() for session: [%s]", sessionName)
-			return err
-		}
-
-		err := s.scanSessions()
-		if err != nil {
-			return err
-		}
-
-		blocking = s.sessions[sessionName]
-
-		logger.Debug("tailing ...", "session", sessionName)
-		if blocking != nil {
-			err := s.tailSession(blocking)
-			if err != nil {
-				return err
-			}
-		}
-
-		if blocking == nil || !blocking.Ended {
-			time.Sleep(continuousFlushPeriod)
-		}
-
-		if blocking != nil {
-			//fmt.Printf("Waited for session: [%s] (ended: %v)\n", sessionName, blocking.Ended)
-		} else {
-			//fmt.Printf("Waited for session: [%s]\n", sessionName)
-		}
-	}
-
-	path := sessionSerializedPath(filepath.Dir(blocking.TmpPath), blocking.Name)
-	err := updateSession(blocking, path)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Flush continuously until session is ended.
-// Put supplied session on top for next session election.
-func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) error {
-	pt := logger.PerfTimer("sessionName", sessionName)
-	defer pt.End()
-
-	var blocking *session
-	startTime := time.Now()
-	// Push session on top of priority queue
-	s.blockingSessionsQueue.PushFront(sessionName)
-	// Wait and find session
-
-	for blocking = s.sessions[sessionName]; blocking == nil || !blocking.Ended; {
-		if time.Since(startTime) > timeout {
-			err := errorz.Timeoutf(timeout, "TailBlocking() for session: [%s]", sessionName)
-			return err
-		}
-
-		logger.Debug("tailing ...", "session", sessionName)
-		err := s.tailAll()
-		if err != nil {
-			return err
-		}
-
-		blocking = s.sessions[sessionName]
-		if blocking == nil || !blocking.Ended {
-			time.Sleep(continuousFlushPeriod)
-		}
-	}
-
-	if blocking == nil || blocking.Ended {
-		// FIXME: could be called in loop ^^ if tailAll() managed all cases
-		err := s.tailNotifications()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Flush continuously until all sessions are ended.
-func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
-	pt := logger.PerfTimer()
-	defer pt.End()
-
-	startTime := time.Now()
-
-	//err := s.flushAll()
-	err := s.tailAll()
-	if err != nil {
-		return err
-	}
-
-	var notEnded []*session
-	for notEnded == nil || len(notEnded) > 0 {
-		notEndedNames := collections.Map(&notEnded, func(s *session) string { return s.Name })
-		//fmt.Printf("Flushing sessions: %v\n", notEndedNames)
-		if time.Since(startTime) > timeout {
-			err := errorz.Timeoutf(timeout, "TailAllBlocking(), some sessions not ended after timeout: %s", notEndedNames)
-			return err
-		}
-
-		// Updating not ended session list
-		notEnded = collections.Values(s.sessions)
-		var ended []int
-		for pos, s := range notEnded {
-			if s.Ended {
-				ended = append(ended, pos)
-			}
-		}
-		removed := 0
-		for _, pos := range ended {
-			notEnded = collections.RemoveFast(notEnded, pos-removed)
-			removed++
-		}
-
-		if len(notEnded) > 0 {
-			time.Sleep(continuousFlushPeriod)
-		}
-		logger.Debug("TailAllBlocking flushAll ...", "notEnded", notEnded, "ended", ended)
-		//err := s.flushAll()
-		err := s.tailAll()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *screenTailer) ClearSession(name string) error {
-	s.Lock()
-	defer s.Unlock()
-
-	if session, ok := s.sessions[name]; ok {
-		err := session.Clear()
-		if err != nil {
-			return err
-		}
-		delete(s.sessions, name)
-	} else {
-		return fmt.Errorf("session: [%s] does not exists", name)
-	}
-
-	return nil
-}
-
-func (s *screenTailer) Clear() (err error) {
-	sessions := collections.Keys(s.sessions)
-	for _, session := range sessions {
-		err := s.ClearSession(session)
-		if err != nil {
-			return err
-		}
-	}
-	return
-}
-
-func (*screenTailer) AsyncFlush0(timeout time.Duration) (err error) {
-	// Launch goroutine wich will continuously flush async display
-	// TODO later ?
-	return
-}
-
-func (*screenTailer) BlockTail0(timeout time.Duration) (err error) {
-	// Tail async display blocking until end
-	// TODO later ?
-	return
-}
-
 func NewScreen(outputs printz.Outputs) *screen {
 	// FIXME: not implemented
 	return &screen{
@@ -636,7 +550,7 @@ func NewAsyncScreen(tmpPath string) *screen {
 		panic(fmt.Sprintf("unable to create async screen: [%s] path already exists", tmpPath))
 	}
 
-	err := os.MkdirAll(tmpPath, 0760)
+	err := os.MkdirAll(tmpPath, tmpDirFileMode)
 	if err != nil {
 		panic(err)
 	}

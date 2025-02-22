@@ -16,6 +16,7 @@ import (
 
 const (
 	serializedExtension = ".ser"
+	extraTimeout        = 20 * time.Millisecond
 )
 
 type printer struct {
@@ -28,37 +29,6 @@ type printer struct {
 
 	tmpOut, tmpErr       *os.File
 	cursorOut, cursorErr int64
-}
-
-func sessionSerializedPath(dir, name string) string {
-	filePath := filepath.Join(dir, name+serializedExtension)
-	return filePath
-}
-
-func serializeSession(s *session) (err error) {
-	filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
-	f, err := os.OpenFile(filePath, os.O_CREATE+os.O_RDWR, 0644)
-	if err != nil {
-		return
-	}
-	defer func() { f.Close() }()
-	enc := gob.NewEncoder(f)
-	err = enc.Encode(s)
-	logger.Debug("serialized session", "filepath", filePath)
-	return
-}
-
-func deserializeSession(path string) (s *session, err error) {
-	f, err := os.OpenFile(path, os.O_RDONLY, 0)
-	if err != nil {
-		return nil, fmt.Errorf("error opening ser file (%s): %w", path, err)
-	}
-	defer func() { f.Close() }()
-	dec := gob.NewDecoder(f)
-	s = &session{}
-	err = dec.Decode(s)
-	logger.Debug("deserialized session", "filepath", path)
-	return s, err
 }
 
 // FIXME: use a different struct for serialization with exported fields.
@@ -79,6 +49,7 @@ type session struct {
 
 	printersByPriority map[int][]*printer
 	printers           map[string]*printer
+	notifier           *printer
 
 	currentPriority *int
 }
@@ -94,6 +65,8 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	if s.timeouted != nil {
 		panic(fmt.Sprintf("cannot get printer for session [%s] timeouted after: %s", s.Name, *s.timeouted))
 	}
+
+	// FIXME: printer should be getable & writable if session not started yet
 	if !s.Started {
 		panic(fmt.Sprintf("cannot get printer for session [%s] not started", s.Name))
 	}
@@ -136,7 +109,11 @@ func (s *session) ClosePrinter(name string) error {
 	return s.closePrinter(name)
 }
 
-func (s *session) Start(timeout time.Duration) (err error) {
+func (s *session) NotifyPrinter() printz.Printer {
+	return s.notifier
+}
+
+func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func()) (err error) {
 	if s.timeouted != nil {
 		return fmt.Errorf("cannot start session [%s] timeouted after: %s", s.Name, *s.timeouted)
 	}
@@ -158,10 +135,11 @@ func (s *session) Start(timeout time.Duration) (err error) {
 	s.TmpErrName = tmpErr.Name()
 	s.tmpOut = tmpOut
 	s.tmpErr = tmpErr
+	s.notifier = buildPrinter(s.TmpPath, notifierPrinterName, 0)
 
 	s.Started = true
 	go func() {
-		time.Sleep(timeout)
+		time.Sleep(timeout + extraTimeout)
 		if !s.Ended {
 			s.timeouted = &timeout
 			err := s.End()
@@ -232,14 +210,23 @@ func (s *session) Clear() (err error) {
 		if err != nil {
 			return err
 		}
-		//s.TmpOutName = ""
 	}
 	if s.TmpErrName != "" {
 		err = os.RemoveAll(s.TmpErrName)
 		if err != nil {
 			return err
 		}
-		//s.TmpErrName = ""
+	}
+
+	// Attempt to close & remove notifier temp files
+	s.notifier.tmpOut.Close()
+	s.notifier.tmpErr.Close()
+	os.RemoveAll(s.notifier.tmpOut.Name())
+	os.RemoveAll(s.notifier.tmpErr.Name())
+
+	err = os.RemoveAll(s.TmpPath)
+	if err != nil {
+		return err
 	}
 
 	s.cursorOut = 0
@@ -247,8 +234,19 @@ func (s *session) Clear() (err error) {
 	s.printersByPriority = make(map[int][]*printer)
 	s.printers = make(map[string]*printer)
 
-	err = os.RemoveAll(s.TmpPath)
 	return err
+}
+
+// Consolidate session outputs with supplied printer content
+func (s *session) flushPrinter(p printer) error {
+	// TODO
+	return nil
+}
+
+// Consolidate session outputs with all printers & notifier available
+func (s *session) flushAll(name string) error {
+	// TODO
+	return nil
 }
 
 func (s *session) flush() error {
@@ -371,18 +369,62 @@ func buildSession(name string, priorityOrder int, screenDirPath string) *session
 	}
 
 	session := &session{
-		mutex:         &sync.Mutex{},
-		Name:          name,
-		PriorityOrder: priorityOrder,
-		readOnly:      false,
-		TmpPath:       sessionDirpath,
-		// TmpOutName:         tmpOut.Name(),
-		// TmpErrName:         tmpErr.Name(),
-		// tmpOut:             tmpOut,
-		// tmpErr:             tmpErr,
+		mutex:              &sync.Mutex{},
+		Name:               name,
+		PriorityOrder:      priorityOrder,
+		readOnly:           false,
+		TmpPath:            sessionDirpath,
 		printersByPriority: make(map[int][]*printer),
 		printers:           make(map[string]*printer),
+		notifier:           buildPrinter(screenDirPath, notifierPrinterName+"-"+name, 0),
 	}
 
 	return session
+}
+
+func updateSession(exists *session, filePath string) error {
+	session, err := deserializeSession(filePath)
+	if err != nil {
+		return err
+	}
+	session.currentPriority = nil
+	session.tmpOut = nil
+	session.tmpErr = nil
+	exists.Started = session.Started
+	exists.Ended = session.Ended
+
+	logger.Debug("updated session", "session", *exists)
+
+	return nil
+}
+
+func sessionSerializedPath(dir, name string) string {
+	filePath := filepath.Join(dir, name+serializedExtension)
+	return filePath
+}
+
+func serializeSession(s *session) (err error) {
+	filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
+	f, err := os.OpenFile(filePath, os.O_CREATE+os.O_RDWR, 0644)
+	if err != nil {
+		return
+	}
+	defer func() { f.Close() }()
+	enc := gob.NewEncoder(f)
+	err = enc.Encode(s)
+	logger.Debug("serialized session", "filepath", filePath)
+	return
+}
+
+func deserializeSession(path string) (s *session, err error) {
+	f, err := os.OpenFile(path, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("error opening ser file (%s): %w", path, err)
+	}
+	defer func() { f.Close() }()
+	dec := gob.NewDecoder(f)
+	s = &session{}
+	err = dec.Decode(s)
+	logger.Debug("deserialized session", "filepath", path)
+	return s, err
 }

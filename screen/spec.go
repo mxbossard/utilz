@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"mby.fr/utils/printz"
 )
@@ -55,6 +56,58 @@ const (
 	errFileNameSuffix = "-err.*"
 	bufLen            = 1024
 )
+
+type Sink interface {
+	Session(name string, priority int) *session
+	NotifyPrinter() printz.Printer
+	Close() error
+
+	// Continuously Flush supplied session until it's end or timeout is reached.
+	FlushBlocking(session string, timeout time.Duration) error
+
+	// Continuously Flush all sessions until ends or timeout is reached.
+	FlushAllBlocking(timeout time.Duration) error
+
+	// Clear each sessions workspaces.
+	//Clear() error
+}
+
+type Session interface {
+	Printer(name string, priority int) printz.Printer
+	ClosePrinter(name string) error
+	NotifyPrinter() printz.Printer
+	Flush() error
+	//Start(timeout time.Duration) error
+	Start(timeout time.Duration, timeoutCallbacks ...func()) error
+	End() error
+	//Clear() error
+}
+
+type Tailer interface {
+	// Continuously Tail supplied session until it's end or timeout is reached.
+	// Do not tail notifications
+	TailOnlyBlocking(session string, timeout time.Duration) error
+
+	// Continuously Tail opened sessions in order until supplied session's end or timeout is reached.
+	// tail notifications before session"s start and after session's end
+	TailBlocking(session string, timeout time.Duration) error
+
+	// Continuously Tail all opened sessions in order until ends or timeout is reached.
+	// tail notifications between sessions
+	TailAllBlocking(timeout time.Duration) error
+
+	// Tail ended session containing some flushed print not tailed.
+	Reclaim(session string) error
+
+	// Tail all ended sessions in order which contains some flushed print not tailed.
+	ReclaimAll() error
+
+	// Clear session workspace.
+	ClearSession(session string) error
+
+	// Clear each sessions workspaces.
+	Clear() error
+}
 
 func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
 	tmpOutFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix))

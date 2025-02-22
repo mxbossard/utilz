@@ -149,7 +149,7 @@ func TestSession_Basic(t *testing.T) {
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
-	time.Sleep(sessionTimeout + 10*time.Millisecond)
+	time.Sleep(sessionTimeout + 10*time.Millisecond + extraTimeout)
 	// Opening a printer after session timeout should panic
 	assert.Panics(t, func() {
 		session.Printer("another", 42)
@@ -231,7 +231,7 @@ func TestSession_ReOpen(t *testing.T) {
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
-	time.Sleep(sessionTimeout + 10*time.Millisecond)
+	time.Sleep(sessionTimeout + extraTimeout + 10*time.Millisecond)
 	// Opening a printer after session timeout should panic
 	assert.Panics(t, func() {
 		session.Printer("another", 42)
@@ -314,7 +314,7 @@ func TestSession_ReOpen(t *testing.T) {
 	assert.Equal(t, expectedMessage2, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
-	time.Sleep(sessionTimeout + 10*time.Millisecond)
+	time.Sleep(sessionTimeout + extraTimeout + 10*time.Millisecond)
 	// Opening a printer after session timeout should panic
 	assert.Panics(t, func() {
 		session.Printer("another", 42)
