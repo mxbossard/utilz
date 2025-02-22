@@ -296,12 +296,12 @@ func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
 
 func (s *screenTailer) Reclaim(session string) error {
 	// TODO
-	return nil
+	panic("not implemented yet")
 }
 
 func (s *screenTailer) ReclaimAll() error {
 	// TODO
-	return nil
+	panic("not implemented yet")
 }
 
 func (s *screenTailer) ClearSession(name string) error {

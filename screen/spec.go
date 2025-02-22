@@ -76,10 +76,19 @@ type Session interface {
 	Printer(name string, priority int) printz.Printer
 	ClosePrinter(name string) error
 	NotifyPrinter() printz.Printer
+
+	// Consolidate session outputs
 	Flush() error
-	//Start(timeout time.Duration) error
+
+	// Flush printed messages which where not consolidated before session's end.
+	Reclaim() error
+
+	// Start the session
 	Start(timeout time.Duration, timeoutCallbacks ...func(Session)) error
+
+	// End the session
 	End() error
+
 	//Clear() error
 }
 

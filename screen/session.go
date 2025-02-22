@@ -400,6 +400,11 @@ func (s *session) Flush() error {
 	return err
 }
 
+func (s *session) Reclaim() error {
+	// TODO
+	panic("not implemented yet")
+}
+
 func buildSession(name string, priorityOrder int, screenDirPath string) *session {
 	sessionDirpath := filepath.Join(screenDirPath, sessionDirPrefix+name)
 	if _, err := os.Stat(sessionDirpath); err == nil {
