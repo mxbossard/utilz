@@ -443,7 +443,7 @@ func (s *screenTailer) electSession() (err error) {
 	return
 }
 
-func (s *screenTailer) tailNotifications() (err error) {
+func (s *screenTailer) tailNotifications() error {
 	n, err := filez.CopyChunk(s.notifier.tmpOut, s.outputs.Out(), buf, s.notifier.cursorOut, -1)
 	if err != nil {
 		return fmt.Errorf("error tailing notifier out: %w", err)
@@ -455,7 +455,7 @@ func (s *screenTailer) tailNotifications() (err error) {
 	}
 	s.notifier.cursorErr += int64(n)
 	err = s.outputs.Flush()
-	return
+	return err
 }
 
 func (s *screenTailer) tailSession(session *session) (err error) {

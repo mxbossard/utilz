@@ -78,7 +78,7 @@ type Session interface {
 	NotifyPrinter() printz.Printer
 	Flush() error
 	//Start(timeout time.Duration) error
-	Start(timeout time.Duration, timeoutCallbacks ...func()) error
+	Start(timeout time.Duration, timeoutCallbacks ...func(Session)) error
 	End() error
 	//Clear() error
 }

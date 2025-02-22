@@ -28,7 +28,7 @@ type BasicOutputs struct {
 	lastPrint time.Time
 }
 
-func (o BasicOutputs) Flush() error {
+func (o *BasicOutputs) Flush() error {
 	o.Lock()
 	defer o.Unlock()
 

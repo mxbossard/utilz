@@ -15,22 +15,32 @@ func TestNewStringOutputs(t *testing.T) {
 	expectedOut := "foo"
 	expectedErr := "bar"
 
+	assert.True(t, outs.Flushed())
+
 	outs.Out().Write([]byte(expectedOut))
+
+	assert.False(t, outs.Flushed())
 
 	assert.Equal(t, expectedOut, outW.String())
 	assert.Empty(t, errW.String())
 
 	outs.Flush()
+
+	assert.True(t, outs.Flushed())
 
 	assert.Equal(t, expectedOut, outW.String())
 	assert.Empty(t, errW.String())
 
 	outs.Err().Write([]byte(expectedErr))
 
+	assert.False(t, outs.Flushed())
+
 	assert.Equal(t, expectedOut, outW.String())
 	assert.Equal(t, expectedErr, errW.String())
 
 	outs.Flush()
+
+	assert.True(t, outs.Flushed())
 
 	assert.Equal(t, expectedOut, outW.String())
 	assert.Equal(t, expectedErr, errW.String())

@@ -24,7 +24,7 @@ type printer struct {
 
 	name           string
 	opened, closed bool
-	flushed        bool
+	consolidated   bool
 	priorityOrder  int
 
 	tmpOut, tmpErr       *os.File
@@ -35,12 +35,14 @@ type printer struct {
 type session struct {
 	mutex *sync.Mutex
 
-	Name            string
-	PriorityOrder   int
-	Started, Ended  bool
-	flushed, tailed bool
-	readOnly        bool
-	timeouted       *time.Duration
+	Name             string
+	PriorityOrder    int
+	Started, Ended   bool
+	printed          bool
+	flushed, tailed  bool
+	readOnly         bool
+	timeouted        *time.Duration
+	timeoutCallbacks []func(Session)
 
 	TmpPath                string
 	TmpOutName, TmpErrName string
@@ -94,8 +96,8 @@ func (s *session) closePrinter(name string) error {
 			// Printer already closed
 			return nil
 		}
-		// set flushed to false to enforce a final flush
-		prtr.flushed = false
+		// set consolidated to false to enforce a final consolidation
+		prtr.consolidated = false
 		prtr.closed = true
 
 	} else {
@@ -113,7 +115,7 @@ func (s *session) NotifyPrinter() printz.Printer {
 	return s.notifier
 }
 
-func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func()) (err error) {
+func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)) (err error) {
 	if s.timeouted != nil {
 		return fmt.Errorf("cannot start session [%s] timeouted after: %s", s.Name, *s.timeouted)
 	}
@@ -137,11 +139,15 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func()) (err 
 	s.tmpErr = tmpErr
 	s.notifier = buildPrinter(s.TmpPath, notifierPrinterName, 0)
 
+	s.timeoutCallbacks = timeoutCallbacks
 	s.Started = true
 	go func() {
 		time.Sleep(timeout + extraTimeout)
 		if !s.Ended {
 			s.timeouted = &timeout
+			for _, tcb := range s.timeoutCallbacks {
+				tcb(s)
+			}
 			err := s.End()
 			if err != nil {
 				panic(err)
@@ -171,6 +177,13 @@ func (s *session) End() (err error) {
 		return err
 	}
 
+	// FIXME: we shoud wait for session end to consolidate notifications ?
+	// Consolidate notifications "after suite"
+	err = s.consolidateNotifier()
+	if err != nil {
+		return err
+	}
+
 	s.Ended = true
 	err = serializeSession(s)
 	logger.Debug("session ended", "session", s.Name)
@@ -188,7 +201,7 @@ func (s *session) Clear() (err error) {
 	fmt.Printf("Clearing session dir: [%s] ...\n", s.TmpPath)
 	s.Started = false
 	s.Ended = false
-	s.flushed = false
+	//s.flushed = false
 
 	if s.tmpOut != nil {
 		s.tmpOut.Close()
@@ -238,23 +251,59 @@ func (s *session) Clear() (err error) {
 }
 
 // Consolidate session outputs with supplied printer content
-func (s *session) flushPrinter(p printer) error {
-	// TODO
-	return nil
-}
-
-// Consolidate session outputs with all printers & notifier available
-func (s *session) flushAll(name string) error {
-	// TODO
-	return nil
-}
-
-func (s *session) flush() error {
-	if s.Ended {
-		//return fmt.Errorf("session: [%s] already ended", s.Name)
-		return nil
+// concat printer into a session tmp file
+func (s *session) consolidatePrinter(prtr *printer) error {
+	err := prtr.Flush()
+	if err != nil {
+		return err
 	}
-	// concat closed printers + current printer into a session tmp file ()
+
+	buf := make([]byte, bufLen)
+	if prtr.closed && prtr.consolidated {
+		// fmt.Printf("printer closed: [%s]\n", prtr.name)
+		return nil
+	} else {
+		// fmt.Printf("flushing printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
+		err := prtr.Flush()
+		if err != nil {
+			return err
+		}
+
+		n, err := filez.CopyChunk(prtr.tmpOut, s.tmpOut, buf, prtr.cursorOut, -1)
+		if err != nil {
+			return err
+		}
+		prtr.cursorOut += int64(n)
+
+		n, err = filez.CopyChunk(prtr.tmpErr, s.tmpErr, buf, prtr.cursorErr, -1)
+		if err != nil {
+			return err
+		}
+		prtr.cursorErr += int64(n)
+	}
+	prtr.consolidated = true
+	// fmt.Printf("flushed printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
+	if prtr.closed {
+		//fmt.Printf("closing printer: [%s] in Flush()\n", prtr.name)
+		// Close files
+		err := prtr.tmpOut.Close()
+		if err != nil {
+			return err
+		}
+		err = prtr.tmpErr.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Consolidate session outputs with supplied printer content
+func (s *session) consolidateNotifier() error {
+	return s.consolidatePrinter(s.notifier)
+}
+
+func (s *session) nextPriority() {
 	if s.currentPriority == nil {
 		//  Find next priority
 		priorityOrders := collections.Keys(s.printersByPriority)
@@ -263,64 +312,54 @@ func (s *session) flush() error {
 		out:
 			for _, priorityOrder := range priorityOrders {
 				printers := s.printersByPriority[priorityOrder]
+				nothingPrintedYet := true
 				for _, printer := range printers {
 					// fmt.Printf("selecting printer: [%s] ? prio: [%d]\n", printer.name, priorityOrder)
-					if !printer.flushed {
+					if !printer.consolidated && !printer.LastPrint().IsZero() {
 						// set current priority of first opened printer
+						s.printed = true // mark session print began
 						s.currentPriority = &priorityOrder
 						break out
 					}
+					nothingPrintedYet = nothingPrintedYet && printer.LastPrint().IsZero()
+				}
+				// if nothing printed yet for current priority => do not select priority
+				if nothingPrintedYet {
+					break out
 				}
 			}
 		}
 	}
+}
 
-	if s.currentPriority == nil {
-		// Nothing to flush
-		return nil
+// Consolidate session outputs with all printers & notifier available
+// concat all closed printers + current printer into a session tmp file
+func (s *session) consolidateAll() error {
+	s.nextPriority()
+
+	if s.currentPriority == nil && !s.printed {
+		// While no printer was consolidated yet, Consolidate notifications "before suite"
+		err := s.consolidateNotifier()
+		if err != nil {
+			return err
+		}
 	}
 
-	printers, ok := s.printersByPriority[*s.currentPriority]
-	if ok && len(printers) > 0 {
+	for s.currentPriority != nil {
+		printers, ok := s.printersByPriority[*s.currentPriority]
+		if !ok || len(printers) == 0 {
+			break
+		}
+
 		openedPrinters := 0
-		buf := make([]byte, bufLen)
+		// buf := make([]byte, bufLen)
 		for _, prtr := range printers {
-			if prtr.closed && prtr.flushed {
-				// fmt.Printf("printer closed: [%s]\n", prtr.name)
-				continue
-			} else {
-				// fmt.Printf("flushing printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
-				err := prtr.Flush()
-				if err != nil {
-					return err
-				}
-
-				n, err := filez.CopyChunk(prtr.tmpOut, s.tmpOut, buf, prtr.cursorOut, -1)
-				if err != nil {
-					return err
-				}
-				prtr.cursorOut += int64(n)
-
-				n, err = filez.CopyChunk(prtr.tmpErr, s.tmpErr, buf, prtr.cursorErr, -1)
-				if err != nil {
-					return err
-				}
-				prtr.cursorErr += int64(n)
+			err := s.consolidatePrinter(prtr)
+			if err != nil {
+				return err
 			}
-			prtr.flushed = true
-			// fmt.Printf("flushed printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
-			if prtr.closed {
-				//fmt.Printf("closing printer: [%s] in Flush()\n", prtr.name)
-				// Close files
-				err := prtr.tmpOut.Close()
-				if err != nil {
-					return err
-				}
-				err = prtr.tmpErr.Close()
-				if err != nil {
-					return err
-				}
-			} else {
+
+			if !prtr.closed {
 				openedPrinters++
 			}
 		}
@@ -329,13 +368,12 @@ func (s *session) flush() error {
 		if openedPrinters == 0 {
 			// all printers are closed => clear current priority
 			s.currentPriority = nil
-			// FIXME: do not use a recursive call.
-			err := s.flush()
-			if err != nil {
-				return err
-			}
+			s.nextPriority()
+		} else {
+			break
 		}
 	}
+
 	return nil
 }
 
@@ -351,12 +389,12 @@ func (s *session) Flush() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	err := s.flush()
+	err := s.consolidateAll()
 	if err != nil {
 		return nil
 	}
 
-	s.flushed = true
+	//s.flushed = true
 	err = serializeSession(s)
 
 	return err
