@@ -1,7 +1,6 @@
 package printz
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -23,8 +22,8 @@ type Flusher interface {
 }
 
 type Printer interface {
-	Outputs() Outputs
-	Flush() error
+	Flusher
+	Flushed() bool
 	RecoverableOut(...interface{}) error
 	Out(...interface{})
 	Outf(string, ...interface{})
@@ -33,8 +32,12 @@ type Printer interface {
 	Err(...interface{})
 	Errf(string, ...interface{})
 	ColoredErrf(ansi.Color, string, ...interface{})
-	//Print(...interface{}) error
 	LastPrint() time.Time
+	Outputs() Outputs
+}
+
+type SpyingPrinter interface {
+	Printer
 }
 
 type BasicPrinter struct {
@@ -50,7 +53,12 @@ func (p *BasicPrinter) Outputs() Outputs {
 func (o BasicPrinter) Flush() error {
 	o.Lock()
 	defer o.Unlock()
-	return o.outputs.Flush()
+	err := o.outputs.Flush()
+	return err
+}
+
+func (o BasicPrinter) Flushed() bool {
+	return o.outputs.Flushed()
 }
 
 func (p *BasicPrinter) RecoverableOut(objects ...interface{}) (err error) {
@@ -106,23 +114,10 @@ func (p *BasicPrinter) ColoredErrf(color ansi.Color, s string, params ...interfa
 }
 
 func (p BasicPrinter) LastPrint() time.Time {
-	return p.lastPrint
-}
-
-func ansiFormatParams(color ansi.Color, params ...any) (formattedParams []any) {
-	for _, p := range params {
-		if f, ok := p.(ansiFormatted); ok {
-			s, err := stringify(f)
-			if err != nil {
-				log.Fatal(err)
-			}
-			s += string(color)
-			formattedParams = append(formattedParams, s)
-		} else {
-			formattedParams = append(formattedParams, p)
-		}
+	if p.outputs.LastPrint().After(p.lastPrint) {
+		return p.outputs.LastPrint()
 	}
-	return
+	return p.lastPrint
 }
 
 func stringify(obj interface{}) (str string, err error) {
@@ -169,25 +164,6 @@ func stringify(obj interface{}) (str string, err error) {
 	return
 }
 
-func expandObjects(objects ...interface{}) (allObjects []interface{}) {
-	for _, obj := range objects {
-		// Recursive call if obj is an array or a slice
-		t := reflect.TypeOf(obj)
-		if t.Kind() == reflect.Array || t.Kind() == reflect.Slice {
-			arrayValue := reflect.ValueOf(obj)
-			for i := 0; i < arrayValue.Len(); i++ {
-				value := arrayValue.Index(i).Interface()
-				expanded := expandObjects(value)
-				allObjects = append(allObjects, expanded...)
-			}
-			continue
-		} else {
-			allObjects = append(allObjects, obj)
-		}
-	}
-	return
-}
-
 func printTo(w io.Writer, objects ...interface{}) (err error) {
 	objects = expandObjects(objects)
 	var toPrint []string
@@ -215,28 +191,24 @@ func printTo(w io.Writer, objects ...interface{}) (err error) {
 	return
 }
 
-func flush(printer *BasicPrinter) {
-	printer.Lock()
-	defer printer.Unlock()
-	err := printer.outputs.Out().(*bufio.Writer).Flush()
-	if err != nil {
-		log.Fatal(err)
+func expandObjects(objects ...interface{}) (allObjects []interface{}) {
+	for _, obj := range objects {
+		// Recursive call if obj is an array or a slice
+		t := reflect.TypeOf(obj)
+		if t.Kind() == reflect.Array || t.Kind() == reflect.Slice {
+			arrayValue := reflect.ValueOf(obj)
+			for i := 0; i < arrayValue.Len(); i++ {
+				value := arrayValue.Index(i).Interface()
+				expanded := expandObjects(value)
+				allObjects = append(allObjects, expanded...)
+			}
+			continue
+		} else {
+			allObjects = append(allObjects, obj)
+		}
 	}
-	err = printer.outputs.Err().(*bufio.Writer).Flush()
-	if err != nil {
-		log.Fatal(err)
-	}
+	return
 }
-
-func Sprintf(format string, params ...any) string {
-	return fmt.Sprintf(format, ansiFormatParams("", params...)...)
-}
-
-func SColoredPrintf(color ansi.Color, format string, params ...any) string {
-	return fmt.Sprintf(format, ansiFormatParams(color, params...)...)
-}
-
-//var flushablePrinters []*BasicPrinter
 
 // Build a default printer with buffered outputs.
 func New(outputs Outputs) Printer {
@@ -244,16 +216,6 @@ func New(outputs Outputs) Printer {
 	var m sync.Mutex
 	var t time.Time
 	printer := BasicPrinter{&m, buffered, t}
-
-	//flushablePrinters = append(flushablePrinters, &printer)
-
-	// Flush printer every 5 seconds
-	//go func() {
-	//	for {
-	//		time.Sleep(5 * time.Second)
-	//		flush(&printer)
-	//	}
-	//}()
 
 	return &printer
 }
@@ -283,31 +245,4 @@ func Buffered(p Printer) Printer {
 	var t time.Time
 	printer := BasicPrinter{&m, buffered, t}
 	return &printer
-}
-
-// ANSI formatting for content
-type ansiFormatted struct {
-	Format            ansi.Color
-	Content           interface{}
-	LeftPad, RightPad int
-}
-
-func NewAnsi(format ansi.Color, content any) (f ansiFormatted) {
-	f.Format = format
-	f.Content = content
-	return
-}
-
-func NewAnsiLeftPadded(format ansi.Color, content any, padding int) (f ansiFormatted) {
-	f.Format = format
-	f.Content = content
-	f.LeftPad = padding
-	return
-}
-
-func NewAnsiRightPadded(format ansi.Color, content any, padding int) (f ansiFormatted) {
-	f.Format = format
-	f.Content = content
-	f.RightPad = padding
-	return
 }

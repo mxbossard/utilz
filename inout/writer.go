@@ -14,23 +14,37 @@ type Flusher interface {
 }
 
 type CallbackFlusher struct {
-	Nested   Flusher
-	Callback func()
+	Nested         Flusher
+	Callback       func(error) // Called after Flush()
+	CallbackBefore func()      // Called before Flush()
 }
 
 func (w *CallbackFlusher) Flush() (err error) {
-	w.Callback()
-	return w.Nested.Flush()
+	if w.CallbackBefore != nil {
+		w.CallbackBefore()
+	}
+	err = w.Nested.Flush()
+	if w.Callback != nil {
+		w.Callback(err)
+	}
+	return
 }
 
 type CallbackWriter struct {
-	Nested   io.Writer
-	Callback func(p []byte)
+	Nested        io.Writer
+	Callback      func(p []byte) // Called before Write()
+	CallbackAfter func()         // Called after Write()
 }
 
 func (w *CallbackWriter) Write(p []byte) (n int, err error) {
-	w.Callback(p)
-	return w.Nested.Write(p)
+	if w.Callback != nil {
+		w.Callback(p)
+	}
+	n, err = w.Nested.Write(p)
+	if w.CallbackAfter != nil {
+		w.CallbackAfter()
+	}
+	return
 }
 
 type CallbackLineWriter struct {
