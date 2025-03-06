@@ -37,6 +37,13 @@ func Map[I, T any](items *[]I, mapper func(I) T) (result []T) {
 	return
 }
 
+func Flatten[I any](items [][]I) (result []I) {
+	for _, item := range items {
+		result = append(result, item...)
+	}
+	return
+}
+
 func Reduce[T any](items *[]T, reducer func(T, T) T) (result T) {
 	if items == nil {
 		log.Fatal("No collection supplied !")
