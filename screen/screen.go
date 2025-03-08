@@ -48,6 +48,12 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	return session
 }
 
+func (s *screen) ClearSession(name string) error {
+	s.Lock()
+	defer s.Unlock()
+	return clearSession(&s.sessions, name)
+}
+
 func (s *screen) NotifyPrinter() printz.Printer {
 	return s.notifier.Printer
 }
@@ -307,18 +313,7 @@ func (s *screenTailer) ReclaimAll() error {
 func (s *screenTailer) ClearSession(name string) error {
 	s.Lock()
 	defer s.Unlock()
-
-	if session, ok := s.sessions[name]; ok {
-		err := session.Clear()
-		if err != nil {
-			return err
-		}
-		delete(s.sessions, name)
-	} else {
-		return fmt.Errorf("session: [%s] does not exists", name)
-	}
-
-	return nil
+	return clearSession(&s.sessions, name)
 }
 
 func (s *screenTailer) Clear() (err error) {
@@ -536,6 +531,19 @@ func (s *screenTailer) tailAll() (err error) {
 		}
 	}
 	return
+}
+
+func clearSession(sessions *map[string]*session, name string) error {
+	if session, ok := (*sessions)[name]; ok {
+		err := session.Clear()
+		if err != nil {
+			return err
+		}
+		delete(*sessions, name)
+	} else {
+		//return fmt.Errorf("session: [%s] does not exists", name)
+	}
+	return nil
 }
 
 func NewScreen(outputs printz.Outputs) *screen {

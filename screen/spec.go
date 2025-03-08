@@ -59,6 +59,7 @@ const (
 
 type Sink interface {
 	Session(name string, priority int) *session
+	ClearSession(name string) error
 	NotifyPrinter() printz.Printer
 	Close() error
 
