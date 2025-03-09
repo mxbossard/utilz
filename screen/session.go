@@ -79,7 +79,8 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 		return prtr
 	}
 
-	p := buildTmpPrinter(s.TmpPath, name, priorityOrder)
+	printerDirPath := printersDirPath(s.TmpPath)
+	p := buildTmpPrinter(printerDirPath, name, priorityOrder)
 	s.printers[name] = p
 	s.printersByPriority[priorityOrder] = append(s.printersByPriority[priorityOrder], p)
 
@@ -126,18 +127,22 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 		// already started
 		return nil
 	}
-	err = os.MkdirAll(s.TmpPath, 0755)
+
+	//sessionDirPath := filepath.Dir(s.TmpPath)
+	sessionDirPath := s.TmpPath
+	printersDirPath := printersDirPath(sessionDirPath)
+	err = os.MkdirAll(printersDirPath, filez.DefaultDirPerms)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err))
 	}
 
-	screenDirPath := filepath.Dir(s.TmpPath)
-	_, tmpOut, tmpErr := buildTmpOutputs(screenDirPath, s.Name)
+	_, tmpOut, tmpErr := buildTmpOutputs(sessionDirPath, s.Name)
 	s.TmpOutName = tmpOut.Name()
 	s.TmpErrName = tmpErr.Name()
 	s.tmpOut = tmpOut
 	s.tmpErr = tmpErr
-	s.notifier = buildPrinter(s.TmpPath, notifierPrinterName, 0)
+	s.notifier = buildPrinter(sessionDirPath, notifierPrinterName, 0)
+	//buildPrinter(sessionDirpath, notifierPrinterName+"-"+name, 0),
 
 	s.timeoutCallbacks = timeoutCallbacks
 	s.Started = true
@@ -232,10 +237,12 @@ func (s *session) Clear() (err error) {
 	}
 
 	// Attempt to close & remove notifier temp files
-	s.notifier.tmpOut.Close()
-	s.notifier.tmpErr.Close()
-	os.RemoveAll(s.notifier.tmpOut.Name())
-	os.RemoveAll(s.notifier.tmpErr.Name())
+	if s.notifier != nil {
+		s.notifier.tmpOut.Close()
+		s.notifier.tmpErr.Close()
+		os.RemoveAll(s.notifier.tmpOut.Name())
+		os.RemoveAll(s.notifier.tmpErr.Name())
+	}
 
 	err = os.RemoveAll(s.TmpPath)
 	if err != nil {
@@ -406,7 +413,7 @@ func (s *session) Reclaim() error {
 }
 
 func buildSession(name string, priorityOrder int, screenDirPath string) *session {
-	sessionDirpath := filepath.Join(screenDirPath, sessionDirPrefix+name)
+	sessionDirpath := sessionDirPath(screenDirPath, name)
 	if _, err := os.Stat(sessionDirpath); err == nil {
 		panic(fmt.Sprintf("unable to create async screen session: [%s] path already exists", sessionDirpath))
 	}
@@ -419,7 +426,7 @@ func buildSession(name string, priorityOrder int, screenDirPath string) *session
 		TmpPath:            sessionDirpath,
 		printersByPriority: make(map[int][]*printer),
 		printers:           make(map[string]*printer),
-		notifier:           buildPrinter(screenDirPath, notifierPrinterName+"-"+name, 0),
+		//notifier:           buildPrinter(sessionDirpath, notifierPrinterName+"-"+name, 0),
 	}
 
 	return session
@@ -439,6 +446,14 @@ func updateSession(exists *session, filePath string) error {
 	logger.Debug("updated session", "session", *exists)
 
 	return nil
+}
+
+func sessionDirPath(screenDirPath, sessionName string) string {
+	return filepath.Join(screenDirPath, sessionDirPrefix+sessionName)
+}
+
+func printersDirPath(sessionDirPath string) string {
+	return filepath.Join(sessionDirPath, printersDirPrefix)
 }
 
 func sessionSerializedPath(dir, name string) string {
@@ -466,7 +481,7 @@ func deserializeSession(path string) (s *session, err error) {
 	}
 	defer func() { f.Close() }()
 	dec := gob.NewDecoder(f)
-	s = &session{}
+	s = &session{mutex: &sync.Mutex{}}
 	err = dec.Decode(s)
 	logger.Debug("deserialized session", "filepath", path)
 	return s, err

@@ -51,7 +51,8 @@ import (
 */
 
 const (
-	sessionDirPrefix  = "session_"
+	sessionDirPrefix  = "___session__"
+	printersDirPrefix = "___printers__"
 	outFileNameSuffix = "-out.*"
 	errFileNameSuffix = "-err.*"
 	bufLen            = 1024
