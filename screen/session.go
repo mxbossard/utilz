@@ -203,7 +203,7 @@ func (s *session) Clear() (err error) {
 	if !s.Ended {
 		return fmt.Errorf("cannot clear session: [%s] not ended", s.Name)
 	}
-	fmt.Printf("Clearing session dir: [%s] ...\n", s.TmpPath)
+	//fmt.Printf("Clearing session dir: [%s] ...\n", s.TmpPath)
 	s.Started = false
 	s.Ended = false
 	//s.flushed = false
@@ -485,4 +485,23 @@ func deserializeSession(path string) (s *session, err error) {
 	err = dec.Decode(s)
 	logger.Debug("deserialized session", "filepath", path)
 	return s, err
+}
+
+func ClearSession(zcreenPath, sessionName string) error {
+	sessionDirPath := sessionDirPath(zcreenPath, sessionName)
+	if _, err := os.Stat(sessionDirPath); err == nil {
+		err := os.RemoveAll(sessionDirPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	serPath := sessionSerializedPath(zcreenPath, sessionName)
+	if _, err := os.Stat(serPath); err == nil {
+		err = os.RemoveAll(serPath)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

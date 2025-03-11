@@ -51,6 +51,7 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 func (s *screen) ClearSession(name string) error {
 	s.Lock()
 	defer s.Unlock()
+	//fmt.Printf("Clearing sink session dir: [%s] ...\n", name)
 	return clearSession(&s.sessions, name)
 }
 
@@ -313,6 +314,7 @@ func (s *screenTailer) ReclaimAll() error {
 func (s *screenTailer) ClearSession(name string) error {
 	s.Lock()
 	defer s.Unlock()
+	//fmt.Printf("Clearing tailer session dir: [%s] ...\n", name)
 	return clearSession(&s.sessions, name)
 }
 
