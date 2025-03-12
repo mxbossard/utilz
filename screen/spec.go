@@ -136,14 +136,14 @@ func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
 func buildTmpPrinter(tmpDir, name string, priorityOrder int) *printer {
 	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, name)
 	prtr := printz.New(tmpOutputs)
+	closingPrtr := printz.Closing(prtr)
 	p := &printer{
-		Printer:       prtr,
-		name:          name,
-		tmpOut:        tmpOut,
-		tmpErr:        tmpErr,
-		opened:        false,
-		closed:        false,
-		priorityOrder: priorityOrder,
+		ClosingPrinter: closingPrtr,
+		name:           name,
+		tmpOut:         tmpOut,
+		tmpErr:         tmpErr,
+		open:           true,
+		priorityOrder:  priorityOrder,
 	}
 	return p
 }
@@ -160,14 +160,14 @@ func buildPrinter(tmpDir, name string, priorityOrder int) *printer {
 	tmpOutputs := printz.NewOutputs(tmpOutFile, tmpErrFile)
 
 	prtr := printz.New(tmpOutputs)
+	closingPrtr := printz.Closing(prtr)
 	p := &printer{
-		Printer:       prtr,
-		name:          name,
-		tmpOut:        tmpOutFile,
-		tmpErr:        tmpErrFile,
-		opened:        false,
-		closed:        false,
-		priorityOrder: priorityOrder,
+		ClosingPrinter: closingPrtr,
+		name:           name,
+		tmpOut:         tmpOutFile,
+		tmpErr:         tmpErrFile,
+		open:           true,
+		priorityOrder:  priorityOrder,
 	}
 	return p
 }

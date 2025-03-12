@@ -56,7 +56,7 @@ func (s *screen) ClearSession(name string) error {
 }
 
 func (s *screen) NotifyPrinter() printz.Printer {
-	return s.notifier.Printer
+	return s.notifier.ClosingPrinter
 }
 
 func (s *screen) FlushBlocking(sessionName string, timeout time.Duration) (err error) {

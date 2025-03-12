@@ -21,6 +21,10 @@ type Flusher interface {
 	Flush() error
 }
 
+type Closer interface {
+	Close(messages string) error
+}
+
 type Printer interface {
 	Flusher
 	Flushed() bool
@@ -36,32 +40,34 @@ type Printer interface {
 	Outputs() Outputs
 }
 
-type SpyingPrinter interface {
+type ClosingPrinter interface {
 	Printer
+	Closer
+	IsClosed() bool
 }
 
-type BasicPrinter struct {
+type basicPrinter struct {
 	*sync.Mutex
 	outputs   Outputs
 	lastPrint time.Time
 }
 
-func (p *BasicPrinter) Outputs() Outputs {
+func (p *basicPrinter) Outputs() Outputs {
 	return p.outputs
 }
 
-func (o BasicPrinter) Flush() error {
+func (o basicPrinter) Flush() error {
 	o.Lock()
 	defer o.Unlock()
 	err := o.outputs.Flush()
 	return err
 }
 
-func (o BasicPrinter) Flushed() bool {
+func (o basicPrinter) Flushed() bool {
 	return o.outputs.Flushed()
 }
 
-func (p *BasicPrinter) RecoverableOut(objects ...interface{}) (err error) {
+func (p *basicPrinter) RecoverableOut(objects ...interface{}) (err error) {
 	p.Lock()
 	defer p.Unlock()
 	p.lastPrint = time.Now()
@@ -70,24 +76,24 @@ func (p *BasicPrinter) RecoverableOut(objects ...interface{}) (err error) {
 	return
 }
 
-func (p *BasicPrinter) Out(objects ...interface{}) {
+func (p *basicPrinter) Out(objects ...interface{}) {
 	err := p.RecoverableOut(objects...)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (p *BasicPrinter) Outf(s string, params ...interface{}) {
+func (p *basicPrinter) Outf(s string, params ...interface{}) {
 	s = fmt.Sprintf(s, params...)
 	p.Out(s)
 }
 
-func (p *BasicPrinter) ColoredOutf(color ansi.Color, s string, params ...interface{}) {
+func (p *basicPrinter) ColoredOutf(color ansi.Color, s string, params ...interface{}) {
 	s = format.Sprintf(color, s, ansiFormatParams(color, params...)...)
 	p.Out(s)
 }
 
-func (p *BasicPrinter) RecoverableErr(objects ...interface{}) (err error) {
+func (p *basicPrinter) RecoverableErr(objects ...interface{}) (err error) {
 	p.Lock()
 	defer p.Unlock()
 	p.lastPrint = time.Now()
@@ -96,24 +102,24 @@ func (p *BasicPrinter) RecoverableErr(objects ...interface{}) (err error) {
 	return
 }
 
-func (p *BasicPrinter) Err(objects ...interface{}) {
+func (p *basicPrinter) Err(objects ...interface{}) {
 	err := p.RecoverableErr(objects...)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (p *BasicPrinter) Errf(s string, params ...interface{}) {
+func (p *basicPrinter) Errf(s string, params ...interface{}) {
 	s = fmt.Sprintf(s, params...)
 	p.Err(s)
 }
 
-func (p *BasicPrinter) ColoredErrf(color ansi.Color, s string, params ...interface{}) {
+func (p *basicPrinter) ColoredErrf(color ansi.Color, s string, params ...interface{}) {
 	s = format.Sprintf(color, s, ansiFormatParams(color, params...)...)
 	p.Err(s)
 }
 
-func (p BasicPrinter) LastPrint() time.Time {
+func (p basicPrinter) LastPrint() time.Time {
 	if p.outputs.LastPrint().After(p.lastPrint) {
 		return p.outputs.LastPrint()
 	}
@@ -210,12 +216,88 @@ func expandObjects(objects ...interface{}) (allObjects []interface{}) {
 	return
 }
 
+type closingPrinter struct {
+	Printer
+
+	closed  bool
+	message string
+}
+
+func (p *closingPrinter) Close(message string) (err error) {
+	if p.closed {
+		return fmt.Errorf("printer already closed with message: [%s]", p.message)
+	}
+	p.closed = true
+	p.message = message
+	return
+}
+
+func (p *closingPrinter) IsClosed() bool {
+	return p.closed
+}
+
+func (p *closingPrinter) RecoverableOut(objects ...interface{}) (err error) {
+	if p.closed {
+		return fmt.Errorf("printer already closed with message: [%s]", p.message)
+	}
+	return p.Printer.RecoverableOut(objects...)
+}
+
+func (p *closingPrinter) Out(objects ...interface{}) {
+	if p.closed {
+		panic(fmt.Errorf("printer already closed with message: [%s]", p.message))
+	}
+	p.Printer.Out(objects...)
+}
+
+func (p *closingPrinter) Outf(s string, params ...interface{}) {
+	if p.closed {
+		panic(fmt.Errorf("printer already closed with message: [%s]", p.message))
+	}
+	p.Printer.Outf(s, params...)
+}
+
+func (p *closingPrinter) ColoredOutf(color ansi.Color, s string, params ...interface{}) {
+	if p.closed {
+		panic(fmt.Errorf("printer already closed with message: [%s]", p.message))
+	}
+	p.Printer.ColoredOutf(color, s, params...)
+}
+
+func (p *closingPrinter) RecoverableErr(objects ...interface{}) (err error) {
+	if p.closed {
+		return fmt.Errorf("printer already closed with message: [%s]", p.message)
+	}
+	return p.Printer.RecoverableErr(objects...)
+}
+
+func (p *closingPrinter) Err(objects ...interface{}) {
+	if p.closed {
+		panic(fmt.Errorf("printer already closed with message: [%s]", p.message))
+	}
+	p.Printer.Err(objects...)
+}
+
+func (p *closingPrinter) Errf(s string, params ...interface{}) {
+	if p.closed {
+		panic(fmt.Errorf("printer already closed with message: [%s]", p.message))
+	}
+	p.Printer.Errf(s, params...)
+}
+
+func (p *closingPrinter) ColoredErrf(color ansi.Color, s string, params ...interface{}) {
+	if p.closed {
+		panic(fmt.Errorf("printer already closed with message: [%s]", p.message))
+	}
+	p.Printer.ColoredErrf(color, s, params...)
+}
+
 // Build a default printer with buffered outputs.
 func New(outputs Outputs) Printer {
 	buffered := NewBufferedOutputs(outputs)
 	var m sync.Mutex
 	var t time.Time
-	printer := BasicPrinter{&m, buffered, t}
+	printer := basicPrinter{&m, buffered, t}
 
 	return &printer
 }
@@ -223,7 +305,7 @@ func New(outputs Outputs) Printer {
 func NewUnbuffured(outputs Outputs) Printer {
 	var m sync.Mutex
 	var t time.Time
-	printer := BasicPrinter{&m, outputs, t}
+	printer := basicPrinter{&m, outputs, t}
 	return &printer
 }
 
@@ -243,6 +325,11 @@ func Buffered(p Printer) Printer {
 	buffered := NewBufferedOutputs(p.Outputs())
 	var m sync.Mutex
 	var t time.Time
-	printer := BasicPrinter{&m, buffered, t}
+	printer := basicPrinter{&m, buffered, t}
 	return &printer
+}
+
+func Closing(p Printer) ClosingPrinter {
+	closing := closingPrinter{Printer: p}
+	return &closing
 }

@@ -349,7 +349,8 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close a printer which is not first => nothing more should be written
-	session.ClosePrinter(expectedPrinter20a)
+	err = session.ClosePrinter(expectedPrinter20a)
+	assert.NoError(t, err)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -365,7 +366,8 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	prtr20b.Out("20b-2,")
 
 	// Close first printer => should write next printers
-	session.ClosePrinter(expectedPrinter10a)
+	err = session.ClosePrinter(expectedPrinter10a)
+	assert.NoError(t, err)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -378,7 +380,8 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close a printer which is not first => should not write anything
-	session.ClosePrinter(expectedPrinter30a)
+	err = session.ClosePrinter(expectedPrinter30a)
+	assert.NoError(t, err)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -391,7 +394,8 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close last printer => should write everything
-	session.ClosePrinter(expectedPrinter20b)
+	err = session.ClosePrinter(expectedPrinter20b)
+	assert.NoError(t, err)
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -912,6 +916,8 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		err = sessionC.End()
 		assert.NoError(t, err)
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+
+		syncChan <- "endedC"
 	}()
 
 	err := screenTailer.tailAll()
@@ -935,6 +941,7 @@ func TestTailBlocking_InOrder(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
+	<-syncChan
 	<-syncChan
 	<-syncChan
 	err = screenTailer.TailBlocking(expectedSessionC, 3*continuousFlushPeriod+10*time.Millisecond)

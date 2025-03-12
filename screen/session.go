@@ -20,15 +20,47 @@ const (
 )
 
 type printer struct {
-	printz.Printer
+	printz.ClosingPrinter
 
-	name           string
-	opened, closed bool
-	consolidated   bool
-	priorityOrder  int
+	name string
+	// open bool
+	open          bool
+	consolidated  bool
+	priorityOrder int
 
 	tmpOut, tmpErr       *os.File
 	cursorOut, cursorErr int64
+}
+
+func (p *printer) Close(message string) error {
+	err := p.ClosingPrinter.Close(message)
+	if err != nil {
+		return err
+	}
+
+	if p.tmpOut != nil {
+		err := p.tmpOut.Close()
+		if err != nil {
+			return err
+		}
+		err = os.RemoveAll(p.tmpOut.Name())
+		if err != nil {
+			return err
+		}
+	}
+
+	if p.tmpErr != nil {
+		err := p.tmpErr.Close()
+		if err != nil {
+			return err
+		}
+		err = os.RemoveAll(p.tmpErr.Name())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // FIXME: use a different struct for serialization with exported fields.
@@ -44,7 +76,9 @@ type session struct {
 	timeouted        *time.Duration
 	timeoutCallbacks []func(Session)
 
-	TmpPath                string
+	TmpPath string
+
+	// FIXME: should replace following by a printer but cannot do it simply because files must be used by tailer !
 	TmpOutName, TmpErrName string
 	tmpOut, tmpErr         *os.File
 	cursorOut, cursorErr   int64
@@ -84,22 +118,23 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	s.printers[name] = p
 	s.printersByPriority[priorityOrder] = append(s.printersByPriority[priorityOrder], p)
 
-	return p.Printer
+	return p.ClosingPrinter
 }
 
 func (s *session) closePrinter(name string) error {
+	// Closing the printer do not close the underlying files
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	// Mark a printer closed, but do not close backing tmp files.
 	if prtr, ok := s.printers[name]; ok {
-		if prtr.closed {
+		if !prtr.open {
 			// Printer already closed
 			return nil
 		}
 		// set consolidated to false to enforce a final consolidation
 		prtr.consolidated = false
-		prtr.closed = true
+		prtr.open = false
 
 	} else {
 		return fmt.Errorf("no printer opened with name: [%s]", name)
@@ -238,10 +273,10 @@ func (s *session) Clear() (err error) {
 
 	// Attempt to close & remove notifier temp files
 	if s.notifier != nil {
-		s.notifier.tmpOut.Close()
-		s.notifier.tmpErr.Close()
-		os.RemoveAll(s.notifier.tmpOut.Name())
-		os.RemoveAll(s.notifier.tmpErr.Name())
+		err = s.notifier.Close(fmt.Sprintf("cleared session: %s", s.Name))
+		if err != nil {
+			return err
+		}
 	}
 
 	err = os.RemoveAll(s.TmpPath)
@@ -266,7 +301,7 @@ func (s *session) consolidatePrinter(prtr *printer) error {
 	}
 
 	buf := make([]byte, bufLen)
-	if prtr.closed && prtr.consolidated {
+	if !prtr.open && prtr.consolidated {
 		// fmt.Printf("printer closed: [%s]\n", prtr.name)
 		return nil
 	} else {
@@ -290,23 +325,23 @@ func (s *session) consolidatePrinter(prtr *printer) error {
 	}
 	prtr.consolidated = true
 	// fmt.Printf("flushed printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
-	if prtr.closed {
-		//fmt.Printf("closing printer: [%s] in Flush()\n", prtr.name)
-		// Close files
-		err := prtr.tmpOut.Close()
-		if err != nil {
-			return err
-		}
-		err = prtr.tmpErr.Close()
+
+	if !prtr.open {
+		err = prtr.Close(fmt.Sprintf("printer: %s was consolidated", prtr.name))
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 // Consolidate session outputs with supplied printer content
 func (s *session) consolidateNotifier() error {
+	if s.notifier.IsClosed() {
+		// FIXME: should check if notifier files are closed, not the printer
+		return nil
+	}
 	return s.consolidatePrinter(s.notifier)
 }
 
@@ -366,7 +401,7 @@ func (s *session) consolidateAll() error {
 				return err
 			}
 
-			if !prtr.closed {
+			if prtr.open {
 				openedPrinters++
 			}
 		}
@@ -426,7 +461,6 @@ func buildSession(name string, priorityOrder int, screenDirPath string) *session
 		TmpPath:            sessionDirpath,
 		printersByPriority: make(map[int][]*printer),
 		printers:           make(map[string]*printer),
-		//notifier:           buildPrinter(sessionDirpath, notifierPrinterName+"-"+name, 0),
 	}
 
 	return session
