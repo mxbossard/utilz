@@ -72,6 +72,7 @@ type session struct {
 	Started, Ended   bool
 	printed          bool
 	flushed, tailed  bool
+	Cleared          bool
 	readOnly         bool
 	timeouted        *time.Duration
 	timeoutCallbacks []func(Session)
@@ -252,12 +253,6 @@ func (s *session) Clear() (err error) {
 		s.tmpErr = nil
 	}
 
-	filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
-	err = os.RemoveAll(filePath)
-	if err != nil {
-		return err
-	}
-
 	if s.TmpOutName != "" {
 		err = os.RemoveAll(s.TmpOutName)
 		if err != nil {
@@ -288,6 +283,10 @@ func (s *session) Clear() (err error) {
 	s.cursorErr = 0
 	s.printersByPriority = make(map[int][]*printer)
 	s.printers = make(map[string]*printer)
+	s.Cleared = true
+
+	//filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
+	err = serializeSession(s)
 
 	return err
 }

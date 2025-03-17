@@ -345,6 +345,19 @@ func (s *screenTailer) scanSessions() (err error) {
 			return err
 		}
 
+		if scanned.Cleared {
+			// Remove cleared session
+			fmt.Printf("\n<<>> Clearing session %s ...\n", scanned.Name)
+			err = os.Remove(filePath)
+			if err != nil {
+				return fmt.Errorf("unable to remove serialized session file (%s): %w", filePath, err)
+			}
+			clearSession(&s.sessions, scanned.Name)
+			fmt.Printf("\n<<>> Cleared session %s ...\n", scanned.Name)
+			//delete(s.sessions, scanned.Name)
+			continue
+		}
+
 		// clear session
 		scanned.currentPriority = nil
 		scanned.tmpOut = nil

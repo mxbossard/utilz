@@ -200,13 +200,99 @@ func TestAsyncScreen_BasicOut(t *testing.T) {
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
 
-func TestAsyncScreen_BasicOutAndErr(t *testing.T) {
-	tmpDir := "/tmp/utilz.zcreen.foo3001"
+func TestAsyncScreen_ClearSession(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo3002"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir)
 	require.NotNil(t, screen)
 
-	expectedSession := "foo3001"
+	expectedSession := "foo3002"
+	expectedPrinter := "bar"
+	expectedMessage := "baz"
+	expectedMessage2 := "pif"
+
+	session := screen.Session(expectedSession, 42)
+	require.NotNil(t, session)
+	err := session.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr10 := session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
+
+	prtr10.Out(expectedMessage)
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+
+	err = session.End()
+	assert.NoError(t, err)
+
+	// First tailing should tail printed message
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, outW.String())
+
+	// Second tailing should not tail anything
+	outW.Reset()
+	errW.Reset()
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	// New tailer should tail printed message
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, outW.String())
+
+	// After cleared session new tailer should not tail printed message
+	outW.Reset()
+	errW.Reset()
+	err = screen.ClearSession(expectedSession)
+	assert.NoError(t, err)
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	// After cleared session a session reopening should be possible
+	session = screen.Session(expectedSession, 42)
+	require.NotNil(t, session)
+	err = session.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr10 = session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
+
+	prtr10.Out(expectedMessage2)
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+
+	err = session.End()
+	assert.NoError(t, err)
+
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage2, outW.String())
+}
+
+func TestAsyncScreen_BasicOutAndErr(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo3003"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+	require.NotNil(t, screen)
+
+	expectedSession := "foo3003"
 	expectedPrinter := "bar"
 	expectedOutMessage := "baz"
 	expectedErrMessage := "err"

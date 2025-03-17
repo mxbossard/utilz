@@ -258,9 +258,7 @@ func TestSession_ReOpen(t *testing.T) {
 	err = session.Clear()
 	assert.NoError(t, err)
 
-	//require.NoDirExists(t, tmpDir)
 	require.NoDirExists(t, session.TmpPath)
-	assert.NoFileExists(t, sessionSerFilepath)
 	assert.NoFileExists(t, sessionTmpOutFilepath)
 	assert.NoFileExists(t, sessionTmpErrFilepath)
 	assert.NoFileExists(t, printerTmpOutFilepath)
