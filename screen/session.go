@@ -450,22 +450,6 @@ func buildSession(name string, priorityOrder int, screenDirPath string) *session
 	sessionDirpath := sessionDirPath(screenDirPath, name)
 	if _, err := os.Stat(sessionDirpath); err == nil {
 		panic(fmt.Sprintf("unable to create async screen session: [%s] path already exists", sessionDirpath))
-
-		/*
-			serPath := sessionSerializedPath(screenDirPath, name)
-			s, err := deserializeSession(serPath)
-			if err != nil {
-				panic(fmt.Sprintf("screen session: [%s] already exists but cannot deserialize it", name))
-			}
-
-			s.mutex = &sync.Mutex{}
-			s.readOnly = false // FIXME: should this be always true ?
-			s.printersByPriority = make(map[int][]*printer)
-			s.printers = make(map[string]*printer)
-			s.notifier = buildPrinter(sessionDirpath, notifierPrinterName, 0)
-
-			return s
-		*/
 	}
 
 	session := &session{

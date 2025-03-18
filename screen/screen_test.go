@@ -893,6 +893,53 @@ func TestTailOnlyBlocking(t *testing.T) {
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", outW.String())
 }
 
+func TestAsyncScreen_TailOnlyBlocking_ClearedSession(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo3012"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+	require.NotNil(t, screen)
+
+	expectedSession := "foo3012"
+	expectedPrinter := "bar"
+	expectedMessage := "baz"
+
+	session := screen.Session(expectedSession, 42)
+	require.NotNil(t, session)
+	err := session.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr10 := session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
+
+	prtr10.Out(expectedMessage)
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+
+	// Clearing a session which was elected but not ended should be cleared
+
+	// Force suite election
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, outW.String())
+
+	// Then end & clear session
+	err = session.End()
+	assert.NoError(t, err)
+	err = screen.ClearSession(expectedSession)
+	assert.NoError(t, err)
+
+	// Should not block
+	err = screenTailer.TailOnlyBlocking(expectedSession, 10*time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, outW.String())
+}
+
 func TestTailBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
@@ -1033,6 +1080,53 @@ func TestTailBlocking_InOrder(t *testing.T) {
 	err = screenTailer.TailBlocking(expectedSessionC, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,"+"notif3,"+"C10a1,C30a1,C40a1,", outW.String())
+}
+
+func TestAsyncScreen_TailBlocking_ClearedSession(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo3112"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+	require.NotNil(t, screen)
+
+	expectedSession := "foo3112"
+	expectedPrinter := "bar"
+	expectedMessage := "baz"
+
+	session := screen.Session(expectedSession, 42)
+	require.NotNil(t, session)
+	err := session.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr10 := session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
+
+	prtr10.Out(expectedMessage)
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+
+	// Clearing a session which was elected but not ended should be cleared
+
+	// Force suite election
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, outW.String())
+
+	// Then end & clear session
+	err = session.End()
+	assert.NoError(t, err)
+	err = screen.ClearSession(expectedSession)
+	assert.NoError(t, err)
+
+	// Should not block
+	err = screenTailer.TailBlocking(expectedSession, 10*time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, outW.String())
 }
 
 func TestTailBlocking_InParallel(t *testing.T) {
@@ -1538,4 +1632,51 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 	err = screenTailer.TailAllBlocking(3*continuousFlushPeriod + 10*time.Millisecond)
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,"+"notif3,"+"C10a1,C30a1,C40a1,", outW.String())
+}
+
+func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo3212"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir)
+	require.NotNil(t, screen)
+
+	expectedSession := "foo3212"
+	expectedPrinter := "bar"
+	expectedMessage := "baz"
+
+	session := screen.Session(expectedSession, 42)
+	require.NotNil(t, session)
+	err := session.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr10 := session.Printer(expectedPrinter, 10)
+	require.NotNil(t, prtr10)
+
+	prtr10.Out(expectedMessage)
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+
+	err = session.Flush()
+	assert.NoError(t, err)
+
+	// Clearing a session which was elected but not ended should be cleared
+
+	// Force suite election
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, outW.String())
+
+	// Then end & clear session
+	err = session.End()
+	assert.NoError(t, err)
+	err = screen.ClearSession(expectedSession)
+	assert.NoError(t, err)
+
+	// Should not block
+	err = screenTailer.TailAllBlocking(10 * time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedMessage, outW.String())
 }

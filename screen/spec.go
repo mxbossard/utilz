@@ -113,6 +113,7 @@ type Tailer interface {
 	// Tail all ended sessions in order which contains some flushed print not tailed.
 	ReclaimAll() error
 
+	// FIXME: should not clear from tailer but only from sink !
 	// Clear session workspace.
 	ClearSession(session string) error
 

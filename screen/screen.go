@@ -44,6 +44,7 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	}
 
 	session := buildSession(name, priorityOrder, s.tmpPath)
+	//fmt.Printf("Built sink session: [%s]\n", name)
 	s.sessions[name] = session
 	return session
 }
@@ -51,8 +52,10 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 func (s *screen) ClearSession(name string) error {
 	s.Lock()
 	defer s.Unlock()
-	//fmt.Printf("Clearing sink session dir: [%s] ...\n", name)
-	return clearSession(&s.sessions, name)
+	//fmt.Printf("Clearing sink session: [%s] (count before: %d)...\n", name, len(s.sessions))
+	err := clearSession(&s.sessions, name)
+	//fmt.Printf("Cleared sink session: [%s] (count after: %d)...\n", name, len(s.sessions))
+	return err
 }
 
 func (s *screen) NotifyPrinter() printz.Printer {
@@ -189,7 +192,10 @@ func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duratio
 		}
 
 		blocking = s.sessions[sessionName]
-
+		if blocking != nil && blocking.Cleared {
+			err = s.ClearSession(sessionName)
+			return err
+		}
 		logger.Debug("tailing ...", "session", sessionName)
 		if blocking != nil {
 			err := s.tailSession(blocking)
@@ -239,6 +245,11 @@ func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) e
 		blocking = s.sessions[sessionName]
 		if blocking == nil || !blocking.Ended {
 			time.Sleep(continuousFlushPeriod)
+
+			err = s.scanSessions()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -290,6 +301,10 @@ func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
 
 		if len(notEnded) > 0 {
 			time.Sleep(continuousFlushPeriod)
+			err = s.scanSessions()
+			if err != nil {
+				return err
+			}
 		}
 		logger.Debug("TailAllBlocking flushAll ...", "notEnded", notEnded, "ended", ended)
 		err := s.tailAll()
@@ -315,7 +330,21 @@ func (s *screenTailer) ClearSession(name string) error {
 	s.Lock()
 	defer s.Unlock()
 	//fmt.Printf("Clearing tailer session dir: [%s] ...\n", name)
-	return clearSession(&s.sessions, name)
+	for p, sessions := range s.sessionsByPriority {
+		for _, session := range sessions {
+			if session.Name == name {
+				sessions = collections.Delete(sessions, session)
+				s.sessionsByPriority[p] = sessions
+			}
+		}
+	}
+
+	if s.electedSession != nil && s.electedSession.Name == name {
+		s.electedSession = nil
+	}
+
+	err := clearSession(&s.sessions, name)
+	return err
 }
 
 func (s *screenTailer) Clear() (err error) {
@@ -333,6 +362,9 @@ func (s *screenTailer) scanSessions() (err error) {
 	pt := logger.PerfTimer("tmpPath", s.tmpPath)
 	defer pt.End("sessionsCount", len(s.sessions))
 
+	// clear maps
+	//s.sessions = make(map[string]*session)
+
 	wildcard := sessionSerializedPath(s.tmpPath, "*")
 	sers, err := filepath.Glob(wildcard)
 	if err != nil {
@@ -347,15 +379,16 @@ func (s *screenTailer) scanSessions() (err error) {
 
 		if scanned.Cleared {
 			// Remove cleared session
-			fmt.Printf("\n<<>> Clearing session %s ...\n", scanned.Name)
+			//fmt.Printf("\n<<>> Scanned Cleared session: %s ...\n", filePath)
 			err = os.Remove(filePath)
 			if err != nil {
 				return fmt.Errorf("unable to remove serialized session file (%s): %w", filePath, err)
 			}
-			clearSession(&s.sessions, scanned.Name)
-			fmt.Printf("\n<<>> Cleared session %s ...\n", scanned.Name)
-			//delete(s.sessions, scanned.Name)
-			continue
+			//clearSession(&s.sessions, scanned.Name)
+			//fmt.Printf("\n<<>> Cleared session %s ...\n", scanned.Name)
+			//continue
+		} else {
+			//fmt.Printf("\n<<>> Scanned notCleared session: %s ; elected: %v ...\n", filePath, s.electedSession)
 		}
 
 		// clear session
@@ -364,24 +397,43 @@ func (s *screenTailer) scanSessions() (err error) {
 		scanned.tmpErr = nil
 		if exists, ok := s.sessions[scanned.Name]; !ok {
 			// init session
-			scanned.tmpOut, err = os.OpenFile(scanned.TmpOutName, os.O_RDONLY, 0)
-			if err != nil {
-				return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.TmpOutName, err)
+			if !scanned.Cleared {
+				scanned.tmpOut, err = os.OpenFile(scanned.TmpOutName, os.O_RDONLY, 0)
+				if err != nil {
+					return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.TmpOutName, err)
+				}
+				scanned.tmpErr, err = os.OpenFile(scanned.TmpErrName, os.O_RDONLY, 0)
+				if err != nil {
+					return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.TmpErrName, err)
+				}
 			}
-			scanned.tmpErr, err = os.OpenFile(scanned.TmpErrName, os.O_RDONLY, 0)
-			if err != nil {
-				return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.TmpErrName, err)
-			}
+			scanned.Ended = scanned.Ended || scanned.Cleared
 			s.sessions[scanned.Name] = scanned
 			s.sessionsByPriority[scanned.PriorityOrder] = append(s.sessionsByPriority[scanned.PriorityOrder], scanned)
 		} else {
 			// update session
 			exists.Started = scanned.Started
-			exists.Ended = scanned.Ended
+			exists.Ended = scanned.Ended || scanned.Cleared
+			exists.Cleared = scanned.Cleared
 
+			if !exists.Cleared {
+				if exists.tmpOut == nil && scanned.TmpOutName != "" {
+					exists.tmpOut, err = os.OpenFile(scanned.TmpOutName, os.O_RDONLY, 0)
+					if err != nil {
+						return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.TmpOutName, err)
+					}
+				}
+				if exists.tmpErr == nil && scanned.TmpErrName != "" {
+					exists.tmpErr, err = os.OpenFile(scanned.TmpErrName, os.O_RDONLY, 0)
+					if err != nil {
+						return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.TmpErrName, err)
+					}
+				}
+			}
 		}
+
 	}
-	pt.End("sessionsCount", len(s.sessions), "sers", sers)
+
 	return
 }
 
@@ -402,19 +454,22 @@ func (s *screenTailer) electSession() (err error) {
 			return err
 		}
 
-		if s.blockingSessionsQueue.Len() > 0 {
+		for s.electedSession == nil && s.blockingSessionsQueue.Len() > 0 {
+			//if s.blockingSessionsQueue.Len() > 0 {
 			// 3a- Dequeue next session to tail
 			sessionName := s.blockingSessionsQueue.Front()
 			//fmt.Printf("===== dequeuing prioritary session: [%s]\n", *sessionName)
 			if session, ok := s.sessions[*sessionName]; ok {
 				s.electedSession = session
 				// Remove item
-				s.blockingSessionsQueue.PopFront()
+				//s.blockingSessionsQueue.PopFront()
 			} else {
 				//fmt.Printf("=== ERROR session: [%s] not found\n", *sessionName)
 				//err = fmt.Errorf("session with name: [%s] not found", sessionName)
 				//return err
 			}
+			// Remove item
+			s.blockingSessionsQueue.PopFront()
 		}
 
 		if s.electedSession == nil {
@@ -474,30 +529,38 @@ func (s *screenTailer) tailSession(session *session) (err error) {
 	}
 	session.tailed = true
 
+	//if session.tmpOut != nil {
 	n, err := filez.CopyChunk(session.tmpOut, s.outputs.Out(), buf, session.cursorOut, -1)
 	if err != nil {
 		return fmt.Errorf("error tailing session %s out: %w", session.Name, err)
 	}
 	session.cursorOut += int64(n)
 	logger.Debug("flushing session out ...", "session", session.Name, "tmpOut", session.tmpOut.Name(), "n", n, "cursorOut", session.cursorOut)
+	//}
 
+	//if session.tmpErr != nil {
 	n, err = filez.CopyChunk(session.tmpErr, s.outputs.Err(), buf, session.cursorErr, -1)
 	if err != nil {
 		return fmt.Errorf("error tailing session %s err: %w", session.Name, err)
 	}
 	session.cursorErr += int64(n)
 	logger.Debug("flushing session err ...", "session", session.Name, "tmpErr", session.tmpErr.Name(), "n", n, "cursorErr", session.cursorErr)
+	//}
 
 	if session.Ended {
 		session.flushed = true
+		//if session.tmpOut != nil {
 		err = session.tmpOut.Close()
 		if err != nil {
 			return fmt.Errorf("error closing session %s out: %w", session.Name, err)
 		}
+		//}
+		//if session.tmpErr != nil {
 		err = session.tmpErr.Close()
 		if err != nil {
 			return fmt.Errorf("error closing session %s err: %w", session.Name, err)
 		}
+		//}
 		logger.Debug("end flushing closed session", "session", session.Name)
 	}
 	return

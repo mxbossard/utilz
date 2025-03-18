@@ -358,6 +358,15 @@ func IsDirectoryOrPanic(path string) bool {
 }
 
 func Copy(f *os.File, w io.Writer, buffer []byte) (p int64, err error) {
+	if f == nil {
+		panic("cannot Copy nil file")
+	}
+	if w == nil {
+		panic("cannot Copy into nil writer")
+	}
+	if buffer == nil {
+		panic("cannot Copy into nil buffer")
+	}
 	n := -1
 	for err != io.EOF && n != 0 {
 		n, err = f.Read(buffer)
@@ -377,6 +386,15 @@ func Copy(f *os.File, w io.Writer, buffer []byte) (p int64, err error) {
 }
 
 func CopyChunk(src *os.File, dest io.Writer, buf []byte, start, end int64) (int64, error) {
+	if src == nil {
+		panic("cannot Copy nil file")
+	}
+	if dest == nil {
+		panic("cannot Copy into nil writer")
+	}
+	if buf == nil {
+		panic("cannot Copy into nil buffer")
+	}
 	// By default limit scan to buffer size
 	limit := len(buf)
 	length := end - start
