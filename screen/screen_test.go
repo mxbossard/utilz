@@ -983,12 +983,13 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		err = screen.NotifyPrinter().Flush()
 		require.NoError(t, err)
 
-		syncChan <- "startedA+notif1"
-
 		prtrA20a.Out("A20a1,")
 		prtrA20a.Out("A20a2,")
 		err = sessionA.ClosePrinter(expectedPrinterA20a)
 		assert.NoError(t, err)
+
+		syncChan <- "endB"
+
 		err = sessionA.End()
 		assert.NoError(t, err)
 		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
@@ -1017,6 +1018,8 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		prtrB30a.Out("B30a2,")
 		err = sessionB.ClosePrinter(expectedPrinterB30a)
 		assert.NoError(t, err)
+
+		syncChan <- "finishB"
 		err = sessionB.End()
 		assert.NoError(t, err)
 		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
@@ -1064,6 +1067,7 @@ func TestTailBlocking_InOrder(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
+	<-syncChan
 	<-syncChan
 	<-syncChan
 	err = screenTailer.TailBlocking(expectedSessionA, 3*continuousFlushPeriod+10*time.Millisecond)

@@ -468,7 +468,7 @@ func buildSession(name string, priorityOrder int, screenDirPath string) *session
 func updateSession(exists *session, filePath string) error {
 	session, err := deserializeSession(filePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to update session: %w", err)
 	}
 	session.currentPriority = nil
 	session.tmpOut = nil
