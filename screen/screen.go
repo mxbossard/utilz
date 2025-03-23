@@ -49,15 +49,6 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	return session
 }
 
-func (s *screen) ClearSession(name string) error {
-	s.Lock()
-	defer s.Unlock()
-	//fmt.Printf("Clearing sink session: [%s] (count before: %d)...\n", name, len(s.sessions))
-	err := clearSession(&s.sessions, name)
-	//fmt.Printf("Cleared sink session: [%s] (count after: %d)...\n", name, len(s.sessions))
-	return err
-}
-
 func (s *screen) NotifyPrinter() printz.Printer {
 	return s.notifier.ClosingPrinter
 }
@@ -123,6 +114,44 @@ func (s *screen) Close() (err error) {
 	return
 }
 
+func (s *screen) Resync() error {
+	s.Lock()
+	defer s.Unlock()
+
+	scannedSessions, err := scanSerializedSessions(s.tmpPath)
+	if err != nil {
+		return fmt.Errorf("error scanning sessions: %w", err)
+	}
+
+FirstLoop:
+	for _, session := range s.sessions {
+		for _, scanned := range scannedSessions {
+			if session.Name == scanned.Name {
+				// refresh session ?
+				break FirstLoop
+			}
+		}
+		// session was not scanned : remove it
+		clearSessionsMap(&s.sessions, session.Name)
+		fmt.Printf("\n<<>> removed cleared session: %s\n", session.Name)
+	}
+	sessions := collections.Values(s.sessions)
+	sessionsNames := collections.Map(&sessions, func(s *session) string { return s.Name })
+	fmt.Printf("\n<<>> kepts sessions: %s\n", sessionsNames)
+
+	return nil
+}
+
+/*
+func (s *screen) ClearSession(name string) error {
+	s.Lock()
+	defer s.Unlock()
+	//fmt.Printf("Clearing sink session: [%s] (count before: %d)...\n", name, len(s.sessions))
+	err := clearSessionsMap(&s.sessions, name)
+	//fmt.Printf("Cleared sink session: [%s] (count after: %d)...\n", name, len(s.sessions))
+	return err
+}
+
 func (s *screen) Clear() (err error) {
 	s.Lock()
 	defer s.Unlock()
@@ -154,6 +183,7 @@ func (s *screen) Clear() (err error) {
 	s.notifier = buildPrinter(s.tmpPath, notifierPrinterName, 0)
 	return
 }
+*/
 
 func (*screen) ConfigPrinter(name string) (s *session) {
 	// TODO later
@@ -342,7 +372,11 @@ func (s *screenTailer) ClearSession(name string) error {
 		s.electedSession = nil
 	}
 
-	err := clearSession(&s.sessions, name)
+	err := clearSessionsMap(&s.sessions, name)
+	if err != nil {
+		return err
+	}
+	err = clearSessionFiles(s.tmpPath, name)
 	return err
 }
 
@@ -357,6 +391,27 @@ func (s *screenTailer) Clear() (err error) {
 	return
 }
 
+func scanSerializedSessions(zcreenPath string) (sessions []*session, err error) {
+	wildcard := sessionSerializedPath(zcreenPath, "*")
+	sers, err := filepath.Glob(wildcard)
+	if err != nil {
+		err = fmt.Errorf("unable to scan ser files: %w", err)
+		return
+	}
+
+	for _, filePath := range sers {
+		var scanned *session
+		scanned, err = deserializeSession(filePath)
+		if err != nil {
+			err = fmt.Errorf("unable to process ser file: %w", err)
+			return
+		}
+		scanned.serializationFilepath = filePath
+		sessions = append(sessions, scanned)
+	}
+	return
+}
+
 func (s *screenTailer) scanSessions() (err error) {
 	pt := logger.PerfTimer("tmpPath", s.tmpPath)
 	defer pt.End("sessionsCount", len(s.sessions))
@@ -364,23 +419,17 @@ func (s *screenTailer) scanSessions() (err error) {
 	s.Lock()
 	defer s.Unlock()
 
-	wildcard := sessionSerializedPath(s.tmpPath, "*")
-	sers, err := filepath.Glob(wildcard)
+	scannedSession, err := scanSerializedSessions(s.tmpPath)
 	if err != nil {
 		return fmt.Errorf("unable to scan ser files: %w", err)
 	}
 
-	for _, filePath := range sers {
-		scanned, err := deserializeSession(filePath)
-		if err != nil {
-			return fmt.Errorf("unable to process ser file: %w", err)
-		}
-
+	for _, scanned := range scannedSession {
 		if scanned.Cleared {
 			// Remove cleared session
-			err = os.Remove(filePath)
+			err = os.Remove(scanned.serializationFilepath)
 			if err != nil {
-				return fmt.Errorf("unable to remove serialized session file (%s): %w", filePath, err)
+				return fmt.Errorf("unable to remove serialized session file (%s): %w", scanned.serializationFilepath, err)
 			}
 		}
 
@@ -586,7 +635,7 @@ func (s *screenTailer) tailAll() (err error) {
 	return
 }
 
-func clearSession(sessions *map[string]*session, name string) error {
+func clearSessionsMap(sessions *map[string]*session, name string) error {
 	if session, ok := (*sessions)[name]; ok {
 		err := session.Clear()
 		if err != nil {

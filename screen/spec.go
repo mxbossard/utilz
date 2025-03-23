@@ -60,7 +60,6 @@ const (
 
 type Sink interface {
 	Session(name string, priority int) *session
-	ClearSession(name string) error
 	NotifyPrinter() printz.Printer
 	Close() error
 
@@ -70,8 +69,8 @@ type Sink interface {
 	// Continuously Flush all sessions until ends or timeout is reached.
 	FlushAllBlocking(timeout time.Duration) error
 
-	// Clear each sessions workspaces.
-	//Clear() error
+	// Resync sinc with tailer
+	Resync() error
 }
 
 type Session interface {
@@ -90,8 +89,6 @@ type Session interface {
 
 	// End the session
 	End() error
-
-	//Clear() error
 }
 
 type Tailer interface {
@@ -113,7 +110,6 @@ type Tailer interface {
 	// Tail all ended sessions in order which contains some flushed print not tailed.
 	ReclaimAll() error
 
-	// FIXME: should not clear from tailer but only from sink !
 	// Clear session workspace.
 	ClearSession(session string) error
 

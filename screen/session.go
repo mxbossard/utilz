@@ -77,7 +77,8 @@ type session struct {
 	timeouted        *time.Duration
 	timeoutCallbacks []func(Session)
 
-	TmpPath string
+	TmpPath               string
+	serializationFilepath string
 
 	// FIXME: should replace following by a printer but cannot do it simply because files must be used by tailer !
 	TmpOutName, TmpErrName string
@@ -94,6 +95,14 @@ type session struct {
 func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	if name == "" {
 		panic("cannot get printer of empty name")
+	}
+
+	if !s.Started {
+		panic(fmt.Errorf("session: [%s] not started yet", s.Name))
+	}
+
+	if s.Ended {
+		panic(fmt.Errorf("session: [%s] already ended", s.Name))
 	}
 
 	s.mutex.Lock()
@@ -520,7 +529,7 @@ func deserializeSession(path string) (s *session, err error) {
 	return s, err
 }
 
-func ClearSession(zcreenPath, sessionName string) error {
+func clearSessionFiles(zcreenPath, sessionName string) error {
 	sessionDirPath := sessionDirPath(zcreenPath, sessionName)
 	if _, err := os.Stat(sessionDirPath); err == nil {
 		err := os.RemoveAll(sessionDirPath)

@@ -256,14 +256,20 @@ func TestAsyncScreen_ClearSession(t *testing.T) {
 	// After cleared session new tailer should not tail printed message
 	outW.Reset()
 	errW.Reset()
-	err = screen.ClearSession(expectedSession)
-	assert.NoError(t, err)
+	// err = screen.ClearSession(expectedSession)
+	// assert.NoError(t, err)
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.ClearSession(expectedSession)
+	assert.NoError(t, err)
+
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
 	// After cleared session a session reopening should be possible
+	err = screen.Resync()
+	assert.NoError(t, err)
+
 	session = screen.Session(expectedSession, 42)
 	require.NotNil(t, session)
 	err = session.Start(100 * time.Millisecond)
@@ -931,8 +937,8 @@ func TestAsyncScreen_TailOnlyBlocking_ClearedSession(t *testing.T) {
 	// Then end & clear session
 	err = session.End()
 	assert.NoError(t, err)
-	err = screen.ClearSession(expectedSession)
-	assert.NoError(t, err)
+	// err = screen.ClearSession(expectedSession)
+	// assert.NoError(t, err)
 
 	// Should not block
 	err = screenTailer.TailOnlyBlocking(expectedSession, 10*time.Millisecond)
@@ -1124,8 +1130,8 @@ func TestAsyncScreen_TailBlocking_ClearedSession(t *testing.T) {
 	// Then end & clear session
 	err = session.End()
 	assert.NoError(t, err)
-	err = screen.ClearSession(expectedSession)
-	assert.NoError(t, err)
+	// err = screen.ClearSession(expectedSession)
+	// assert.NoError(t, err)
 
 	// Should not block
 	err = screenTailer.TailBlocking(expectedSession, 10*time.Millisecond)
@@ -1676,8 +1682,8 @@ func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
 	// Then end & clear session
 	err = session.End()
 	assert.NoError(t, err)
-	err = screen.ClearSession(expectedSession)
-	assert.NoError(t, err)
+	// err = screen.ClearSession(expectedSession)
+	// assert.NoError(t, err)
 
 	// Should not block
 	err = screenTailer.TailAllBlocking(10 * time.Millisecond)
