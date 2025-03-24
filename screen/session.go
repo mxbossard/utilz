@@ -72,7 +72,7 @@ type session struct {
 	Started, Ended   bool
 	printed          bool
 	flushed, tailed  bool
-	Cleared          bool
+	cleared          bool
 	readOnly         bool
 	timeouted        *time.Duration
 	timeoutCallbacks []func(Session)
@@ -90,6 +90,10 @@ type session struct {
 	notifier           *printer
 
 	currentPriority *int
+}
+
+func (s session) String() string {
+	return fmt.Sprintf("{Session> name: %s; Started: %v; Ended: %v; Cleared: %v}", s.Name, s.Started, s.Ended, s.cleared)
 }
 
 func (s *session) Printer(name string, priorityOrder int) printz.Printer {
@@ -241,7 +245,7 @@ func (s *session) End() (err error) {
 	return
 }
 
-func (s *session) Clear() (err error) {
+func (s *session) clear() (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -292,7 +296,7 @@ func (s *session) Clear() (err error) {
 	s.cursorErr = 0
 	s.printersByPriority = make(map[int][]*printer)
 	s.printers = make(map[string]*printer)
-	s.Cleared = true
+	s.cleared = true
 
 	//filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
 	err = serializeSession(s)

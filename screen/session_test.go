@@ -255,7 +255,7 @@ func TestSession_ReOpen(t *testing.T) {
 	})
 
 	// Clear & reOpen session
-	err = session.Clear()
+	err = session.clear()
 	assert.NoError(t, err)
 
 	require.NoDirExists(t, session.TmpPath)

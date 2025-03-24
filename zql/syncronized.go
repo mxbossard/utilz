@@ -117,6 +117,7 @@ func (d *SynchronizedDB) lock(session bool) (err error) {
 	perf := logger.PerfTimer()
 	defer perf.End()
 
+	// FIXME: do we need to rebuild file lock on every lock ?
 	fileLock := flock.New(d.lockFile)
 
 	lockCtx, cancel := context.WithTimeout(context.Background(), d.busyTimeout)

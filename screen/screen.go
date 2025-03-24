@@ -1,6 +1,8 @@
 package screen
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gofrs/flock"
 	"mby.fr/utils/collections"
 	"mby.fr/utils/errorz"
 	"mby.fr/utils/filez"
@@ -19,6 +22,7 @@ const (
 	tmpDirFileMode        = 0760
 	notifierPrinterName   = "_-_notifier"
 	continuousFlushPeriod = 1 * time.Millisecond
+	lockFilename          = ".lock"
 )
 
 var (
@@ -28,6 +32,7 @@ var (
 
 type screen struct {
 	sync.Mutex
+	fileLock *flock.Flock
 	tmpPath  string
 	sessions map[string]*session
 	notifier *printer
@@ -39,6 +44,8 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	}
 	s.Lock()
 	defer s.Unlock()
+	lock(s.fileLock)
+	defer unlock(s.fileLock)
 	if session, ok := s.sessions[name]; ok {
 		return session
 	}
@@ -117,28 +124,36 @@ func (s *screen) Close() (err error) {
 func (s *screen) Resync() error {
 	s.Lock()
 	defer s.Unlock()
+	lock(s.fileLock)
+	defer unlock(s.fileLock)
 
 	scannedSessions, err := scanSerializedSessions(s.tmpPath)
 	if err != nil {
 		return fmt.Errorf("error scanning sessions: %w", err)
 	}
 
+	sessionsToRemove := []string{}
 FirstLoop:
 	for _, session := range s.sessions {
 		for _, scanned := range scannedSessions {
 			if session.Name == scanned.Name {
+				fmt.Printf("\n<<>> RESYNC: refreshing %s => %s\n", scanned, session)
 				// refresh session ?
-				break FirstLoop
+				// session.cleared = scanned.cleared
+				session.Started = scanned.Started
+				session.Ended = scanned.Ended
+				continue FirstLoop
 			}
 		}
 		// session was not scanned : remove it
-		clearSessionsMap(&s.sessions, session.Name)
-		fmt.Printf("\n<<>> removed cleared session: %s\n", session.Name)
-	}
-	sessions := collections.Values(s.sessions)
-	sessionsNames := collections.Map(&sessions, func(s *session) string { return s.Name })
-	fmt.Printf("\n<<>> kepts sessions: %s\n", sessionsNames)
+		sessionsToRemove = append(sessionsToRemove, session.Name)
 
+	}
+
+	for _, sessionName := range sessionsToRemove {
+		fmt.Printf("\n<<>> RESYNC: removing session: %s\n", sessionName)
+		clearSessionsMap(&s.sessions, sessionName)
+	}
 	return nil
 }
 
@@ -192,6 +207,7 @@ func (*screen) ConfigPrinter(name string) (s *session) {
 
 type screenTailer struct {
 	sync.Mutex
+	fileLock              *flock.Flock
 	tmpPath               string
 	outputs               printz.Outputs
 	electedSession        *session
@@ -222,7 +238,7 @@ func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duratio
 		}
 
 		blocking = s.sessions[sessionName]
-		if blocking != nil && blocking.Cleared {
+		if blocking != nil && blocking.cleared {
 			err = s.ClearSession(sessionName)
 			return err
 		}
@@ -355,9 +371,7 @@ func (s *screenTailer) ReclaimAll() error {
 	panic("not implemented yet")
 }
 
-func (s *screenTailer) ClearSession(name string) error {
-	s.Lock()
-	defer s.Unlock()
+func (s *screenTailer) clearSession(name string) error {
 	//fmt.Printf("Clearing tailer session dir: [%s] ...\n", name)
 	for p, sessions := range s.sessionsByPriority {
 		for _, session := range sessions {
@@ -380,10 +394,24 @@ func (s *screenTailer) ClearSession(name string) error {
 	return err
 }
 
+func (s *screenTailer) ClearSession(name string) error {
+	s.Lock()
+	defer s.Unlock()
+	lock(s.fileLock)
+	defer unlock(s.fileLock)
+
+	return s.clearSession(name)
+}
+
 func (s *screenTailer) Clear() (err error) {
+	s.Lock()
+	defer s.Unlock()
+	lock(s.fileLock)
+	defer unlock(s.fileLock)
+
 	sessions := collections.Keys(s.sessions)
 	for _, session := range sessions {
-		err := s.ClearSession(session)
+		err := s.clearSession(session)
 		if err != nil {
 			return err
 		}
@@ -419,13 +447,16 @@ func (s *screenTailer) scanSessions() (err error) {
 	s.Lock()
 	defer s.Unlock()
 
+	lock(s.fileLock)
+	defer unlock(s.fileLock)
+
 	scannedSession, err := scanSerializedSessions(s.tmpPath)
 	if err != nil {
 		return fmt.Errorf("unable to scan ser files: %w", err)
 	}
 
 	for _, scanned := range scannedSession {
-		if scanned.Cleared {
+		if scanned.cleared {
 			// Remove cleared session
 			err = os.Remove(scanned.serializationFilepath)
 			if err != nil {
@@ -439,7 +470,7 @@ func (s *screenTailer) scanSessions() (err error) {
 		scanned.tmpErr = nil
 		if exists, ok := s.sessions[scanned.Name]; !ok {
 			// init session
-			if !scanned.Cleared {
+			if !scanned.cleared {
 				scanned.tmpOut, err = os.OpenFile(scanned.TmpOutName, os.O_RDONLY, 0)
 				if err != nil {
 					return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.TmpOutName, err)
@@ -449,16 +480,16 @@ func (s *screenTailer) scanSessions() (err error) {
 					return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.TmpErrName, err)
 				}
 			}
-			scanned.Ended = scanned.Ended || scanned.Cleared
+			scanned.Ended = scanned.Ended || scanned.cleared
 			s.sessions[scanned.Name] = scanned
 			s.sessionsByPriority[scanned.PriorityOrder] = append(s.sessionsByPriority[scanned.PriorityOrder], scanned)
 		} else {
 			// update session
 			exists.Started = scanned.Started
-			exists.Ended = scanned.Ended || scanned.Cleared
-			exists.Cleared = scanned.Cleared
+			exists.Ended = scanned.Ended || scanned.cleared
+			exists.cleared = scanned.cleared
 
-			if !exists.Cleared {
+			if !exists.cleared {
 				if exists.tmpOut == nil && scanned.TmpOutName != "" {
 					exists.tmpOut, err = os.OpenFile(scanned.TmpOutName, os.O_RDONLY, 0)
 					if err != nil {
@@ -529,7 +560,7 @@ func (s *screenTailer) electSession() (err error) {
 		if s.electedSession != nil {
 			logger.Debug("elected new session", "electedSession", s.electedSession.Name)
 		}
-	} else if !s.electedSession.Cleared {
+	} else if !s.electedSession.cleared {
 		path := sessionSerializedPath(filepath.Dir(s.electedSession.TmpPath), s.electedSession.Name)
 		err = updateSession(s.electedSession, path)
 		if err != nil {
@@ -637,7 +668,7 @@ func (s *screenTailer) tailAll() (err error) {
 
 func clearSessionsMap(sessions *map[string]*session, name string) error {
 	if session, ok := (*sessions)[name]; ok {
-		err := session.Clear()
+		err := session.clear()
 		if err != nil {
 			return err
 		}
@@ -646,11 +677,42 @@ func clearSessionsMap(sessions *map[string]*session, name string) error {
 	return nil
 }
 
+func lock(fl *flock.Flock) {
+	perf := logger.PerfTimer()
+	defer perf.End()
+
+	lockCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	locked, err := fl.TryLockContext(lockCtx, time.Millisecond)
+	if err != nil {
+		panic(err)
+	}
+	if !locked {
+		err = errors.New("unable to acquire zcreen lock")
+		if err != nil {
+			panic(err)
+		}
+	}
+	logger.Perf("just acquired the lock", "lock_duration", perf.SinceStart())
+
+	return
+}
+
+func unlock(fl *flock.Flock) {
+	perf := logger.TraceTimer()
+	defer perf.End()
+
+	err := fl.Unlock()
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
+
 func NewScreen(outputs printz.Outputs) *screen {
 	// FIXME: not implemented
-	return &screen{
-		sessions: make(map[string]*session),
-	}
+	panic("not implemented yet")
 }
 
 func NewAsyncScreen(tmpPath string) *screen {
@@ -662,9 +724,10 @@ func NewAsyncScreen(tmpPath string) *screen {
 	if err != nil {
 		panic(err)
 	}
-
+	lockFilepath := filepath.Join(tmpPath, lockFilename)
 	return &screen{
 		tmpPath:  tmpPath,
+		fileLock: flock.New(lockFilepath),
 		sessions: make(map[string]*session),
 		notifier: buildPrinter(tmpPath, notifierPrinterName, 0),
 	}
@@ -676,9 +739,11 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 	}
 
 	notifier := buildPrinter(tmpPath, notifierPrinterName, 0)
+	lockFilepath := filepath.Join(tmpPath, lockFilename)
 	return &screenTailer{
 		outputs:               outputs,
 		tmpPath:               tmpPath,
+		fileLock:              flock.New(lockFilepath),
 		sessions:              make(map[string]*session),
 		sessionsByPriority:    make(map[int][]*session),
 		notifier:              notifier,
