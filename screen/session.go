@@ -153,8 +153,9 @@ func (s *session) closePrinter(name string) error {
 	} else {
 		return fmt.Errorf("no printer opened with name: [%s]", name)
 	}
-	err := serializeSession(s)
-	return err
+	// err := serializeSession(s)
+	// return err
+	return nil
 }
 
 func (s *session) ClosePrinter(name string) error {
@@ -239,7 +240,12 @@ func (s *session) End() (err error) {
 	}
 
 	s.Ended = true
-	err = serializeSession(s)
+	if s.timeouted == nil {
+		err = serializeSession(s)
+		if err != nil {
+			return err
+		}
+	}
 	logger.Debug("session ended", "session", s.Name)
 
 	return
@@ -298,7 +304,6 @@ func (s *session) clear() (err error) {
 	s.printers = make(map[string]*printer)
 	s.cleared = true
 
-	//filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
 	err = serializeSession(s)
 
 	return err
@@ -449,7 +454,7 @@ func (s *session) Flush() error {
 	}
 
 	//s.flushed = true
-	err = serializeSession(s)
+	//err = serializeSession(s)
 
 	return err
 }
@@ -508,6 +513,10 @@ func sessionSerializedPath(dir, name string) string {
 }
 
 func serializeSession(s *session) (err error) {
+	if s.cleared {
+		// Do not serialize cleared sessions
+		return nil
+	}
 	filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
 	f, err := os.OpenFile(filePath, os.O_CREATE+os.O_RDWR, 0644)
 	if err != nil {
@@ -516,7 +525,7 @@ func serializeSession(s *session) (err error) {
 	defer func() { f.Close() }()
 	enc := gob.NewEncoder(f)
 	err = enc.Encode(s)
-	logger.Debug("serialized session", "filepath", filePath)
+	logger.Debug("serialized session", "name", s.Name, "filepath", filePath)
 	return
 }
 
@@ -529,7 +538,7 @@ func deserializeSession(path string) (s *session, err error) {
 	dec := gob.NewDecoder(f)
 	s = &session{mutex: &sync.Mutex{}}
 	err = dec.Decode(s)
-	logger.Debug("deserialized session", "filepath", path)
+	logger.Debug("deserialized session", "name", s.Name, "filepath", path)
 	return s, err
 }
 
@@ -538,16 +547,17 @@ func clearSessionFiles(zcreenPath, sessionName string) error {
 	if _, err := os.Stat(sessionDirPath); err == nil {
 		err := os.RemoveAll(sessionDirPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot remove session dir: %w", err)
 		}
+		logger.Debug("Tailer: cleared session dir", "dir", sessionDirPath)
 	}
-
 	serPath := sessionSerializedPath(zcreenPath, sessionName)
 	if _, err := os.Stat(serPath); err == nil {
 		err = os.RemoveAll(serPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot remove session ser file: %w", err)
 		}
+		logger.Debug("Tailer: cleared session ser file", "serPath", serPath)
 	}
 	return nil
 }

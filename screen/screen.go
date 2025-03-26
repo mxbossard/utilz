@@ -21,7 +21,7 @@ import (
 const (
 	tmpDirFileMode        = 0760
 	notifierPrinterName   = "_-_notifier"
-	continuousFlushPeriod = 1 * time.Millisecond
+	continuousFlushPeriod = 50 * time.Millisecond
 	lockFilename          = ".lock"
 )
 
@@ -44,8 +44,8 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	}
 	s.Lock()
 	defer s.Unlock()
-	lock(s.fileLock)
-	defer unlock(s.fileLock)
+	// lock(s.fileLock)
+	// defer unlock(s.fileLock)
 	if session, ok := s.sessions[name]; ok {
 		return session
 	}
@@ -137,11 +137,12 @@ FirstLoop:
 	for _, session := range s.sessions {
 		for _, scanned := range scannedSessions {
 			if session.Name == scanned.Name {
-				fmt.Printf("\n<<>> RESYNC: refreshing %s => %s\n", scanned, session)
+				//fmt.Printf("\n<<>> RESYNC: refreshing %s => %s\n", scanned, session)
 				// refresh session ?
 				// session.cleared = scanned.cleared
 				session.Started = scanned.Started
 				session.Ended = scanned.Ended
+				logger.Debug("Resync: kept session", "session", session.Name)
 				continue FirstLoop
 			}
 		}
@@ -151,8 +152,9 @@ FirstLoop:
 	}
 
 	for _, sessionName := range sessionsToRemove {
-		fmt.Printf("\n<<>> RESYNC: removing session: %s\n", sessionName)
+		//fmt.Printf("\n<<>> RESYNC: removing session: %s\n", sessionName)
 		clearSessionsMap(&s.sessions, sessionName)
+		logger.Debug("Resync: removed session", "session", sessionName)
 	}
 	return nil
 }
@@ -386,15 +388,21 @@ func (s *screenTailer) clearSession(name string) error {
 		s.electedSession = nil
 	}
 
-	err := clearSessionsMap(&s.sessions, name)
+	err := clearSessionFiles(s.tmpPath, name)
 	if err != nil {
 		return err
 	}
-	err = clearSessionFiles(s.tmpPath, name)
+	logger.Debug("Tailer: cleared session files", "name", name)
+	err = clearSessionsMap(&s.sessions, name)
+	if err != nil {
+		return err
+	}
+	logger.Debug("Tailer: cleared session map", "name", name)
 	return err
 }
 
 func (s *screenTailer) ClearSession(name string) error {
+	logger.Debug("Tailer: clearing session ...", "name", name)
 	s.Lock()
 	defer s.Unlock()
 	lock(s.fileLock)
@@ -694,8 +702,6 @@ func lock(fl *flock.Flock) {
 		}
 	}
 	logger.Perf("just acquired the lock", "lock_duration", perf.SinceStart())
-
-	return
 }
 
 func unlock(fl *flock.Flock) {
@@ -706,8 +712,6 @@ func unlock(fl *flock.Flock) {
 	if err != nil {
 		panic(err)
 	}
-
-	return
 }
 
 func NewScreen(outputs printz.Outputs) *screen {
@@ -735,7 +739,7 @@ func NewAsyncScreen(tmpPath string) *screen {
 
 func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer {
 	if ok, _ := filez.IsDirectory(tmpPath); !ok {
-		panic(fmt.Sprintf("unable to create read only async screen: [%s] path do not exists", tmpPath))
+		panic(fmt.Sprintf("unable to create read only async screen tailer: [%s] path do not exists", tmpPath))
 	}
 
 	notifier := buildPrinter(tmpPath, notifierPrinterName, 0)
@@ -755,9 +759,19 @@ func NewAsyncScreenTailerWaiting(outputs printz.Outputs, tmpPath string, timeout
 	startTime := time.Now()
 	for ok, _ := filez.IsDirectory(tmpPath); !ok; {
 		if time.Since(startTime) > timeout {
-			panic(fmt.Sprintf("unable to create read only async screen: [%s] path do not exists after timeout: [%s]", tmpPath, timeout))
+			panic(fmt.Sprintf("unable to create read only async screen tailer: [%s] path do not exists after timeout: [%s]", tmpPath, timeout))
 		}
 		time.Sleep(1 * time.Millisecond)
 	}
 	return NewAsyncScreenTailer(outputs, tmpPath)
+}
+
+func Clear(zcreenPath string) error {
+	err := os.RemoveAll(zcreenPath)
+	return err
+}
+
+func ClearSession(zcreenPath, name string) error {
+	err := clearSessionFiles(zcreenPath, name)
+	return err
 }
