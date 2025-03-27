@@ -18,13 +18,6 @@ import (
 	"mby.fr/utils/zlog"
 )
 
-const (
-	tmpDirFileMode        = 0760
-	notifierPrinterName   = "_-_notifier"
-	continuousFlushPeriod = 50 * time.Millisecond
-	lockFilename          = ".lock"
-)
-
 var (
 	buf    = make([]byte, bufLen)
 	logger = zlog.New()

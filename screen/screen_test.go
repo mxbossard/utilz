@@ -226,7 +226,7 @@ func TestAsyncScreen_ClearSession(t *testing.T) {
 	err = session.Flush()
 	assert.NoError(t, err)
 
-	err = session.End()
+	err = session.End("msg")
 	assert.NoError(t, err)
 
 	// First tailing should tail printed message
@@ -285,7 +285,7 @@ func TestAsyncScreen_ClearSession(t *testing.T) {
 	err = session.Flush()
 	assert.NoError(t, err)
 
-	err = session.End()
+	err = session.End("msg")
 	assert.NoError(t, err)
 
 	err = screenTailer.tailAll()
@@ -442,7 +442,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close a printer which is not first => nothing more should be written
-	err = session.ClosePrinter(expectedPrinter20a)
+	err = session.ClosePrinter(expectedPrinter20a, "msg")
 	assert.NoError(t, err)
 
 	err = session.Flush()
@@ -459,7 +459,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	prtr20b.Out("20b-2,")
 
 	// Close first printer => should write next printers
-	err = session.ClosePrinter(expectedPrinter10a)
+	err = session.ClosePrinter(expectedPrinter10a, "msg")
 	assert.NoError(t, err)
 
 	err = session.Flush()
@@ -473,7 +473,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close a printer which is not first => should not write anything
-	err = session.ClosePrinter(expectedPrinter30a)
+	err = session.ClosePrinter(expectedPrinter30a, "msg")
 	assert.NoError(t, err)
 
 	err = session.Flush()
@@ -487,7 +487,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.Empty(t, errW.String())
 
 	// Close last printer => should write everything
-	err = session.ClosePrinter(expectedPrinter20b)
+	err = session.ClosePrinter(expectedPrinter20b, "msg")
 	assert.NoError(t, err)
 
 	err = session.Flush()
@@ -548,21 +548,21 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	prtrB30a.Out("B30a1,")
 	prtrA10a.Out("A10a1,")
 	prtrB30a.Out("B30a2,")
-	err = sessionB.ClosePrinter(expectedPrinterB30a)
+	err = sessionB.ClosePrinter(expectedPrinterB30a, "msg")
 	assert.NoError(t, err)
 	prtrB10a.Out("B10a2,")
-	err = sessionB.ClosePrinter(expectedPrinterB10a)
+	err = sessionB.ClosePrinter(expectedPrinterB10a, "msg")
 	assert.NoError(t, err)
-	err = sessionB.End()
+	err = sessionB.End("msg")
 	assert.NoError(t, err)
-	err = sessionB.End()
+	err = sessionB.End("msg")
 	assert.NoError(t, err)
 	prtrA20a.Out("A20a1,")
 	prtrA20a.Out("A20a2,")
-	err = sessionA.ClosePrinter(expectedPrinterA20a)
+	err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
 	assert.NoError(t, err)
 	prtrA10a.Out("A10a2,")
-	err = sessionA.ClosePrinter(expectedPrinterA10a)
+	err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 	assert.NoError(t, err)
 
 	prtrC10a.Out("C10a1,")
@@ -590,7 +590,7 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = sessionA.End()
+	err = sessionA.End("msg")
 	assert.NoError(t, err)
 
 	err = screenTailer.tailAll()
@@ -611,7 +611,7 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,", outW.String())
 
-	err = sessionC.ClosePrinter(expectedPrinterC10a)
+	err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
 	assert.NoError(t, err)
 	err = sessionC.Flush()
 	assert.NoError(t, err)
@@ -620,7 +620,7 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,", outW.String())
 
-	err = sessionC.End()
+	err = sessionC.End("msg")
 	assert.NoError(t, err)
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -676,19 +676,19 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	prtrB30a.Out("B30a1,")
 	prtrA10a.Out("A10a1,")
 	prtrB30a.Out("B30a2,")
-	err = sessionB.ClosePrinter(expectedPrinterB30a)
+	err = sessionB.ClosePrinter(expectedPrinterB30a, "msg")
 	assert.NoError(t, err)
 	prtrB10a.Out("B10a2,")
-	err = sessionB.ClosePrinter(expectedPrinterB10a)
+	err = sessionB.ClosePrinter(expectedPrinterB10a, "msg")
 	assert.NoError(t, err)
-	err = sessionB.End()
+	err = sessionB.End("msg")
 	assert.NoError(t, err)
 	prtrA20a.Out("A20a1,")
 	prtrA20a.Out("A20a2,")
-	err = sessionA.ClosePrinter(expectedPrinterA20a)
+	err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
 	assert.NoError(t, err)
 	prtrA10a.Out("A10a2,")
-	err = sessionA.ClosePrinter(expectedPrinterA10a)
+	err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 	assert.NoError(t, err)
 
 	screen.NotifyPrinter().Out("notif2,")
@@ -733,7 +733,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	// First 4 notifications are flushed. SessionA is flushed but not ended, SessionB is ended.
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
-	err = sessionA.End()
+	err = sessionA.End("msg")
 	assert.NoError(t, err)
 
 	err = screenTailer.tailAll()
@@ -764,7 +764,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	err = screen.NotifyPrinter().Flush()
 	assert.NoError(t, err)
 
-	err = sessionC.ClosePrinter(expectedPrinterC10a)
+	err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
 	assert.NoError(t, err)
 	err = sessionC.Flush()
 	assert.NoError(t, err)
@@ -773,7 +773,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,", outW.String())
 
-	err = sessionC.End()
+	err = sessionC.End("msg")
 	assert.NoError(t, err)
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -813,7 +813,7 @@ func TestTailOnlyBlocking(t *testing.T) {
 
 		prtrA10a.Out("A10a1,")
 		prtrA10a.Out("A10a2,")
-		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 		assert.NoError(t, err)
 
 		screen.NotifyPrinter().Out("notif1,")
@@ -824,9 +824,9 @@ func TestTailOnlyBlocking(t *testing.T) {
 
 		prtrA20a.Out("A20a1,")
 		prtrA20a.Out("A20a2,")
-		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
 		assert.NoError(t, err)
-		err = sessionA.End()
+		err = sessionA.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
 
@@ -845,7 +845,7 @@ func TestTailOnlyBlocking(t *testing.T) {
 
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
-		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		err = sessionB.ClosePrinter(expectedPrinterB10a, "msg")
 		assert.NoError(t, err)
 
 		screen.NotifyPrinter().Out("notif3,")
@@ -854,9 +854,9 @@ func TestTailOnlyBlocking(t *testing.T) {
 
 		prtrB30a.Out("B30a1,")
 		prtrB30a.Out("B30a2,")
-		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		err = sessionB.ClosePrinter(expectedPrinterB30a, "msg")
 		assert.NoError(t, err)
-		err = sessionB.End()
+		err = sessionB.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
 
@@ -873,15 +873,15 @@ func TestTailOnlyBlocking(t *testing.T) {
 		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
 
 		prtrC10a.Out("C10a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
 		assert.NoError(t, err)
 		prtrC30a.Out("C30a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		err = sessionC.ClosePrinter(expectedPrinterC30a, "msg")
 		assert.NoError(t, err)
 		prtrC40a.Out("C40a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		err = sessionC.ClosePrinter(expectedPrinterC40a, "msg")
 		assert.NoError(t, err)
-		err = sessionC.End()
+		err = sessionC.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 	}()
@@ -936,7 +936,7 @@ func TestAsyncScreen_TailOnlyBlocking_ClearedSession(t *testing.T) {
 	assert.Equal(t, expectedMessage, outW.String())
 
 	// Then end & clear session
-	err = session.End()
+	err = session.End("msg")
 	assert.NoError(t, err)
 	// err = screen.ClearSession(expectedSession)
 	// assert.NoError(t, err)
@@ -983,7 +983,7 @@ func TestTailBlocking_InOrder(t *testing.T) {
 
 		prtrA10a.Out("A10a1,")
 		prtrA10a.Out("A10a2,")
-		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 		assert.NoError(t, err)
 
 		screen.NotifyPrinter().Out("notif1,")
@@ -992,12 +992,12 @@ func TestTailBlocking_InOrder(t *testing.T) {
 
 		prtrA20a.Out("A20a1,")
 		prtrA20a.Out("A20a2,")
-		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
 		assert.NoError(t, err)
 
 		syncChan <- "endB"
 
-		err = sessionA.End()
+		err = sessionA.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
 
@@ -1018,16 +1018,16 @@ func TestTailBlocking_InOrder(t *testing.T) {
 
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
-		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		err = sessionB.ClosePrinter(expectedPrinterB10a, "msg")
 		assert.NoError(t, err)
 
 		prtrB30a.Out("B30a1,")
 		prtrB30a.Out("B30a2,")
-		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		err = sessionB.ClosePrinter(expectedPrinterB30a, "msg")
 		assert.NoError(t, err)
 
 		syncChan <- "finishB"
-		err = sessionB.End()
+		err = sessionB.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
 
@@ -1048,15 +1048,15 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
 
 		prtrC10a.Out("C10a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
 		assert.NoError(t, err)
 		prtrC30a.Out("C30a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		err = sessionC.ClosePrinter(expectedPrinterC30a, "msg")
 		assert.NoError(t, err)
 		prtrC40a.Out("C40a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		err = sessionC.ClosePrinter(expectedPrinterC40a, "msg")
 		assert.NoError(t, err)
-		err = sessionC.End()
+		err = sessionC.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 
@@ -1129,7 +1129,7 @@ func TestAsyncScreen_TailBlocking_ClearedSession(t *testing.T) {
 	assert.Equal(t, expectedMessage, outW.String())
 
 	// Then end & clear session
-	err = session.End()
+	err = session.End("msg")
 	assert.NoError(t, err)
 	// err = screen.ClearSession(expectedSession)
 	// assert.NoError(t, err)
@@ -1177,13 +1177,13 @@ func TestTailBlocking_InParallel(t *testing.T) {
 
 		prtrA10a.Out("A10a1,")
 		prtrA10a.Out("A10a2,")
-		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 		assert.NoError(t, err)
 		prtrA20a.Out("A20a1,")
 		prtrA20a.Out("A20a2,")
-		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
 		assert.NoError(t, err)
-		err = sessionA.End()
+		err = sessionA.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
 
@@ -1203,13 +1203,13 @@ func TestTailBlocking_InParallel(t *testing.T) {
 
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
-		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		err = sessionB.ClosePrinter(expectedPrinterB10a, "msg")
 		assert.NoError(t, err)
 		prtrB30a.Out("B30a1,")
 		prtrB30a.Out("B30a2,")
-		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		err = sessionB.ClosePrinter(expectedPrinterB30a, "msg")
 		assert.NoError(t, err)
-		err = sessionB.End()
+		err = sessionB.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
 
@@ -1230,15 +1230,15 @@ func TestTailBlocking_InParallel(t *testing.T) {
 		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
 
 		prtrC10a.Out("C10a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
 		assert.NoError(t, err)
 		prtrC30a.Out("C30a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		err = sessionC.ClosePrinter(expectedPrinterC30a, "msg")
 		assert.NoError(t, err)
 		prtrC40a.Out("C40a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		err = sessionC.ClosePrinter(expectedPrinterC40a, "msg")
 		assert.NoError(t, err)
-		err = sessionC.End()
+		err = sessionC.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 
@@ -1322,7 +1322,7 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 		expectedMsgChan <- msg
 
 		syncChan <- "A3"
-		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 		assert.NoError(t, err)
 		expectedMsgChan <- ""
 
@@ -1341,12 +1341,12 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 		expectedMsgChan <- msg
 
 		syncChan <- "A6"
-		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
 		assert.NoError(t, err)
 		expectedMsgChan <- ""
 
 		syncChan <- "A7"
-		err = sessionA.End()
+		err = sessionA.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
 		expectedMsgChan <- ""
@@ -1414,12 +1414,12 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 		prtrA20a.Out("A20a2,")
 		prtrA10a.Out("A10a2,")
 
-		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 		assert.NoError(t, err)
-		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
 		assert.NoError(t, err)
 
-		err = sessionA.End()
+		err = sessionA.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
 
@@ -1441,12 +1441,12 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
 
-		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		err = sessionB.ClosePrinter(expectedPrinterB30a, "msg")
 		assert.NoError(t, err)
-		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		err = sessionB.ClosePrinter(expectedPrinterB10a, "msg")
 		assert.NoError(t, err)
 
-		err = sessionB.End()
+		err = sessionB.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
 
@@ -1466,16 +1466,16 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
 
 		prtrC10a.Out("C10a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
 		assert.NoError(t, err)
 		prtrC30a.Out("C30a1,")
 		prtrC40a.Out("C40a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		err = sessionC.ClosePrinter(expectedPrinterC40a, "msg")
 		assert.NoError(t, err)
-		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		err = sessionC.ClosePrinter(expectedPrinterC30a, "msg")
 		assert.NoError(t, err)
 
-		err = sessionC.End()
+		err = sessionC.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 
@@ -1542,7 +1542,7 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 
 		prtrA10a.Out("A10a1,")
 		prtrA10a.Out("A10a2,")
-		err = sessionA.ClosePrinter(expectedPrinterA10a)
+		err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 		assert.NoError(t, err)
 
 		screen.NotifyPrinter().Out("notif1,")
@@ -1551,9 +1551,9 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 
 		prtrA20a.Out("A20a1,")
 		prtrA20a.Out("A20a2,")
-		err = sessionA.ClosePrinter(expectedPrinterA20a)
+		err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
 		assert.NoError(t, err)
-		err = sessionA.End()
+		err = sessionA.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
 
@@ -1574,14 +1574,14 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
-		err = sessionB.ClosePrinter(expectedPrinterB10a)
+		err = sessionB.ClosePrinter(expectedPrinterB10a, "msg")
 		assert.NoError(t, err)
 
 		prtrB30a.Out("B30a1,")
 		prtrB30a.Out("B30a2,")
-		err = sessionB.ClosePrinter(expectedPrinterB30a)
+		err = sessionB.ClosePrinter(expectedPrinterB30a, "msg")
 		assert.NoError(t, err)
-		err = sessionB.End()
+		err = sessionB.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
 
@@ -1602,15 +1602,15 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
 
 		prtrC10a.Out("C10a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC10a)
+		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
 		assert.NoError(t, err)
 		prtrC30a.Out("C30a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC30a)
+		err = sessionC.ClosePrinter(expectedPrinterC30a, "msg")
 		assert.NoError(t, err)
 		prtrC40a.Out("C40a1,")
-		err = sessionC.ClosePrinter(expectedPrinterC40a)
+		err = sessionC.ClosePrinter(expectedPrinterC40a, "msg")
 		assert.NoError(t, err)
-		err = sessionC.End()
+		err = sessionC.End("msg")
 		assert.NoError(t, err)
 		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
 
@@ -1681,7 +1681,7 @@ func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
 	assert.Equal(t, expectedMessage, outW.String())
 
 	// Then end & clear session
-	err = session.End()
+	err = session.End("msg")
 	assert.NoError(t, err)
 	// err = screen.ClearSession(expectedSession)
 	// assert.NoError(t, err)

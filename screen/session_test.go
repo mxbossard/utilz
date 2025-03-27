@@ -407,7 +407,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close a printer which is not first => nothing more should be written
-	session.ClosePrinter(expectedPrinter20a)
+	session.ClosePrinter(expectedPrinter20a, "msg")
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -421,14 +421,14 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close first printer => should write next printers
-	session.ClosePrinter(expectedPrinter10a)
+	session.ClosePrinter(expectedPrinter10a, "msg")
 
 	err = session.Flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	session.ClosePrinter(expectedPrinter15a)
-	session.ClosePrinter(expectedPrinter20c)
+	session.ClosePrinter(expectedPrinter15a, "msg")
+	session.ClosePrinter(expectedPrinter20c, "msg")
 
 	err = session.Flush()
 	assert.NoError(t, err)
@@ -437,14 +437,14 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	prtr20b.Out("20b-2,")
 
 	// Close a printer which is not first => should not write anything
-	session.ClosePrinter(expectedPrinter30a)
+	session.ClosePrinter(expectedPrinter30a, "msg")
 
 	err = session.Flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	// Close last printer => should write everything
-	session.ClosePrinter(expectedPrinter20b)
+	session.ClosePrinter(expectedPrinter20b, "msg")
 
 	session.NotifyPrinter().Out("notif4,")
 
@@ -457,7 +457,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,"+"30a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	err = session.End()
+	err = session.End("msg")
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,"+"30a-1,"+"notif3,notif4,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
@@ -506,13 +506,13 @@ func TestSession_Timeout(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,10a1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	session.ClosePrinter(expectedPrinter20a)
+	session.ClosePrinter(expectedPrinter20a, "msg")
 
 	err = session.Flush()
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,10a1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
-	session.ClosePrinter(expectedPrinter10a)
+	session.ClosePrinter(expectedPrinter10a, "msg")
 
 	err = session.Flush()
 	assert.NoError(t, err)

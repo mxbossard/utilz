@@ -14,17 +14,13 @@ import (
 	"mby.fr/utils/printz"
 )
 
-const (
-	serializedExtension = ".ser"
-	extraTimeout        = 20 * time.Millisecond
-)
-
 type printer struct {
 	printz.ClosingPrinter
 
 	name string
 	// open bool
 	open          bool
+	closeMessage  string
 	consolidated  bool
 	priorityOrder int
 
@@ -70,6 +66,7 @@ type session struct {
 	Name             string
 	PriorityOrder    int
 	Started, Ended   bool
+	endMessage       string
 	printed          bool
 	flushed, tailed  bool
 	cleared          bool
@@ -101,28 +98,22 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 		panic("cannot get printer of empty name")
 	}
 
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// FIXME: should printer be getable & writable if session not started yet ?
 	if !s.Started {
 		panic(fmt.Errorf("session: [%s] not started yet", s.Name))
 	}
 
 	if s.Ended {
-		panic(fmt.Errorf("session: [%s] already ended", s.Name))
+		panic(fmt.Errorf("session: [%s] already ended with message: %s", s.Name, s.endMessage))
 	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	if s.timeouted != nil {
 		panic(fmt.Sprintf("cannot get printer for session [%s] timeouted after: %s", s.Name, *s.timeouted))
 	}
 
-	// FIXME: printer should be getable & writable if session not started yet
-	if !s.Started {
-		panic(fmt.Sprintf("cannot get printer for session [%s] not started", s.Name))
-	}
-	if s.Ended {
-		panic(fmt.Sprintf("cannot get printer for session [%s] already ended", s.Name))
-	}
 	if prtr, ok := s.printers[name]; ok {
 		return prtr
 	}
@@ -135,7 +126,7 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	return p.ClosingPrinter
 }
 
-func (s *session) closePrinter(name string) error {
+func (s *session) closePrinter(name, message string) error {
 	// Closing the printer do not close the underlying files
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -149,6 +140,7 @@ func (s *session) closePrinter(name string) error {
 		// set consolidated to false to enforce a final consolidation
 		prtr.consolidated = false
 		prtr.open = false
+		prtr.closeMessage = message
 
 	} else {
 		return fmt.Errorf("no printer opened with name: [%s]", name)
@@ -158,8 +150,8 @@ func (s *session) closePrinter(name string) error {
 	return nil
 }
 
-func (s *session) ClosePrinter(name string) error {
-	return s.closePrinter(name)
+func (s *session) ClosePrinter(name, message string) error {
+	return s.closePrinter(name, message)
 }
 
 func (s *session) NotifyPrinter() printz.Printer {
@@ -171,7 +163,7 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 		return fmt.Errorf("cannot start session [%s] timeouted after: %s", s.Name, *s.timeouted)
 	}
 	if s.Ended {
-		return fmt.Errorf("cannot start session: [%s] already ended", s.Name)
+		return fmt.Errorf("cannot start session: [%s] already ended with message: %s", s.Name, s.endMessage)
 	}
 	if s.Started {
 		// already started
@@ -203,7 +195,7 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 			for _, tcb := range s.timeoutCallbacks {
 				tcb(s)
 			}
-			err := s.End()
+			err := s.End(fmt.Sprintf("reach session timeout after %s", timeout))
 			if err != nil {
 				panic(err)
 			}
@@ -214,14 +206,15 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 	return
 }
 
-func (s *session) End() (err error) {
+func (s *session) End(message string) (err error) {
 	if s.Ended {
 		return
 	}
+	s.endMessage = message
 
 	// close all opened printers
 	for _, prtr := range s.printers {
-		err = s.closePrinter(prtr.name)
+		err = s.closePrinter(prtr.name, message)
 		if err != nil {
 			return err
 		}
@@ -344,7 +337,7 @@ func (s *session) consolidatePrinter(prtr *printer) error {
 	// fmt.Printf("flushed printer: [%s] ; cursor: [%d] ; flushed: [%v] ; closed: [%v]\n", prtr.name, prtr.cursorOut, prtr.flushed, prtr.closed)
 
 	if !prtr.open {
-		err = prtr.Close(fmt.Sprintf("printer: %s was consolidated", prtr.name))
+		err = prtr.Close(fmt.Sprintf("printer: %s closed with message: %s", prtr.name, prtr.closeMessage))
 		if err != nil {
 			return err
 		}

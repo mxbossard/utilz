@@ -58,6 +58,18 @@ const (
 	bufLen            = 1024
 )
 
+const (
+	tmpDirFileMode        = 0760
+	notifierPrinterName   = "_-_notifier"
+	continuousFlushPeriod = 1 * time.Millisecond
+	lockFilename          = ".lock"
+)
+
+const (
+	serializedExtension = ".ser"
+	extraTimeout        = 20 * time.Millisecond
+)
+
 type Sink interface {
 	Session(name string, priority int) *session
 	NotifyPrinter() printz.Printer
@@ -75,7 +87,7 @@ type Sink interface {
 
 type Session interface {
 	Printer(name string, priority int) printz.Printer
-	ClosePrinter(name string) error
+	ClosePrinter(name, message string) error
 	NotifyPrinter() printz.Printer
 
 	// Consolidate session outputs
@@ -88,7 +100,7 @@ type Session interface {
 	Start(timeout time.Duration, timeoutCallbacks ...func(Session)) error
 
 	// End the session
-	End() error
+	End(message string) error
 }
 
 type Tailer interface {
