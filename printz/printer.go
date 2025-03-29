@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"mby.fr/utils/ansi"
+	"mby.fr/utils/anzi"
 	"mby.fr/utils/errorz"
-	"mby.fr/utils/format"
+	"mby.fr/utils/formatz"
 )
 
 // Printer responsible for printing messages in outputs (example: print with colors, without colors, ...)
@@ -31,11 +31,11 @@ type Printer interface {
 	RecoverableOut(...interface{}) error
 	Out(...interface{})
 	Outf(string, ...interface{})
-	ColoredOutf(ansi.Color, string, ...interface{})
+	ColoredOutf(anzi.Color, string, ...interface{})
 	RecoverableErr(...interface{}) error
 	Err(...interface{})
 	Errf(string, ...interface{})
-	ColoredErrf(ansi.Color, string, ...interface{})
+	ColoredErrf(anzi.Color, string, ...interface{})
 	LastPrint() time.Time
 	Outputs() Outputs
 }
@@ -88,8 +88,8 @@ func (p *basicPrinter) Outf(s string, params ...interface{}) {
 	p.Out(s)
 }
 
-func (p *basicPrinter) ColoredOutf(color ansi.Color, s string, params ...interface{}) {
-	s = format.Sprintf(color, s, ansiFormatParams(color, params...)...)
+func (p *basicPrinter) ColoredOutf(color anzi.Color, s string, params ...interface{}) {
+	s = formatz.Sprintf(color, s, ansiFormatParams(color, params...)...)
 	p.Out(s)
 }
 
@@ -114,8 +114,8 @@ func (p *basicPrinter) Errf(s string, params ...interface{}) {
 	p.Err(s)
 }
 
-func (p *basicPrinter) ColoredErrf(color ansi.Color, s string, params ...interface{}) {
-	s = format.Sprintf(color, s, ansiFormatParams(color, params...)...)
+func (p *basicPrinter) ColoredErrf(color anzi.Color, s string, params ...interface{}) {
+	s = formatz.Sprintf(color, s, ansiFormatParams(color, params...)...)
 	p.Err(s)
 }
 
@@ -157,7 +157,7 @@ func stringify(obj interface{}) (str string, err error) {
 		}
 
 		if o.Format != "" {
-			content = fmt.Sprintf("%s%s%s", o.Format, content, ansi.Reset)
+			content = fmt.Sprintf("%s%s%s", o.Format, content, anzi.Reset)
 		}
 
 		str = content
@@ -257,7 +257,7 @@ func (p *closingPrinter) Outf(s string, params ...interface{}) {
 	p.Printer.Outf(s, params...)
 }
 
-func (p *closingPrinter) ColoredOutf(color ansi.Color, s string, params ...interface{}) {
+func (p *closingPrinter) ColoredOutf(color anzi.Color, s string, params ...interface{}) {
 	if p.closed {
 		panic(fmt.Errorf("printer already closed with message: [%s]", p.message))
 	}
@@ -285,7 +285,7 @@ func (p *closingPrinter) Errf(s string, params ...interface{}) {
 	p.Printer.Errf(s, params...)
 }
 
-func (p *closingPrinter) ColoredErrf(color ansi.Color, s string, params ...interface{}) {
+func (p *closingPrinter) ColoredErrf(color anzi.Color, s string, params ...interface{}) {
 	if p.closed {
 		panic(fmt.Errorf("printer already closed with message: [%s]", p.message))
 	}

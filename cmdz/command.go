@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"mby.fr/utils/inout"
-	"mby.fr/utils/promise"
-	"mby.fr/utils/stringz"
+	"mby.fr/utils/inoutz"
+	"mby.fr/utils/promiz"
+	"mby.fr/utils/ztring"
 )
 
 type failure struct {
@@ -26,7 +26,7 @@ type failure struct {
 
 func (f failure) Error() (msg string) {
 	if f.reporter != nil {
-		stderrSummary := stringz.SummaryRatio(f.reporter.ReportError(), 128, 0.2)
+		stderrSummary := ztring.SummaryRatio(f.reporter.ReportError(), 128, 0.2)
 		msg = fmt.Sprintf("Failing with ResultCode: %d executing: [%s] ! stderr: %s", f.Rc, f.reporter.String(), stderrSummary)
 	}
 	return
@@ -93,13 +93,13 @@ type cmdz struct {
 	cmdCheckpoint  exec.Cmd
 	fallbackConfig *config
 
-	stdinRecord  inout.RecordingReader
-	stdoutRecord inout.RecordingWriter
-	stderrRecord inout.RecordingWriter
+	stdinRecord  inoutz.RecordingReader
+	stdoutRecord inoutz.RecordingWriter
+	stderrRecord inoutz.RecordingWriter
 
-	inProcesser  inout.ProcessingReader
-	outProcesser inout.ProcessingWriter
-	errProcesser inout.ProcessingWriter
+	inProcesser  inoutz.ProcessingReader
+	outProcesser inoutz.ProcessingWriter
+	errProcesser inoutz.ProcessingWriter
 
 	exitCodes []int
 	// FIXME: replace exitCodes by Executions
@@ -158,13 +158,13 @@ func (e *cmdz) SetOutputs(stdout, stderr io.Writer) Executer {
 
 func (e *cmdz) initProcessers() {
 	if e.inProcesser == nil {
-		e.inProcesser = inout.NewProcessingStreamReader(nil)
+		e.inProcesser = inoutz.NewProcessingStreamReader(nil)
 	}
 	if e.outProcesser == nil {
-		e.outProcesser = inout.NewProcessingStreamWriter(nil)
+		e.outProcesser = inoutz.NewProcessingStreamWriter(nil)
 	}
 	if e.errProcesser == nil {
-		e.errProcesser = inout.NewProcessingStreamWriter(nil)
+		e.errProcesser = inoutz.NewProcessingStreamWriter(nil)
 	}
 }
 
@@ -428,7 +428,7 @@ func (e *cmdz) BlockRun() (rc int, err error) {
 }
 
 func (e *cmdz) AsyncRun() *execPromise {
-	p := promise.New(func(resolve func(int), reject func(error)) {
+	p := promiz.New(func(resolve func(int), reject func(error)) {
 		rc, err := e.BlockRun()
 		if err != nil {
 			reject(err)

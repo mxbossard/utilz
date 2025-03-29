@@ -5,18 +5,18 @@ import (
 	"context"
 	//"fmt"
 
-	"mby.fr/utils/promise"
+	"mby.fr/utils/promiz"
 )
 
 func AsyncRunAll(execs ...Executer) *execsPromise {
-	var promises []*promise.Promise[int]
+	var promises []*promiz.Promise[int]
 	for _, e := range execs {
 		p := e.AsyncRun()
 		promises = append(promises, p)
 	}
 
 	ctx := context.Background()
-	p := promise.All[int](ctx, promises...)
+	p := promiz.All[int](ctx, promises...)
 	return p
 }
 
@@ -25,19 +25,19 @@ func WaitAllResults(p *execsPromise) (*[]int, error) {
 	return p.Await(ctx)
 }
 
-func AsyncRunBest(execs ...Executer) *promise.Promise[promise.BestResults[int]] {
-	var promises []*promise.Promise[int]
+func AsyncRunBest(execs ...Executer) *promiz.Promise[promiz.BestResults[int]] {
+	var promises []*promiz.Promise[int]
 	for _, e := range execs {
 		p := e.AsyncRun()
 		promises = append(promises, p)
 	}
 
 	ctx := context.Background()
-	p := promise.Best[int](ctx, promises...)
+	p := promiz.Best[int](ctx, promises...)
 	return p
 }
 
-func WaitBestResults(p *promise.Promise[promise.BestResults[int]]) (*promise.BestResults[int], error) {
+func WaitBestResults(p *promiz.Promise[promiz.BestResults[int]]) (*promiz.BestResults[int], error) {
 	ctx := context.Background()
 	br, err := p.Await(ctx)
 	if err != nil {

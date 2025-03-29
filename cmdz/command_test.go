@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"mby.fr/utils/inout"
-	"mby.fr/utils/promise"
+	"mby.fr/utils/inoutz"
+	"mby.fr/utils/promiz"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -271,7 +271,7 @@ func TestAsyncRun(t *testing.T) {
 	assert.Equal(t, "", stderr2.String())
 
 	ctx := context.Background()
-	p := promise.All(ctx, p1, p2)
+	p := promiz.All(ctx, p1, p2)
 
 	val, err := p.Await(ctx)
 	require.NoError(t, err)
@@ -432,7 +432,7 @@ func TestInputProcesser(t *testing.T) {
 	assert.Equal(t, "", p.StderrRecord())
 
 	// Simple prefix processer
-	prefixProcessor := inout.StringLineProcesser(func(in string) (out string, err error) {
+	prefixProcessor := inoutz.StringLineProcesser(func(in string) (out string, err error) {
 		return "PREFIX" + in, nil
 	})
 	p = Cmd("cat")
@@ -447,7 +447,7 @@ func TestInputProcesser(t *testing.T) {
 	assert.Equal(t, "", p.StderrRecord())
 
 	// Reverse config order
-	prefixProcessor = inout.StringLineProcesser(func(in string) (out string, err error) {
+	prefixProcessor = inoutz.StringLineProcesser(func(in string) (out string, err error) {
 		return "PREFIX" + in, nil
 	})
 	p = Cmd("cat")
@@ -492,7 +492,7 @@ func TestOutputProcesser(t *testing.T) {
 	assert.Equal(t, "", werr.String())
 
 	// Simple prefix processer
-	prefixProcessor := inout.StringLineProcesser(func(in string) (out string, err error) {
+	prefixProcessor := inoutz.StringLineProcesser(func(in string) (out string, err error) {
 		return "PREFIX" + in, nil
 	})
 	p = Sh("echo bar; >&2 echo baz")
@@ -510,7 +510,7 @@ func TestOutputProcesser(t *testing.T) {
 	assert.Equal(t, "baz\n", werr.String())
 
 	// Reverse config order
-	prefixProcessor = inout.StringLineProcesser(func(in string) (out string, err error) {
+	prefixProcessor = inoutz.StringLineProcesser(func(in string) (out string, err error) {
 		return "PREFIX" + in, nil
 	})
 	p = Sh("echo bar")
@@ -528,7 +528,7 @@ func TestOutputProcesser(t *testing.T) {
 	assert.Equal(t, "", werr.String())
 
 	// Simple prefix processer
-	prefixProcessor = inout.StringLineProcesser(func(in string) (out string, err error) {
+	prefixProcessor = inoutz.StringLineProcesser(func(in string) (out string, err error) {
 		return "PREFIX" + in, nil
 	})
 	p = Sh(">&2 echo baz")
@@ -546,7 +546,7 @@ func TestOutputProcesser(t *testing.T) {
 	assert.Equal(t, "PREFIXbaz\n", werr.String())
 
 	// Reverse config order
-	prefixProcessor = inout.StringLineProcesser(func(in string) (out string, err error) {
+	prefixProcessor = inoutz.StringLineProcesser(func(in string) (out string, err error) {
 		return "PREFIX" + in, nil
 	})
 	p = Sh(">&2 echo baz")

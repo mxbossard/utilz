@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"mby.fr/utils/stringz"
+	"mby.fr/utils/ztring"
 )
 
 var commandMock *CmdMock
@@ -35,8 +35,8 @@ func (m CmdMock) Mock(c *exec.Cmd) int {
 		assert.NoError(m.t, err, "cmdz mock cannot copy stderr !")
 	}
 
-	outSummary := stringz.SummaryRatio(outBuffer.String(), 128, .2)
-	errSummary := stringz.SummaryRatio(errBuffer.String(), 128, .2)
+	outSummary := ztring.SummaryRatio(outBuffer.String(), 128, .2)
+	errSummary := ztring.SummaryRatio(errBuffer.String(), 128, .2)
 	textCmd := strings.Join(c.Args, " ")
 	log.Printf("Test: %s Mocked cmd execution: [%s] returned RC=%d STDOUT=[%s] STDERR=[%s]", m.t.Name(), textCmd, mockedRc, outSummary, errSummary)
 

@@ -6,26 +6,26 @@ import (
 	"io"
 	"log/slog"
 
-	"mby.fr/utils/ansi"
-	"mby.fr/utils/format"
+	"mby.fr/utils/anzi"
+	"mby.fr/utils/formatz"
 )
 
 func levelAnsiColor(l slog.Level) (string, string) {
 	switch {
 	case l < LevelPerf:
-		return string(ansi.BoldHiWhite), string(ansi.HiWhite)
+		return string(anzi.BoldHiWhite), string(anzi.HiWhite)
 	case l < LevelDebug:
-		return string(ansi.BoldHiGreen), string(ansi.HiGreen)
+		return string(anzi.BoldHiGreen), string(anzi.HiGreen)
 	case l < LevelInfo:
-		return string(ansi.BoldHiCyan), string(ansi.HiCyan)
+		return string(anzi.BoldHiCyan), string(anzi.HiCyan)
 	case l < LevelWarn:
-		return string(ansi.BoldBlue), string(ansi.HiBlue)
+		return string(anzi.BoldBlue), string(anzi.HiBlue)
 	case l < LevelError:
-		return string(ansi.BoldHiYellow), string(ansi.HiYellow)
+		return string(anzi.BoldHiYellow), string(anzi.HiYellow)
 	case l < LevelFatal:
-		return string(ansi.BoldHiRed), string(ansi.HiRed)
+		return string(anzi.BoldHiRed), string(anzi.HiRed)
 	default:
-		return string(ansi.BoldHiPurple), string(ansi.HiPurple)
+		return string(anzi.BoldHiPurple), string(anzi.HiPurple)
 	}
 }
 
@@ -49,19 +49,19 @@ func (h *coloredHandler) Handle(ctx context.Context, r slog.Record) error {
 
 	lvl := r.Level
 	hiColor, color := levelAnsiColor(lvl)
-	state.appendString(" " + hiColor + levelShortLabel(lvl) + string(ansi.Reset) + " ")
+	state.appendString(" " + hiColor + levelShortLabel(lvl) + string(anzi.Reset) + " ")
 	if h.uh.qualifier != "" || defaultPart != "" {
 		part := ""
 		if defaultPart != "" {
 			part = fmt.Sprintf("%s:", defaultPart)
 		}
-		qualifier := format.PadLeft(h.uh.qualifier, QualifierPadding)
-		qualifier = format.TruncateLeftPrefix(qualifier, QualifierPadding, "...")
-		q := fmt.Sprintf("[%s%s%s%s] ", part, string(ansi.BoldWhite), qualifier, string(ansi.Reset))
+		qualifier := formatz.PadLeft(h.uh.qualifier, QualifierPadding)
+		qualifier = formatz.TruncateLeftPrefix(qualifier, QualifierPadding, "...")
+		q := fmt.Sprintf("[%s%s%s%s] ", part, string(anzi.BoldWhite), qualifier, string(anzi.Reset))
 		state.appendString(q)
 	}
 
-	state.appendString(color + r.Message + string(ansi.Reset))
+	state.appendString(color + r.Message + string(anzi.Reset))
 
 	state.appendNonBuiltIns(r)
 

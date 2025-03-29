@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"mby.fr/utils/inout"
+	"mby.fr/utils/inoutz"
 )
 
 // Outputs responsible for keeping reference of outputs writers (example: stdout, file, ...)
@@ -23,7 +23,7 @@ type Outputs interface {
 
 type BasicOutputs struct {
 	*sync.Mutex
-	out, err  *inout.CallbackWriter
+	out, err  *inoutz.CallbackWriter
 	flushed   bool
 	lastPrint time.Time
 }
@@ -32,7 +32,7 @@ func (o *BasicOutputs) Flush() error {
 	o.Lock()
 	defer o.Unlock()
 
-	outs := []*inout.CallbackWriter{o.out, o.err}
+	outs := []*inoutz.CallbackWriter{o.out, o.err}
 	for _, out := range outs {
 		f, ok := out.Nested.(Flusher)
 		if ok {
@@ -66,8 +66,8 @@ func (o *BasicOutputs) LastPrint() time.Time {
 	return o.lastPrint
 }
 
-func callbackWriter(o *BasicOutputs, w io.Writer) (cbw *inout.CallbackWriter) {
-	cbw = &inout.CallbackWriter{}
+func callbackWriter(o *BasicOutputs, w io.Writer) (cbw *inoutz.CallbackWriter) {
+	cbw = &inoutz.CallbackWriter{}
 	cbw.Nested = w
 	cbw.Callback = func(p []byte) {
 		o.Lock()

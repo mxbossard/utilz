@@ -10,7 +10,7 @@ import (
 	"os"
 	"text/template"
 
-	"mby.fr/utils/inout"
+	"mby.fr/utils/inoutz"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 var (
 	defaultLogLevel                  *slog.LevelVar
 	defaultHandlerOptions            *slog.HandlerOptions
-	defaultOutput                    *inout.WriterProxy
+	defaultOutput                    *inoutz.WriterProxy
 	defaultHandlerProxy              *handlerProxy
 	defaultPart                      string
 	displayPerfStartTimerAsTrace     = true
@@ -76,7 +76,7 @@ func (h handlerProxy) WithGroup(name string) slog.Handler {
 func init() {
 	defaultLogLevel = &slog.LevelVar{}
 	defaultHandlerOptions = &slog.HandlerOptions{}
-	defaultOutput = &inout.WriterProxy{}
+	defaultOutput = &inoutz.WriterProxy{}
 	defaultHandlerProxy = &handlerProxy{}
 
 	SetLogLevelThreshold(LevelError)

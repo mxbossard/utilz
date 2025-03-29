@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"mby.fr/utils/collections"
-	"mby.fr/utils/promise"
-	"mby.fr/utils/stringz"
+	"mby.fr/utils/collectionz"
+	"mby.fr/utils/promiz"
+	"mby.fr/utils/ztring"
 )
 
 // IDEAS: Sequence() => Config() Parallel(config) Serial(config) AddExecuter(config)
@@ -122,21 +122,21 @@ func (e *seq) Stderr() io.Writer {
 
 // ----- Recorder methods -----
 func (s *seq) StdinRecord() string {
-	stdins := collections.Map[Executer, string](&s.inners, func(e Executer) string {
+	stdins := collectionz.Map[Executer, string](&s.inners, func(e Executer) string {
 		return e.StdinRecord()
 	})
 	return strings.Join(stdins, "")
 }
 
 func (s *seq) StdoutRecord() string {
-	stdouts := collections.Map[Executer, string](&s.outers, func(e Executer) string {
+	stdouts := collectionz.Map[Executer, string](&s.outers, func(e Executer) string {
 		return e.StdoutRecord()
 	})
 	return strings.Join(stdouts, "")
 }
 
 func (s *seq) StderrRecord() string {
-	stderrs := collections.Map[Executer, string](&s.outers, func(e Executer) string {
+	stderrs := collectionz.Map[Executer, string](&s.outers, func(e Executer) string {
 		return e.StderrRecord()
 	})
 	return strings.Join(stderrs, "")
@@ -236,11 +236,11 @@ func (s *serialSeq) Add(execs ...Executer) *serialSeq {
 }
 
 func (s serialSeq) String() string {
-	return stringz.JoinStringers(s.seq.execs, "\n")
+	return ztring.JoinStringers(s.seq.execs, "\n")
 }
 
 func (s serialSeq) ReportError() string {
-	errors := collections.Map[Executer, string](&s.seq.execs, func(e Executer) string {
+	errors := collectionz.Map[Executer, string](&s.seq.execs, func(e Executer) string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
@@ -265,7 +265,7 @@ func (s *serialSeq) BlockRun() (rc int, err error) {
 }
 
 func (s *serialSeq) AsyncRun() *execPromise {
-	p := promise.New(func(resolve func(int), reject func(error)) {
+	p := promiz.New(func(resolve func(int), reject func(error)) {
 		rc, err := s.BlockRun()
 		if err != nil {
 			reject(err)
@@ -318,7 +318,7 @@ type andSeq struct {
 }
 
 func (s andSeq) String() string {
-	return stringz.JoinStringers(s.seq.execs, " && ")
+	return ztring.JoinStringers(s.seq.execs, " && ")
 }
 
 type orSeq struct {
@@ -353,7 +353,7 @@ func (e *orSeq) SetOutputs(stdout, stderr io.Writer) Executer {
 }
 
 func (s orSeq) String() string {
-	return stringz.JoinStringers(s.seq.execs, " || ")
+	return ztring.JoinStringers(s.seq.execs, " || ")
 }
 
 func (s *orSeq) Retries(count, delayInMs int) Executer {
@@ -408,7 +408,7 @@ func (s *orSeq) Add(execs ...Executer) *orSeq {
 }
 
 func (s orSeq) ReportError() string {
-	errors := collections.Map[Executer, string](&s.seq.execs, func(e Executer) string {
+	errors := collectionz.Map[Executer, string](&s.seq.execs, func(e Executer) string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
@@ -433,7 +433,7 @@ func (s *orSeq) BlockRun() (rc int, err error) {
 }
 
 func (s *orSeq) AsyncRun() *execPromise {
-	p := promise.New(func(resolve func(int), reject func(error)) {
+	p := promiz.New(func(resolve func(int), reject func(error)) {
 		rc, err := s.BlockRun()
 		if err != nil {
 			reject(err)
@@ -577,11 +577,11 @@ func (s *parallelSeq) Add(execs ...Executer) *parallelSeq {
 }
 
 func (s parallelSeq) String() string {
-	return stringz.JoinStringers(s.seq.execs, "\n")
+	return ztring.JoinStringers(s.seq.execs, "\n")
 }
 
 func (s parallelSeq) ReportError() string {
-	errors := collections.Map[Executer, string](&s.seq.execs, func(e Executer) string {
+	errors := collectionz.Map[Executer, string](&s.seq.execs, func(e Executer) string {
 		return e.ReportError()
 	})
 	return strings.Join(errors, "\n")
@@ -605,7 +605,7 @@ func (s *parallelSeq) BlockRun() (rc int, err error) {
 }
 
 func (s *parallelSeq) AsyncRun() *execPromise {
-	return promise.New(func(resolve func(int), reject func(error)) {
+	return promiz.New(func(resolve func(int), reject func(error)) {
 		rc, err := s.BlockRun()
 		if err != nil {
 			reject(err)

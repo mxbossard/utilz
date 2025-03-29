@@ -4,8 +4,8 @@ import (
 	"io"
 	"time"
 
-	"mby.fr/utils/inout"
-	"mby.fr/utils/promise"
+	"mby.fr/utils/inoutz"
+	"mby.fr/utils/promiz"
 )
 
 // []byte                       => |Executer|     => (int, []byte, []byte, error)
@@ -17,14 +17,14 @@ import (
 //                                 |Formatter|    => (O, E)
 
 type (
-	execPromise   = promise.Promise[int]
-	execsPromise  = promise.Promise[[]int]
-	bytesPromise  = promise.Promise[[]byte]
-	stringPromise = promise.Promise[string]
+	execPromise   = promiz.Promise[int]
+	execsPromise  = promiz.Promise[[]int]
+	bytesPromise  = promiz.Promise[[]byte]
+	stringPromise = promiz.Promise[string]
 
-	IOProcesser               = inout.IOProcesser
-	IOProcesserCallback       = inout.IOProcesserCallback
-	StringIOProcesserCallback = inout.StringIOProcesserCallback
+	IOProcesser               = inoutz.IOProcesser
+	IOProcesserCallback       = inoutz.IOProcesserCallback
+	StringIOProcesserCallback = inoutz.StringIOProcesserCallback
 
 	Inner[T any] interface {
 		Stdin() io.Reader

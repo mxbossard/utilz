@@ -19,7 +19,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"mby.fr/utils/ansi"
+	"mby.fr/utils/anzi"
 )
 
 var groupPool = sync.Pool{New: func() any {
@@ -285,7 +285,7 @@ func valueAppend(dst []byte, v slog.Value) []byte {
 
 func truncateStringValue(in string, level slog.Level) string {
 	if level > LevelTrace {
-		return ansi.TruncateMid(in, TruncatedArgsLength, "[...]")
+		return anzi.TruncateMid(in, TruncatedArgsLength, "[...]")
 	}
 	return in
 }

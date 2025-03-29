@@ -4,37 +4,37 @@ import (
 	"fmt"
 	"log"
 
-	"mby.fr/utils/ansi"
+	"mby.fr/utils/anzi"
 )
 
 // ANSI formatting for content
 type ansiFormatted struct {
-	Format            ansi.Color
+	Format            anzi.Color
 	Content           interface{}
 	LeftPad, RightPad int
 }
 
-func NewAnsi(format ansi.Color, content any) (f ansiFormatted) {
+func NewAnsi(format anzi.Color, content any) (f ansiFormatted) {
 	f.Format = format
 	f.Content = content
 	return
 }
 
-func NewAnsiLeftPadded(format ansi.Color, content any, padding int) (f ansiFormatted) {
+func NewAnsiLeftPadded(format anzi.Color, content any, padding int) (f ansiFormatted) {
 	f.Format = format
 	f.Content = content
 	f.LeftPad = padding
 	return
 }
 
-func NewAnsiRightPadded(format ansi.Color, content any, padding int) (f ansiFormatted) {
+func NewAnsiRightPadded(format anzi.Color, content any, padding int) (f ansiFormatted) {
 	f.Format = format
 	f.Content = content
 	f.RightPad = padding
 	return
 }
 
-func ansiFormatParams(color ansi.Color, params ...any) (formattedParams []any) {
+func ansiFormatParams(color anzi.Color, params ...any) (formattedParams []any) {
 	for _, p := range params {
 		if f, ok := p.(ansiFormatted); ok {
 			s, err := stringify(f)
@@ -54,6 +54,6 @@ func Sprintf(format string, params ...any) string {
 	return fmt.Sprintf(format, ansiFormatParams("", params...)...)
 }
 
-func SColoredPrintf(color ansi.Color, format string, params ...any) string {
+func SColoredPrintf(color anzi.Color, format string, params ...any) string {
 	return fmt.Sprintf(format, ansiFormatParams(color, params...)...)
 }
