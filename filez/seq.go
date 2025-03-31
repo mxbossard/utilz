@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"mby.fr/utils/errorz"
+	"github.com/mxbossard/utilz/errorz"
 )
 
 func InitSeq(pathes ...string) (err error) {

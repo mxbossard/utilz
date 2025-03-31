@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"mby.fr/utils/anzi"
-	"mby.fr/utils/errorz"
-	"mby.fr/utils/formatz"
+	"github.com/mxbossard/utilz/anzi"
+	"github.com/mxbossard/utilz/errorz"
+	"github.com/mxbossard/utilz/formatz"
 )
 
 // Printer responsible for printing messages in outputs (example: print with colors, without colors, ...)

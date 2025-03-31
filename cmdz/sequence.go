@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"mby.fr/utils/collectionz"
-	"mby.fr/utils/promiz"
-	"mby.fr/utils/ztring"
+	"github.com/mxbossard/utilz/collectionz"
+	"github.com/mxbossard/utilz/promiz"
+	"github.com/mxbossard/utilz/ztring"
 )
 
 // IDEAS: Sequence() => Config() Parallel(config) Serial(config) AddExecuter(config)

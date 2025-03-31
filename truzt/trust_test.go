@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mby.fr/utils/tezt"
+	"github.com/mxbossard/utilz/tezt"
 )
 
 func assertSignatureOk(t *testing.T, actual string, err error, msg string) {

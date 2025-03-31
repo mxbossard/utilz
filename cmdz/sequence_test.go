@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	//"mby.fr/utils/promise"
+	//"github.com/mxbossard/utilz/promise"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

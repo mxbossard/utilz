@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"mby.fr/utils/anzi"
-	"mby.fr/utils/formatz"
+	"github.com/mxbossard/utilz/anzi"
+	"github.com/mxbossard/utilz/formatz"
 )
 
 const (

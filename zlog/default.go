@@ -10,7 +10,7 @@ import (
 	"os"
 	"text/template"
 
-	"mby.fr/utils/inoutz"
+	"github.com/mxbossard/utilz/inoutz"
 )
 
 const (

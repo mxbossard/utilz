@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"mby.fr/utils/collectionz"
-	"mby.fr/utils/filez"
-	"mby.fr/utils/printz"
+	"github.com/mxbossard/utilz/collectionz"
+	"github.com/mxbossard/utilz/filez"
+	"github.com/mxbossard/utilz/printz"
 )
 
 type printer struct {

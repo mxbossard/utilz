@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"mby.fr/utils/errorz"
+	"github.com/mxbossard/utilz/errorz"
 )
 
 type Promise[T any] struct {

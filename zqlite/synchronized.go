@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"mby.fr/utils/zql"
+	"github.com/mxbossard/utilz/zql"
 )
 
 func OpenSynchronizedDB(backingFile, opts string, busyTimeout time.Duration) (*zql.SynchronizedDB, error) {

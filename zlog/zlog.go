@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"mby.fr/utils/utilz"
+	"github.com/mxbossard/utilz/utilz"
 )
 
 func init() {

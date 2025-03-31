@@ -5,7 +5,7 @@ import (
 	"context"
 	//"fmt"
 
-	"mby.fr/utils/promiz"
+	"github.com/mxbossard/utilz/promiz"
 )
 
 func AsyncRunAll(execs ...Executer) *execsPromise {

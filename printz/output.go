@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"mby.fr/utils/inoutz"
+	"github.com/mxbossard/utilz/inoutz"
 )
 
 // Outputs responsible for keeping reference of outputs writers (example: stdout, file, ...)

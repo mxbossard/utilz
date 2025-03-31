@@ -14,8 +14,8 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"mby.fr/utils/filez"
-	"mby.fr/utils/zlog"
+	"github.com/mxbossard/utilz/filez"
+	"github.com/mxbossard/utilz/zlog"
 )
 
 func TestMain(m *testing.M) {

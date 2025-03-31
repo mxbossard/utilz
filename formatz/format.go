@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mby.fr/utils/anzi"
+	"github.com/mxbossard/utilz/anzi"
 )
 
 type Stringer interface {

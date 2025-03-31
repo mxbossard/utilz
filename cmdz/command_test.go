@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"mby.fr/utils/inoutz"
-	"mby.fr/utils/promiz"
+	"github.com/mxbossard/utilz/inoutz"
+	"github.com/mxbossard/utilz/promiz"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
-	"mby.fr/utils/zlog"
+	"github.com/mxbossard/utilz/zlog"
 )
 
 var (

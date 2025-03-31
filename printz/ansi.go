@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"mby.fr/utils/anzi"
+	"github.com/mxbossard/utilz/anzi"
 )
 
 // ANSI formatting for content

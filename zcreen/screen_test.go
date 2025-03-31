@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"mby.fr/utils/filez"
-	"mby.fr/utils/printz"
-	"mby.fr/utils/zlog"
+	"github.com/mxbossard/utilz/filez"
+	"github.com/mxbossard/utilz/printz"
+	"github.com/mxbossard/utilz/zlog"
 )
 
 func TestMain(m *testing.M) {

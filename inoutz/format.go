@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"mby.fr/utils/anzi"
+	"github.com/mxbossard/utilz/anzi"
 )
 
 // FIXME: For now this package only works for UTF-8

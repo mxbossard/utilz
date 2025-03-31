@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"mby.fr/utils/serializ"
+	"github.com/mxbossard/utilz/serializ"
 )
 
 var (

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"mby.fr/utils/scribble"
+	"github.com/mxbossard/utilz/scribble"
 )
 
 // a fish

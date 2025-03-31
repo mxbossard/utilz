@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"mby.fr/utils/cmdz"
-	"mby.fr/utils/utilz"
+	"github.com/mxbossard/utilz/cmdz"
+	"github.com/mxbossard/utilz/utilz"
 )
 
 type Status string

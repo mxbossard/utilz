@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"mby.fr/utils/inoutz"
-	"mby.fr/utils/promiz"
-	"mby.fr/utils/ztring"
+	"github.com/mxbossard/utilz/inoutz"
+	"github.com/mxbossard/utilz/promiz"
+	"github.com/mxbossard/utilz/ztring"
 )
 
 type failure struct {

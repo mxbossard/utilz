@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"mby.fr/utils/filez"
+	"github.com/mxbossard/utilz/filez"
 )
 
 func TestGetSession(t *testing.T) {

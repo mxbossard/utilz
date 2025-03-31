@@ -4,8 +4,8 @@ import (
 	"io"
 	"time"
 
-	"mby.fr/utils/inoutz"
-	"mby.fr/utils/promiz"
+	"github.com/mxbossard/utilz/inoutz"
+	"github.com/mxbossard/utilz/promiz"
 )
 
 // []byte                       => |Executer|     => (int, []byte, []byte, error)

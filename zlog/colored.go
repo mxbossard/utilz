@@ -6,8 +6,8 @@ import (
 	"io"
 	"log/slog"
 
-	"mby.fr/utils/anzi"
-	"mby.fr/utils/formatz"
+	"github.com/mxbossard/utilz/anzi"
+	"github.com/mxbossard/utilz/formatz"
 )
 
 func levelAnsiColor(l slog.Level) (string, string) {

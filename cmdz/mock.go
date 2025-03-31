@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"mby.fr/utils/ztring"
+	"github.com/mxbossard/utilz/ztring"
 )
 
 var commandMock *CmdMock

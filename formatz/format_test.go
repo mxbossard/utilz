@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"mby.fr/utils/anzi"
+	"github.com/mxbossard/utilz/anzi"
 )
 
 func TestUnformat(t *testing.T) {

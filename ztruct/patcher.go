@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
-	"mby.fr/utils/collectionz"
-	"mby.fr/utils/errorz"
+	"github.com/mxbossard/utilz/collectionz"
+	"github.com/mxbossard/utilz/errorz"
 )
 
 // Patcher API inspired by https://www.rfc-editor.org/rfc/rfc6902

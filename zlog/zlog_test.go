@@ -86,7 +86,7 @@ func TestNew_WithHandler(t *testing.T) {
 	logged := b.String()
 	assert.Contains(t, logged, "level=ERROR")
 	assert.Contains(t, logged, "msg=bar")
-	assert.Contains(t, logged, "qualifier=mby.fr/utils/zlog")
+	assert.Contains(t, logged, "qualifier=github.com/mxbossard/utilz/zlog")
 	assert.Contains(t, logged, "/zlog/zlog_test.go:")
 	assert.NotContains(t, logged, "/zlog/zlog.go:")
 }

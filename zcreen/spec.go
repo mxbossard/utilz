@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"mby.fr/utils/printz"
+	"github.com/mxbossard/utilz/printz"
 )
 
 /**

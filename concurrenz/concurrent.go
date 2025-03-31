@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"mby.fr/utils/errorz"
+	"github.com/mxbossard/utilz/errorz"
 )
 
 // For naming ideas cf: https://docs.oracle.com/javase/8/docs/api/java/util/function/package-summary.html

@@ -19,7 +19,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"mby.fr/utils/anzi"
+	"github.com/mxbossard/utilz/anzi"
 )
 
 var groupPool = sync.Pool{New: func() any {

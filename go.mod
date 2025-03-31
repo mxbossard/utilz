@@ -1,4 +1,4 @@
-module mby.fr/utils
+module github.com/mxbossard/utilz
 
 go 1.21.0
 
