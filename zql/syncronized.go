@@ -70,13 +70,13 @@ func (d *SynchronizedDB) open() error {
 		PRAGMA SYNCHRONOUS = OFF;
 		PRAGMA LOCKING_MODE = NORMAL;
 	`)
-	logger.Debug("SynchronizedDB opened")
+	logger.Trace("SynchronizedDB opened")
 	return err
 }
 
 func (d *SynchronizedDB) Close() error {
 	err := d.DB.Close()
-	logger.Debug("SynchronizedDB closed")
+	logger.Trace("SynchronizedDB closed")
 	return err
 }
 
@@ -114,7 +114,7 @@ func (d *SynchronizedDB) lock(session bool) (err error) {
 		return
 	}
 	//logger.Debug("SynchronizedDB locking ...", "fileLock", d.fileLock)
-	perf := logger.PerfTimer()
+	perf := logger.TraceTimer()
 	defer perf.End()
 
 	// FIXME: do we need to rebuild file lock on every lock ?
@@ -132,7 +132,6 @@ func (d *SynchronizedDB) lock(session bool) (err error) {
 			return err
 		}
 	}
-	logger.Perf("just acquired the lock", "lock_duration", perf.SinceStart())
 	d.fileLock = fileLock
 
 	if d.openCloseSync {

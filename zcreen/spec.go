@@ -116,6 +116,10 @@ type Tailer interface {
 	// tail notifications between sessions
 	TailAllBlocking(timeout time.Duration) error
 
+	// Continuously Tail supplied opened sessions in order until ends or timeout is reached.
+	// tail notifications between sessions
+	TailSuppliedBlocking(sessionNames []string, timeout time.Duration) error
+
 	// Tail ended session containing some flushed print not tailed.
 	Reclaim(session string) error
 

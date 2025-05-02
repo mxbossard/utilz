@@ -305,6 +305,64 @@ func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) e
 	return nil
 }
 
+// Flush continuously until all supplied sessions are ended.
+func (s *screenTailer) TailSuppliedBlocking(sessionNames []string, timeout time.Duration) error {
+	pt := logger.PerfTimer()
+	defer pt.End()
+
+	startTime := time.Now()
+
+	err := s.tailAll()
+	if err != nil {
+		return err
+	}
+
+	var notEnded []*session
+	for notEnded == nil || len(notEnded) > 0 {
+		notEndedNames := collectionz.Map(&notEnded, func(s *session) string { return s.Name })
+		if time.Since(startTime) > timeout {
+			err := errorz.Timeoutf(timeout, "TailSuppliedBlocking(), some sessions not ended after timeout: %s", notEndedNames)
+			return err
+		}
+
+		// Updating not ended session list
+		notEnded = nil
+		allSessions := collectionz.Values(s.sessions)
+		for _, s := range allSessions {
+			if collectionz.Contains(&sessionNames, s.Name) {
+				notEnded = append(notEnded, s)
+			}
+		}
+
+		var ended []int
+		for pos, s := range notEnded {
+			if s.Ended {
+				ended = append(ended, pos)
+			}
+		}
+		removed := 0
+		for _, pos := range ended {
+			notEnded = collectionz.RemoveFast(notEnded, pos-removed)
+			removed++
+		}
+
+		if len(notEnded) > 0 {
+			time.Sleep(continuousFlushPeriod)
+			err = s.scanSessions()
+			if err != nil {
+				return err
+			}
+		}
+		logger.Debug("TailAllBlocking flushAll ...", "notEnded", notEnded, "ended", ended)
+		err := s.tailAll()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Flush continuously until all sessions are ended.
 func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
 	pt := logger.PerfTimer()
@@ -679,7 +737,7 @@ func clearSessionsMap(sessions *map[string]*session, name string) error {
 }
 
 func lock(fl *flock.Flock) {
-	perf := logger.PerfTimer()
+	perf := logger.TraceTimer()
 	defer perf.End()
 
 	lockCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -694,7 +752,6 @@ func lock(fl *flock.Flock) {
 			panic(err)
 		}
 	}
-	logger.Perf("just acquired the lock", "lock_duration", perf.SinceStart())
 }
 
 func unlock(fl *flock.Flock) {
