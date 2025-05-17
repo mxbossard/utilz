@@ -3,8 +3,6 @@ package poolz
 import (
 	"sync"
 	"time"
-
-	"github.com/mxbossard/utilz/collectionz"
 )
 
 type Closer interface {
@@ -19,7 +17,7 @@ type Poolable interface {
 }
 
 type PoolCloser struct {
-	wrapper *openerCloserWrapper2
+	wrapper *openerCloserWrapper
 }
 
 func (s PoolCloser) PoolClose() error {
@@ -34,21 +32,25 @@ type Pool[K Poolable] interface {
 	SetMaxLifeTime(time.Duration)
 
 	Open() (K, error)
+
+	// Return count of Poolable available and in use.
+	Count() (int, int)
 }
 
-type openerCloserWrapper2 struct {
+type openerCloserWrapper struct {
 	wrapped Poolable
 
 	onClose   func() error
 	startIdle *time.Time
 	creation  *time.Time
+	outdated  bool
 }
 
-func (o openerCloserWrapper2) Get() Poolable {
+func (o openerCloserWrapper) Get() Poolable {
 	return o.wrapped
 }
 
-func (o openerCloserWrapper2) Close() error {
+func (o openerCloserWrapper) Close() error {
 	return o.onClose()
 }
 
@@ -61,7 +63,7 @@ type basicPool[K Poolable] struct {
 	maxIdleTime    *time.Duration
 	maxLifeTime    *time.Duration
 	inUse          int
-	available      []*openerCloserWrapper2
+	available      []*openerCloserWrapper
 	cleanerRunning bool
 }
 
@@ -72,23 +74,31 @@ func (p *basicPool[K]) startCleaner() {
 	p.cleanerRunning = true
 	for len(p.available)+p.inUse > 0 {
 		p.Lock()
-		var toClose []*openerCloserWrapper2
+		//var toClose []*openerCloserWrapper
 		for _, w := range p.available {
 			if p.maxIdleTime != nil && time.Since(*w.startIdle) > *p.maxIdleTime ||
 				p.maxLifeTime != nil && time.Since(*w.creation) > *p.maxLifeTime {
-				toClose = append(toClose, w)
+				w.outdated = true
+				//toClose = append(toClose, w)
 			}
 		}
 
-		for _, w := range toClose {
-			w.wrapped.Close()
-			p.available = collectionz.DeleteFast(p.available, w)
-		}
+		// for _, w := range toClose {
+		// 	w.wrapped.Close()
+		// 	p.available = collectionz.DeleteFast(p.available, w)
+		// }
 
 		p.Unlock()
 		time.Sleep(time.Second)
 	}
 	p.cleanerRunning = false
+}
+
+func (p *basicPool[K]) Count() (int, int) {
+	p.Lock()
+	defer p.Unlock()
+
+	return len(p.available), p.inUse
 }
 
 func (p *basicPool[K]) SetMaxOpen(n int) {
@@ -108,46 +118,51 @@ func (p *basicPool[K]) SetMaxLifeTime(d time.Duration) {
 }
 
 func (p *basicPool[K]) Open() (o K, err error) {
-	p.Lock()
-	defer p.Unlock()
-
 	defer func() {
 		go p.startCleaner()
 	}()
 
 	for {
+		p.Lock()
 		if len(p.available) > 0 {
 			// Take first OpenerCloser available
 			first := p.available[0]
 			p.inUse++
 			p.available = p.available[1:]
 			opened := (first.wrapped).(K)
+			p.Unlock()
 			return opened, nil
 		} else if p.inUse <= p.maxOpen {
 			// Build new OpenerCloser
 			newOc, err := p.factory()
 			if err != nil {
+				p.Unlock()
 				return o, err
 			}
 			err = newOc.Open()
 			if err != nil {
+				p.Unlock()
 				return o, err
 			}
 			now := time.Now()
-			wrapper := &openerCloserWrapper2{wrapped: newOc, creation: &now}
+			wrapper := &openerCloserWrapper{wrapped: newOc, creation: &now}
 			wrapper.onClose = func() error {
-				p.available = append(p.available, wrapper)
+				if !wrapper.outdated {
+					p.available = append(p.available, wrapper)
+					now := time.Now()
+					wrapper.startIdle = &now
+				}
 				p.inUse--
-				now := time.Now()
-				wrapper.startIdle = &now
 				return nil
 			}
 			p.inUse++
 			opened := (wrapper.wrapped).(K)
 			spy := PoolCloser{wrapper: wrapper}
 			opened.SetPoolCloser(spy)
+			p.Unlock()
 			return opened, err
 		}
+		p.Unlock()
 		time.Sleep(100 * time.Microsecond)
 	}
 }
