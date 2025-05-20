@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -66,18 +67,18 @@ func (d *SynchronizedDB) open() error {
 	}
 	d.DB = db
 
-	// FIXME: Add Configrable pragma
-	db.SetMaxOpenConns(5)
-	db.SetConnMaxIdleTime(time.Second)
+	// FIXME: Move Configuration & pragma into zqlite
+	db.SetMaxOpenConns(1)
+	db.SetConnMaxIdleTime(d.busyTimeout * 3)
 
 	// Config to increase DB speed : temp objets and transaction journal stored in memory.
-	_, err = db.Exec(`
-		PRAGMA busy_tymeout = 1000;
+	_, err = db.Exec(fmt.Sprintf(`
+		PRAGMA busy_timeout = %d;
 		PRAGMA TEMP_STORE = MEMORY;
 		PRAGMA JOURNAL_MODE = MEMORY;
 		PRAGMA SYNCHRONOUS = OFF;
 		PRAGMA LOCKING_MODE = NORMAL;
-	`) // PRAGMA read_uncommitted = true;
+	`, int64(d.busyTimeout/time.Millisecond))) // PRAGMA read_uncommitted = true;
 	logger.Trace("SynchronizedDB opened")
 	return err
 }
@@ -188,11 +189,16 @@ func (d *SynchronizedDB) unlock(session bool) (err error) {
 	return
 }
 
+func (d *SynchronizedDB) isRetryableError(err error) bool {
+	//return err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, sql.ErrConnDone) && !errors.Is(err, sql.ErrTxDone)
+	return err != nil && strings.Contains(err.Error(), "SQLITE_BUSY")
+}
+
 func (d *SynchronizedDB) retryOnError(f func() error) error {
 	err := f()
 	retries := 0
 	firstErr := err
-	if err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, sql.ErrConnDone) && !errors.Is(err, sql.ErrTxDone) {
+	if d.isRetryableError(err) {
 		// No retries for logic errors
 		start := time.Now()
 		for err != nil && time.Since(start) < d.maxDurationRetries {
@@ -206,7 +212,7 @@ func (d *SynchronizedDB) retryOnError(f func() error) error {
 			retries++
 		}
 
-		if err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, sql.ErrConnDone) && !errors.Is(err, sql.ErrTxDone) {
+		if d.isRetryableError(err) {
 			err = fmt.Errorf("SQL operation errored after %s (%d retries): %w \nfirst error: %w", time.Since(start), retries, err, firstErr)
 			panic(err)
 		} else {
