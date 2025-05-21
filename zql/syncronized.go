@@ -8,12 +8,14 @@ import (
 	"math/rand"
 	"os"
 	"runtime/debug"
-	"strings"
 	"time"
 
 	"github.com/gofrs/flock"
 	"github.com/mxbossard/utilz/zlog"
 )
+
+const tryLockPeriodMin = 10 * time.Microsecond
+const tryLockPeriodMax = 210 * time.Microsecond
 
 var (
 	// logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
@@ -37,13 +39,19 @@ type SynchronizedDB struct {
 	lockFile           string
 	fileLock           *flock.Flock
 	sessionLocked      bool
-	busyTimeout        time.Duration
+	lockTimeout        time.Duration
 	tryLockPeriod      time.Duration
 	maxDurationRetries time.Duration
 	driverName         string
 	datasourceName     string
 	openCloseSync      bool
 	dbOpen             bool
+	DbConfigurer       func(*sql.DB) error
+
+	// TODO implem vvv
+	PanicOnError     bool
+	RetryOnError     bool
+	IsRetryableError func(error) bool
 }
 
 func (d *SynchronizedDB) FileLockPath() string {
@@ -57,7 +65,12 @@ func (d *SynchronizedDB) Open() error {
 	}
 	defer d.unlock(false)
 
-	return d.open()
+	err = d.open()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (d *SynchronizedDB) open() error {
@@ -67,20 +80,15 @@ func (d *SynchronizedDB) open() error {
 	}
 	d.DB = db
 
-	// FIXME: Move Configuration & pragma into zqlite
-	db.SetMaxOpenConns(1)
-	db.SetConnMaxIdleTime(d.busyTimeout * 3)
+	if d.DbConfigurer != nil {
+		d.DbConfigurer(d.DB)
+	}
 
-	// Config to increase DB speed : temp objets and transaction journal stored in memory.
-	_, err = db.Exec(fmt.Sprintf(`
-		PRAGMA busy_timeout = %d;
-		PRAGMA TEMP_STORE = MEMORY;
-		PRAGMA JOURNAL_MODE = MEMORY;
-		PRAGMA SYNCHRONOUS = OFF;
-		PRAGMA LOCKING_MODE = NORMAL;
-	`, int64(d.busyTimeout/time.Millisecond))) // PRAGMA read_uncommitted = true;
-	logger.Trace("SynchronizedDB opened")
-	return err
+	return nil
+}
+
+func (d *SynchronizedDB) Config() error {
+	return nil
 }
 
 func (d *SynchronizedDB) Close() error {
@@ -129,7 +137,7 @@ func (d *SynchronizedDB) lock(session bool) (err error) {
 	// FIXME: do we need to rebuild file lock on every lock ?
 	fileLock := flock.New(d.lockFile)
 
-	lockingTimeout := d.busyTimeout * 3
+	lockingTimeout := d.lockTimeout * 3
 	lockCtx, cancel := context.WithTimeout(context.Background(), lockingTimeout)
 	defer cancel()
 	locked, err := fileLock.TryLockContext(lockCtx, d.tryLockPeriod)
@@ -191,21 +199,21 @@ func (d *SynchronizedDB) unlock(session bool) (err error) {
 
 func (d *SynchronizedDB) isRetryableError(err error) bool {
 	//return err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, sql.ErrConnDone) && !errors.Is(err, sql.ErrTxDone)
-	return err != nil && strings.Contains(err.Error(), "SQLITE_BUSY")
+	return err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, sql.ErrConnDone) && !errors.Is(err, sql.ErrTxDone) && (d.IsRetryableError != nil && d.IsRetryableError(err) || d.IsRetryableError == nil)
 }
 
-func (d *SynchronizedDB) retryOnError(f func() error) error {
+func (d *SynchronizedDB) processError(f func() error) error {
 	err := f()
 	retries := 0
 	firstErr := err
-	if d.isRetryableError(err) {
+	if d.RetryOnError && d.isRetryableError(err) {
 		// No retries for logic errors
 		start := time.Now()
 		for err != nil && time.Since(start) < d.maxDurationRetries {
-			if errors.Is(err, sql.ErrNoRows) || errors.Is(err, sql.ErrConnDone) || errors.Is(err, sql.ErrTxDone) {
-				// No retries for logic errors
-				break
-			}
+			// if errors.Is(err, sql.ErrNoRows) || errors.Is(err, sql.ErrConnDone) || errors.Is(err, sql.ErrTxDone) {
+			// 	// No retries for logic errors
+			// 	break
+			// }
 			sleepDuration := time.Duration(2000+rand.Intn(10000)) * time.Microsecond
 			time.Sleep(sleepDuration)
 			err = f()
@@ -220,6 +228,10 @@ func (d *SynchronizedDB) retryOnError(f func() error) error {
 		}
 	}
 
+	if err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, sql.ErrConnDone) && !errors.Is(err, sql.ErrTxDone) && d.PanicOnError {
+		panic(err)
+	}
+
 	return err
 }
 
@@ -232,7 +244,7 @@ func (d *SynchronizedDB) Exec(query string, args ...any) (r sql.Result, err erro
 	pt := logger.PerfTimer()
 	defer pt.End("query", query)
 
-	err = d.retryOnError(func() error {
+	err = d.processError(func() error {
 		r, err = d.DB.Exec(query, args...)
 		return err
 	})
@@ -249,7 +261,7 @@ func (d *SynchronizedDB) ExecContext(ctx context.Context, query string, args ...
 	pt := logger.PerfTimer()
 	defer pt.End("query", query)
 
-	err = d.retryOnError(func() error {
+	err = d.processError(func() error {
 		r, err = d.DB.ExecContext(ctx, query, args...)
 		return err
 	})
@@ -266,7 +278,7 @@ func (d *SynchronizedDB) Query(query string, args ...any) (r *sql.Rows, err erro
 	pt := logger.PerfTimer()
 	defer pt.End("query", query)
 
-	err = d.retryOnError(func() error {
+	err = d.processError(func() error {
 		r, err = d.DB.Query(query, args...)
 		return err
 	})
@@ -283,7 +295,7 @@ func (d *SynchronizedDB) QueryContext(ctx context.Context, query string, args ..
 	pt := logger.PerfTimer()
 	defer pt.End("query", query)
 
-	err = d.retryOnError(func() error {
+	err = d.processError(func() error {
 		r, err = d.DB.QueryContext(ctx, query, args...)
 		return err
 	})
@@ -322,7 +334,7 @@ func (d *SynchronizedDB) Begin() (*SynchronizedTx, error) {
 	}
 
 	var t *sql.Tx
-	err = d.retryOnError(func() error {
+	err = d.processError(func() error {
 		t, err = d.DB.Begin()
 		return err
 	})
@@ -340,7 +352,7 @@ func (d *SynchronizedDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Syn
 	}
 
 	var t *sql.Tx
-	err = d.retryOnError(func() error {
+	err = d.processError(func() error {
 		t, err = d.DB.BeginTx(ctx, opts)
 		return err
 	})
@@ -357,7 +369,7 @@ type SynchronizedRow struct {
 }
 
 func (r *SynchronizedRow) Scan(dest ...any) (err error) {
-	err = r.db.retryOnError(func() error {
+	err = r.db.processError(func() error {
 		err = r.Row.Scan(dest...)
 		return err
 	})
@@ -370,7 +382,7 @@ type SynchronizedRows struct {
 }
 
 func (r *SynchronizedRows) Scan(dest ...any) (err error) {
-	err = r.db.retryOnError(func() error {
+	err = r.db.processError(func() error {
 		err = r.Rows.Scan(dest...)
 		return err
 	})
@@ -385,7 +397,7 @@ type SynchronizedTx struct {
 func (t SynchronizedTx) Commit() (err error) {
 	defer t.db.unlock(false)
 
-	err = t.db.retryOnError(func() error {
+	err = t.db.processError(func() error {
 		err = t.Tx.Commit()
 		return err
 	})
@@ -401,7 +413,7 @@ func (t SynchronizedTx) Commit() (err error) {
 func (t SynchronizedTx) Rollback() (err error) {
 	defer t.db.unlock(false)
 
-	err = t.db.retryOnError(func() error {
+	err = t.db.processError(func() error {
 		err = t.Tx.Rollback()
 		return err
 	})
@@ -418,7 +430,7 @@ func (t SynchronizedTx) Exec(query string, args ...any) (r sql.Result, err error
 	pt := logger.PerfTimer()
 	defer pt.End("query", query)
 
-	err = t.db.retryOnError(func() error {
+	err = t.db.processError(func() error {
 		r, err = t.Tx.Exec(query, args...)
 		return err
 	})
@@ -430,7 +442,7 @@ func (t SynchronizedTx) ExecContext(ctx context.Context, query string, args ...a
 	pt := logger.PerfTimer()
 	defer pt.End("query", query)
 
-	err = t.db.retryOnError(func() error {
+	err = t.db.processError(func() error {
 		r, err = t.Tx.ExecContext(ctx, query, args...)
 		return err
 	})
@@ -442,7 +454,7 @@ func (t SynchronizedTx) Query(query string, args ...any) (r *sql.Rows, err error
 	pt := logger.PerfTimer()
 	defer pt.End("query", query)
 
-	err = t.db.retryOnError(func() error {
+	err = t.db.processError(func() error {
 		r, err = t.Tx.Query(query, args...)
 		return err
 	})
@@ -454,7 +466,7 @@ func (t SynchronizedTx) QueryContext(ctx context.Context, query string, args ...
 	pt := logger.PerfTimer()
 	defer pt.End("query", query)
 
-	err = t.db.retryOnError(func() error {
+	err = t.db.processError(func() error {
 		r, err = t.Tx.QueryContext(ctx, query, args...)
 		return err
 	})
@@ -476,29 +488,31 @@ func (t SynchronizedTx) QueryRowContext(ctx context.Context, query string, args 
 	return &SynchronizedRow{Row: t.Tx.QueryRowContext(ctx, query, args...), db: t.db}
 }
 
-func NewSynchronizedDB(db *sql.DB, lockingFile, opts string, busyTimeout time.Duration) *SynchronizedDB {
+func NewSynchronizedDB(db *sql.DB, lockingFile, opts string, lockTimeout time.Duration) *SynchronizedDB {
 	wrapper := SynchronizedDB{
-		DB:                 db,
-		lockFile:           lockingFile,
-		busyTimeout:        busyTimeout,
-		tryLockPeriod:      time.Duration(rand.Intn(200) * int(time.Microsecond)),
-		maxDurationRetries: busyTimeout * 2,
+		DB:          db,
+		lockFile:    lockingFile,
+		lockTimeout: lockTimeout,
+		//tryLockPeriod:      time.Duration(rand.Intn(200)+200) * time.Microsecond,
+		tryLockPeriod:      time.Duration(rand.Intn(int(tryLockPeriodMax)-int(tryLockPeriodMin)) + int(tryLockPeriodMin)),
+		maxDurationRetries: lockTimeout * 2 / 3,
 	}
 	return &wrapper
 }
 
-func NewSynchronizedDB2(driverName, backingFile, opts string, busyTimeout time.Duration, openCloseSync bool) *SynchronizedDB {
+func NewSynchronizedDB2(driverName, backingFile, opts string, lockTimeout time.Duration, openCloseSync bool) *SynchronizedDB {
 	lockFile := backingFile //+ ".lock"
 	dataSourceName := backingFile
 	if opts != "" {
 		dataSourceName += "?" + opts
 	}
 	wrapper := SynchronizedDB{
-		backingFile:        backingFile,
-		lockFile:           lockFile,
-		busyTimeout:        busyTimeout,
-		tryLockPeriod:      time.Duration(100+rand.Intn(200)) * time.Microsecond,
-		maxDurationRetries: busyTimeout * 2,
+		backingFile: backingFile,
+		lockFile:    lockFile,
+		lockTimeout: lockTimeout,
+		// tryLockPeriod:      time.Duration(rand.Intn(200)+200) * time.Microsecond,
+		tryLockPeriod:      time.Duration(rand.Intn(int(tryLockPeriodMax)-int(tryLockPeriodMin)) + int(tryLockPeriodMin)),
+		maxDurationRetries: lockTimeout * 2 / 3,
 		driverName:         driverName,
 		datasourceName:     dataSourceName,
 		openCloseSync:      openCloseSync,
