@@ -47,12 +47,7 @@ func source(r slog.Record, fullPackageName string) *slog.Source {
 	f, _ := fs.Next()
 
 	fp := f.File
-	// if packageName == "" {
-	// 	packageName = "zlog/home/maxbundy/git/utilz"
-	// }
-
 	if fullPackageName != "" {
-		//s := strings.SplitAfterN(fp, packageName, 2)
 		shortPackageName := filepath.Base(fullPackageName)
 		n := strings.LastIndex(f.File, shortPackageName)
 		if n >= 0 {
