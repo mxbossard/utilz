@@ -1,8 +1,6 @@
 package zcreen
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +13,7 @@ import (
 	"github.com/mxbossard/utilz/errorz"
 	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/printz"
+	"github.com/mxbossard/utilz/utilz"
 	"github.com/mxbossard/utilz/zlog"
 )
 
@@ -37,8 +36,6 @@ func (s *screen) Session(name string, priorityOrder int) *session {
 	}
 	s.Lock()
 	defer s.Unlock()
-	// lock(s.fileLock)
-	// defer unlock(s.fileLock)
 	if session, ok := s.sessions[name]; ok {
 		return session
 	}
@@ -117,8 +114,11 @@ func (s *screen) Close() (err error) {
 func (s *screen) Resync() error {
 	s.Lock()
 	defer s.Unlock()
-	lock(s.fileLock)
-	defer unlock(s.fileLock)
+	err := utilz.FileLock(s.fileLock, fileLockingTimeout)
+	if err != nil {
+		return err
+	}
+	defer utilz.FileUnlock(s.fileLock)
 
 	scannedSessions, err := scanSerializedSessions(s.tmpPath)
 	if err != nil {
@@ -456,8 +456,11 @@ func (s *screenTailer) ClearSession(name string) error {
 	logger.Debug("Tailer: clearing session ...", "name", name)
 	s.Lock()
 	defer s.Unlock()
-	lock(s.fileLock)
-	defer unlock(s.fileLock)
+	err := utilz.FileLock(s.fileLock, fileLockingTimeout)
+	if err != nil {
+		return err
+	}
+	defer utilz.FileUnlock(s.fileLock)
 
 	return s.clearSession(name)
 }
@@ -465,8 +468,11 @@ func (s *screenTailer) ClearSession(name string) error {
 func (s *screenTailer) Clear() (err error) {
 	s.Lock()
 	defer s.Unlock()
-	lock(s.fileLock)
-	defer unlock(s.fileLock)
+	err = utilz.FileLock(s.fileLock, fileLockingTimeout)
+	if err != nil {
+		return
+	}
+	defer utilz.FileUnlock(s.fileLock)
 
 	sessions := collectionz.Keys(s.sessions)
 	for _, session := range sessions {
@@ -506,8 +512,11 @@ func (s *screenTailer) scanSessions() (err error) {
 	s.Lock()
 	defer s.Unlock()
 
-	lock(s.fileLock)
-	defer unlock(s.fileLock)
+	err = utilz.FileLock(s.fileLock, fileLockingTimeout)
+	if err != nil {
+		return
+	}
+	defer utilz.FileUnlock(s.fileLock)
 
 	scannedSession, err := scanSerializedSessions(s.tmpPath)
 	if err != nil {
@@ -736,11 +745,12 @@ func clearSessionsMap(sessions *map[string]*session, name string) error {
 	return nil
 }
 
+/*
 func lock(fl *flock.Flock) {
 	perf := logger.TraceTimer()
 	defer perf.End()
 
-	lockCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	lockCtx, cancel := context.WithTimeout(context.Background(), fileLockingTimeout)
 	defer cancel()
 	locked, err := fl.TryLockContext(lockCtx, time.Millisecond)
 	if err != nil {
@@ -763,6 +773,7 @@ func unlock(fl *flock.Flock) {
 		panic(err)
 	}
 }
+*/
 
 func NewScreen(outputs printz.Outputs) *screen {
 	// FIXME: not implemented

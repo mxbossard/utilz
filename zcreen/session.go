@@ -9,9 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/mxbossard/utilz/collectionz"
 	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/printz"
+	"github.com/mxbossard/utilz/utilz"
 )
 
 type printer struct {
@@ -510,7 +512,15 @@ func serializeSession(s *session) (err error) {
 		// Do not serialize cleared sessions
 		return nil
 	}
+
 	filePath := sessionSerializedPath(filepath.Dir(s.TmpPath), s.Name)
+	fl := flock.New(filePath)
+	err = utilz.FileLock(fl, fileLockingTimeout)
+	if err != nil {
+		return
+	}
+	defer utilz.FileUnlock(fl)
+
 	f, err := os.OpenFile(filePath, os.O_CREATE+os.O_RDWR, 0644)
 	if err != nil {
 		return
@@ -523,6 +533,13 @@ func serializeSession(s *session) (err error) {
 }
 
 func deserializeSession(path string) (s *session, err error) {
+	fl := flock.New(path)
+	err = utilz.FileLock(fl, fileLockingTimeout)
+	if err != nil {
+		return
+	}
+	defer utilz.FileUnlock(fl)
+
 	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, fmt.Errorf("error opening ser file (%s): %w", path, err)

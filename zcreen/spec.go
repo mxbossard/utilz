@@ -63,6 +63,7 @@ const (
 	notifierPrinterName   = "_-_notifier"
 	continuousFlushPeriod = 1 * time.Millisecond
 	lockFilename          = ".lock"
+	fileLockingTimeout    = 2 * time.Second
 )
 
 const (
@@ -81,7 +82,7 @@ type Sink interface {
 	// Continuously Flush all sessions until ends or timeout is reached.
 	FlushAllBlocking(timeout time.Duration) error
 
-	// Resync sinc with tailer
+	// Resync sink with tailer
 	Resync() error
 }
 
