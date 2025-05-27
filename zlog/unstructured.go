@@ -42,19 +42,23 @@ func isEmptyGroup(v slog.Value) bool {
 // If the Record was created without the necessary information,
 // or if the location is unavailable, it returns a non-nil *Source
 // with zero fields.
-func source(r slog.Record, packageName string) *slog.Source {
+func source(r slog.Record, fullPackageName string) *slog.Source {
 	fs := runtime.CallersFrames([]uintptr{r.PC})
 	f, _ := fs.Next()
 
 	fp := f.File
-	if packageName != "" {
-		s := strings.SplitAfterN(fp, packageName, 2)
-		pkgBaseName := filepath.Base(packageName)
-		if len(s) > 0 {
-			fp = filepath.Join(pkgBaseName, s[len(s)-1])
+	// if packageName == "" {
+	// 	packageName = "zlog/home/maxbundy/git/utilz"
+	// }
+
+	if fullPackageName != "" {
+		//s := strings.SplitAfterN(fp, packageName, 2)
+		shortPackageName := filepath.Base(fullPackageName)
+		n := strings.LastIndex(f.File, shortPackageName)
+		if n >= 0 {
+			fp = filepath.Join(shortPackageName, fp[n:])
 			//fp = "[...]/" + fp
 		}
-
 	}
 	return &slog.Source{
 		Function: f.Function,
@@ -148,7 +152,7 @@ func (h *commonHandler) withGroup(name string) *commonHandler {
 
 // handle is the internal implementation of Handler.Handle
 // used by TextHandler and JSONHandler.
-func (h *commonHandler) handle(r slog.Record) error {
+func (h *commonHandler) handle0(r slog.Record) error {
 	state := h.newHandleState(NewBuffer(), true, "")
 	defer state.free()
 	// Built-in attributes. They are not in a group.

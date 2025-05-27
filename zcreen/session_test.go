@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mxbossard/utilz/filez"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/mxbossard/utilz/filez"
 )
 
 func TestGetSession(t *testing.T) {
@@ -461,6 +461,53 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,"+"30a-1,"+"notif3,notif4,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
+}
+
+func TestSession_EmptyPrinter(t *testing.T) {
+	tmpDir := "/tmp/session_test_460"
+	expectedSession := "bar401"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	os.MkdirAll(tmpDir, 0744)
+
+	expectedPrinter10a := "bar10a"
+	expectedPrinter20a := "bar20a"
+
+	session := buildSession(expectedSession, 42, tmpDir)
+	err := session.Start(10 * time.Millisecond)
+	assert.NoError(t, err)
+
+	sessionTmpOutFilepath := session.TmpOutName
+	assert.FileExists(t, sessionTmpOutFilepath)
+
+	prtr10a := session.Printer(expectedPrinter10a, 10)
+	prtr20a := session.Printer(expectedPrinter20a, 20)
+
+	// Never print on 10a and close 10a
+	// Consolidated session should contains what was printed on 20a
+	_ = prtr10a
+
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+
+	// First print on not first printer => should not write
+	prtr20a.Out("20a-1,")
+	session.NotifyPrinter().Out("notif1,")
+
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, "notif1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+
+	// prtr10a.Out("")
+
+	session.ClosePrinter(expectedPrinter10a, "empty")
+	session.ClosePrinter(expectedPrinter20a, "notEmpty")
+
+	err = session.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, "notif1,20a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 }
 
 func TestSession_Timeout(t *testing.T) {

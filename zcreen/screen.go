@@ -745,36 +745,6 @@ func clearSessionsMap(sessions *map[string]*session, name string) error {
 	return nil
 }
 
-/*
-func lock(fl *flock.Flock) {
-	perf := logger.TraceTimer()
-	defer perf.End()
-
-	lockCtx, cancel := context.WithTimeout(context.Background(), fileLockingTimeout)
-	defer cancel()
-	locked, err := fl.TryLockContext(lockCtx, time.Millisecond)
-	if err != nil {
-		panic(err)
-	}
-	if !locked {
-		err = errors.New("unable to acquire zcreen lock")
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func unlock(fl *flock.Flock) {
-	perf := logger.TraceTimer()
-	defer perf.End()
-
-	err := fl.Unlock()
-	if err != nil {
-		panic(err)
-	}
-}
-*/
-
 func NewScreen(outputs printz.Outputs) *screen {
 	// FIXME: not implemented
 	panic("not implemented yet")

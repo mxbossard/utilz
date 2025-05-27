@@ -375,7 +375,7 @@ func (s *session) nextPriority() {
 						s.currentPriority = &priorityOrder
 						break out
 					}
-					nothingPrintedYet = nothingPrintedYet && printer.LastPrint().IsZero()
+					nothingPrintedYet = nothingPrintedYet && printer.open && printer.LastPrint().IsZero()
 				}
 				// if nothing printed yet for current priority => do not select priority
 				if nothingPrintedYet {
