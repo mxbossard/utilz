@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/printz"
 	"github.com/mxbossard/utilz/zlog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -81,12 +81,13 @@ func TestScreenGetSession(t *testing.T) {
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir)
 	require.NotNil(t, s)
-	session := s.Session("bar1001", 42)
+	session, err := s.Session("bar1001", 42)
+	require.NoError(t, err)
 	assert.NotNil(t, session)
 	assert.DirExists(t, tmpDir)
 	assert.NoDirExists(t, tmpDir+"/"+sessionDirPrefix+"bar1001")
 
-	err := session.Start(100 * time.Millisecond)
+	err = session.Start(100 * time.Millisecond)
 	require.NoError(t, err)
 	expectedSessionDir := filepath.Join(tmpDir, sessionDirPrefix+"bar1001")
 	assert.DirExists(t, expectedSessionDir)
@@ -103,10 +104,12 @@ func TestScreenGetPrinter(t *testing.T) {
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir)
 	require.NotNil(t, s)
-	session := s.Session("foo2001", 42)
-	session.Start(100 * time.Millisecond)
+	session, err := s.Session("foo2001", 42)
+	require.NoError(t, err)
 	require.NotNil(t, session)
-	prtr := session.Printer("bar", 10)
+	session.Start(100 * time.Millisecond)
+	prtr, err := session.Printer("bar", 10)
+	require.NoError(t, err)
 	assert.NotNil(t, prtr)
 }
 
@@ -120,11 +123,13 @@ func TestAsyncScreen_BasicOut(t *testing.T) {
 	expectedPrinter := "bar"
 	expectedMessage := "baz"
 
-	session := screen.Session(expectedSession, 42)
+	session, err := screen.Session(expectedSession, 42)
+	require.NoError(t, err)
 	require.NotNil(t, session)
-	err := session.Start(100 * time.Millisecond)
+	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtr10 := session.Printer(expectedPrinter, 10)
+	prtr10, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
@@ -212,11 +217,13 @@ func TestAsyncScreen_ClearSession(t *testing.T) {
 	expectedMessage := "baz"
 	expectedMessage2 := "pif"
 
-	session := screen.Session(expectedSession, 42)
+	session, err := screen.Session(expectedSession, 42)
+	require.NoError(t, err)
 	require.NotNil(t, session)
-	err := session.Start(100 * time.Millisecond)
+	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtr10 := session.Printer(expectedPrinter, 10)
+	prtr10, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	prtr10.Out(expectedMessage)
@@ -271,11 +278,13 @@ func TestAsyncScreen_ClearSession(t *testing.T) {
 	err = screen.Resync()
 	assert.NoError(t, err)
 
-	session = screen.Session(expectedSession, 42)
+	session, err = screen.Session(expectedSession, 42)
+	require.NoError(t, err)
 	require.NotNil(t, session)
 	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtr10 = session.Printer(expectedPrinter, 10)
+	prtr10, err = session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	prtr10.Out(expectedMessage2)
@@ -304,11 +313,13 @@ func TestAsyncScreen_BasicOutAndErr(t *testing.T) {
 	expectedOutMessage := "baz"
 	expectedErrMessage := "err"
 
-	session := screen.Session(expectedSession, 42)
+	session, err := screen.Session(expectedSession, 42)
+	require.NoError(t, err)
 	require.NotNil(t, session)
-	err := session.Start(100 * time.Millisecond)
+	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtr10 := session.Printer(expectedPrinter, 10)
+	prtr10, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
@@ -402,8 +413,9 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	expectedPrinter20b := "bar20b"
 	expectedPrinter30a := "bar30a"
 
-	session := screen.Session(expectedSession, 42)
-	err := session.Start(100 * time.Millisecond)
+	session, err := screen.Session(expectedSession, 42)
+	require.NoError(t, err)
+	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 
 	sessionTmpOutFilepath := func() string {
@@ -413,10 +425,18 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	}()
 	assert.FileExists(t, sessionTmpOutFilepath)
 
-	prtr10a := session.Printer(expectedPrinter10a, 10)
-	prtr20a := session.Printer(expectedPrinter20a, 20)
-	prtr20b := session.Printer(expectedPrinter20b, 20)
-	prtr30a := session.Printer(expectedPrinter30a, 30)
+	prtr10a, err := session.Printer(expectedPrinter10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr10a)
+	prtr20a, err := session.Printer(expectedPrinter20a, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtr20a)
+	prtr20b, err := session.Printer(expectedPrinter20b, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtr20b)
+	prtr30a, err := session.Printer(expectedPrinter30a, 30)
+	require.NoError(t, err)
+	require.NotNil(t, prtr30a)
 
 	prtr20a.Out("20a-1,")
 	prtr20a.Out("20a-2,")
@@ -522,24 +542,44 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	expectedPrinterC30a := "barC30a"
 	expectedPrinterC40a := "barC40a"
 
-	sessionA := screen.Session(expectedSessionA, 12)
-	err := sessionA.Start(100 * time.Millisecond)
+	sessionA, err := screen.Session(expectedSessionA, 12)
+	require.NoError(t, err)
+	require.NotNil(t, sessionA)
+	err = sessionA.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
-	prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+	prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtrA10a)
+	prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtrA20a)
 
-	sessionB := screen.Session(expectedSessionB, 42)
+	sessionB, err := screen.Session(expectedSessionB, 42)
+	require.NoError(t, err)
+	require.NotNil(t, sessionB)
 	err = sessionB.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
-	prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+	prtrB10a, err := sessionB.Printer(expectedPrinterB10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtrB10a)
+	prtrB30a, err := sessionB.Printer(expectedPrinterB30a, 30)
+	require.NoError(t, err)
+	require.NotNil(t, prtrB30a)
 
-	sessionC := screen.Session(expectedSessionC, 42)
+	sessionC, err := screen.Session(expectedSessionC, 42)
+	require.NoError(t, err)
+	require.NotNil(t, sessionC)
 	err = sessionC.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
-	prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
-	prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+	prtrC10a, err := sessionC.Printer(expectedPrinterC10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtrC10a)
+	prtrC30a, err := sessionC.Printer(expectedPrinterC30a, 30)
+	require.NoError(t, err)
+	require.NotNil(t, prtrC30a)
+	prtrC40a, err := sessionC.Printer(expectedPrinterC40a, 40)
+	require.NoError(t, err)
+	require.NotNil(t, prtrC40a)
 
 	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
@@ -648,24 +688,44 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	expectedPrinterC30a := "barC30a"
 	expectedPrinterC40a := "barC40a"
 
-	sessionA := screen.Session(expectedSessionA, 12)
-	err := sessionA.Start(100 * time.Millisecond)
+	sessionA, err := screen.Session(expectedSessionA, 12)
+	require.NoError(t, err)
+	require.NotNil(t, sessionA)
+	err = sessionA.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
-	prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+	prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtrA10a)
+	prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtrA20a)
 
-	sessionB := screen.Session(expectedSessionB, 42)
+	sessionB, err := screen.Session(expectedSessionB, 42)
+	require.NoError(t, err)
+	require.NotNil(t, sessionB)
 	err = sessionB.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
-	prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+	prtrB10a, err := sessionB.Printer(expectedPrinterB10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtrB10a)
+	prtrB30a, err := sessionB.Printer(expectedPrinterB30a, 30)
+	require.NoError(t, err)
+	require.NotNil(t, prtrB30a)
 
-	sessionC := screen.Session(expectedSessionC, 42)
+	sessionC, err := screen.Session(expectedSessionC, 42)
+	require.NoError(t, err)
+	require.NotNil(t, sessionC)
 	err = sessionC.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
-	prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
-	prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+	prtrC10a, err := sessionC.Printer(expectedPrinterC10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtrC10a)
+	prtrC30a, err := sessionC.Printer(expectedPrinterC30a, 30)
+	require.NoError(t, err)
+	require.NotNil(t, prtrC30a)
+	prtrC40a, err := sessionC.Printer(expectedPrinterC40a, 40)
+	require.NoError(t, err)
+	require.NotNil(t, prtrC40a)
 
 	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
@@ -805,11 +865,17 @@ func TestTailOnlyBlocking(t *testing.T) {
 	go func() {
 		syncChan <- "startA"
 
-		sessionA := screen.Session(expectedSessionA, 12)
-		err := sessionA.Start(100 * time.Millisecond)
+		sessionA, err := screen.Session(expectedSessionA, 12)
+		require.NoError(t, err)
+		require.NotNil(t, sessionA)
+		err = sessionA.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
-		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+		prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA10a)
+		prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA20a)
 
 		prtrA10a.Out("A10a1,")
 		prtrA10a.Out("A10a2,")
@@ -837,11 +903,17 @@ func TestTailOnlyBlocking(t *testing.T) {
 		// Wait before printing
 		syncChan <- "startB"
 
-		sessionB := screen.Session(expectedSessionB, 42)
+		sessionB, err := screen.Session(expectedSessionB, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionB)
 		err = sessionB.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
-		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+		prtrB10a, err := sessionB.Printer(expectedPrinterB10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB10a)
+		prtrB30a, err := sessionB.Printer(expectedPrinterB30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB30a)
 
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
@@ -865,12 +937,20 @@ func TestTailOnlyBlocking(t *testing.T) {
 		// Wait before printing
 		syncChan <- "startC"
 
-		sessionC := screen.Session(expectedSessionC, 42)
+		sessionC, err := screen.Session(expectedSessionC, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionC)
 		err = sessionC.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
-		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
-		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+		prtrC10a, err := sessionC.Printer(expectedPrinterC10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC10a)
+		prtrC30a, err := sessionC.Printer(expectedPrinterC30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC30a)
+		prtrC40a, err := sessionC.Printer(expectedPrinterC40a, 40)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC40a)
 
 		prtrC10a.Out("C10a1,")
 		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
@@ -910,11 +990,13 @@ func TestAsyncScreen_TailOnlyBlocking_ClearedSession(t *testing.T) {
 	expectedPrinter := "bar"
 	expectedMessage := "baz"
 
-	session := screen.Session(expectedSession, 42)
+	session, err := screen.Session(expectedSession, 42)
+	require.NoError(t, err)
 	require.NotNil(t, session)
-	err := session.Start(100 * time.Millisecond)
+	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtr10 := session.Printer(expectedPrinter, 10)
+	prtr10, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	prtr10.Out(expectedMessage)
@@ -974,12 +1056,18 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		// Wait before printing
 		syncChan <- "startA"
 
-		sessionA := screen.Session(expectedSessionA, 12)
-		err := sessionA.Start(100 * time.Millisecond)
+		sessionA, err := screen.Session(expectedSessionA, 12)
+		require.NoError(t, err)
+		require.NotNil(t, sessionA)
+		err = sessionA.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
 
-		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
-		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+		prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA10a)
+		prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA20a)
 
 		prtrA10a.Out("A10a1,")
 		prtrA10a.Out("A10a2,")
@@ -1008,13 +1096,19 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		err = screen.NotifyPrinter().Flush()
 		require.NoError(t, err)
 
-		sessionB := screen.Session(expectedSessionB, 42)
+		sessionB, err := screen.Session(expectedSessionB, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionB)
 		err = sessionB.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
 		syncChan <- "startedB"
 
-		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
-		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+		prtrB10a, err := sessionB.Printer(expectedPrinterB10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB10a)
+		prtrB30a, err := sessionB.Printer(expectedPrinterB30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB30a)
 
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
@@ -1038,14 +1132,22 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		err = screen.NotifyPrinter().Flush()
 		require.NoError(t, err)
 
-		sessionC := screen.Session(expectedSessionC, 42)
+		sessionC, err := screen.Session(expectedSessionC, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionC)
 		err = sessionC.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
 		syncChan <- "startedC"
 
-		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
-		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
-		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+		prtrC10a, err := sessionC.Printer(expectedPrinterC10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC10a)
+		prtrC30a, err := sessionC.Printer(expectedPrinterC30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC30a)
+		prtrC40a, err := sessionC.Printer(expectedPrinterC40a, 40)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC40a)
 
 		prtrC10a.Out("C10a1,")
 		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
@@ -1103,11 +1205,13 @@ func TestAsyncScreen_TailBlocking_ClearedSession(t *testing.T) {
 	expectedPrinter := "bar"
 	expectedMessage := "baz"
 
-	session := screen.Session(expectedSession, 42)
+	session, err := screen.Session(expectedSession, 42)
+	require.NoError(t, err)
 	require.NotNil(t, session)
-	err := session.Start(100 * time.Millisecond)
+	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtr10 := session.Printer(expectedPrinter, 10)
+	prtr10, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	prtr10.Out(expectedMessage)
@@ -1168,12 +1272,18 @@ func TestTailBlocking_InParallel(t *testing.T) {
 		// Wait before printing
 		syncChanA <- "startA"
 
-		sessionA := screen.Session(expectedSessionA, 12)
-		err := sessionA.Start(100 * time.Millisecond)
+		sessionA, err := screen.Session(expectedSessionA, 12)
+		require.NoError(t, err)
+		require.NotNil(t, sessionA)
+		err = sessionA.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
 
-		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
-		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+		prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA10a)
+		prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA20a)
 
 		prtrA10a.Out("A10a1,")
 		prtrA10a.Out("A10a2,")
@@ -1194,12 +1304,18 @@ func TestTailBlocking_InParallel(t *testing.T) {
 		// Wait before printing
 		syncChanB <- "startB"
 
-		sessionB := screen.Session(expectedSessionB, 42)
-		err := sessionB.Start(100 * time.Millisecond)
+		sessionB, err := screen.Session(expectedSessionB, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionB)
+		err = sessionB.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
 
-		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
-		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+		prtrB10a, err := sessionB.Printer(expectedPrinterB10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB10a)
+		prtrB30a, err := sessionB.Printer(expectedPrinterB30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB30a)
 
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
@@ -1221,13 +1337,21 @@ func TestTailBlocking_InParallel(t *testing.T) {
 		// Wait before printing
 		syncChanC <- "startC"
 
-		sessionC := screen.Session(expectedSessionC, 42)
-		err := sessionC.Start(100 * time.Millisecond)
+		sessionC, err := screen.Session(expectedSessionC, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionC)
+		err = sessionC.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
 
-		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
-		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
-		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+		prtrC10a, err := sessionC.Printer(expectedPrinterC10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC10a)
+		prtrC30a, err := sessionC.Printer(expectedPrinterC30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC30a)
+		prtrC40a, err := sessionC.Printer(expectedPrinterC40a, 40)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC40a)
 
 		prtrC10a.Out("C10a1,")
 		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
@@ -1299,11 +1423,17 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 	expectedMsgChan := make(chan string)
 
 	go func() {
-		sessionA := screen.Session(expectedSessionA, 12)
-		err := sessionA.Start(300 * time.Millisecond)
+		sessionA, err := screen.Session(expectedSessionA, 12)
+		require.NoError(t, err)
+		require.NotNil(t, sessionA)
+		err = sessionA.Start(300 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
-		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+		prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA10a)
+		prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA20a)
 
 		syncChan <- "A0"
 
@@ -1403,11 +1533,17 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 		// Wait before printing
 		syncChanA <- "startA"
 
-		sessionA := screen.Session(expectedSessionA, 12)
-		err := sessionA.Start(100 * time.Millisecond)
+		sessionA, err := screen.Session(expectedSessionA, 12)
+		require.NoError(t, err)
+		require.NotNil(t, sessionA)
+		err = sessionA.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
-		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+		prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA10a)
+		prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA20a)
 
 		prtrA10a.Out("A10a1,")
 		prtrA20a.Out("A20a1,")
@@ -1430,12 +1566,18 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 		// Wait before printing
 		syncChanB <- "startB"
 
-		sessionB := screen.Session(expectedSessionB, 42)
-		err := sessionB.Start(100 * time.Millisecond)
+		sessionB, err := screen.Session(expectedSessionB, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionB)
+		err = sessionB.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
 
-		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
-		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+		prtrB10a, err := sessionB.Printer(expectedPrinterB10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB10a)
+		prtrB30a, err := sessionB.Printer(expectedPrinterB30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB30a)
 		prtrB30a.Out("B30a1,")
 		prtrB30a.Out("B30a2,")
 		prtrB10a.Out("B10a1,")
@@ -1458,12 +1600,20 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 		// Wait before printing
 		syncChanC <- "startC"
 
-		sessionC := screen.Session(expectedSessionC, 42)
-		err := sessionC.Start(100 * time.Millisecond)
+		sessionC, err := screen.Session(expectedSessionC, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionC)
+		err = sessionC.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
-		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
-		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+		prtrC10a, err := sessionC.Printer(expectedPrinterC10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC10a)
+		prtrC30a, err := sessionC.Printer(expectedPrinterC30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC30a)
+		prtrC40a, err := sessionC.Printer(expectedPrinterC40a, 40)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC40a)
 
 		prtrC10a.Out("C10a1,")
 		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
@@ -1534,11 +1684,17 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 
 		syncChan <- "startA"
 
-		sessionA := screen.Session(expectedSessionA, 12)
-		err := sessionA.Start(100 * time.Millisecond)
+		sessionA, err := screen.Session(expectedSessionA, 12)
+		require.NoError(t, err)
+		require.NotNil(t, sessionA)
+		err = sessionA.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrA10a := sessionA.Printer(expectedPrinterA10a, 10)
-		prtrA20a := sessionA.Printer(expectedPrinterA20a, 20)
+		prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA10a)
+		prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA20a)
 
 		prtrA10a.Out("A10a1,")
 		prtrA10a.Out("A10a2,")
@@ -1566,11 +1722,17 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 		err = screen.NotifyPrinter().Flush()
 		require.NoError(t, err)
 
-		sessionB := screen.Session(expectedSessionB, 42)
+		sessionB, err := screen.Session(expectedSessionB, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionB)
 		err = sessionB.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrB10a := sessionB.Printer(expectedPrinterB10a, 10)
-		prtrB30a := sessionB.Printer(expectedPrinterB30a, 30)
+		prtrB10a, err := sessionB.Printer(expectedPrinterB10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB10a)
+		prtrB30a, err := sessionB.Printer(expectedPrinterB30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB30a)
 
 		prtrB10a.Out("B10a1,")
 		prtrB10a.Out("B10a2,")
@@ -1594,12 +1756,20 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 		err = screen.NotifyPrinter().Flush()
 		require.NoError(t, err)
 
-		sessionC := screen.Session(expectedSessionC, 42)
+		sessionC, err := screen.Session(expectedSessionC, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionC)
 		err = sessionC.Start(100 * time.Millisecond)
 		assert.NoError(t, err)
-		prtrC10a := sessionC.Printer(expectedPrinterC10a, 10)
-		prtrC30a := sessionC.Printer(expectedPrinterC30a, 30)
-		prtrC40a := sessionC.Printer(expectedPrinterC40a, 40)
+		prtrC10a, err := sessionC.Printer(expectedPrinterC10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC10a)
+		prtrC30a, err := sessionC.Printer(expectedPrinterC30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC30a)
+		prtrC40a, err := sessionC.Printer(expectedPrinterC40a, 40)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC40a)
 
 		prtrC10a.Out("C10a1,")
 		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
@@ -1655,11 +1825,13 @@ func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
 	expectedPrinter := "bar"
 	expectedMessage := "baz"
 
-	session := screen.Session(expectedSession, 42)
+	session, err := screen.Session(expectedSession, 42)
+	require.NoError(t, err)
 	require.NotNil(t, session)
-	err := session.Start(100 * time.Millisecond)
+	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-	prtr10 := session.Printer(expectedPrinter, 10)
+	prtr10, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	prtr10.Out(expectedMessage)

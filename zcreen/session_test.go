@@ -17,8 +17,9 @@ func TestGetSession(t *testing.T) {
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
 
-	session := buildSession(expectedSession, 42, tmpDir)
-	assert.NotNil(t, session)
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 	assert.Implements(t, (*Session)(nil), session)
 }
 
@@ -29,11 +30,12 @@ func TestSessionStart(t *testing.T) {
 	os.MkdirAll(tmpDir, 0744)
 	expectedSessionDir := sessionDirPath(tmpDir, expectedSession)
 
-	session := buildSession(expectedSession, 42, tmpDir)
-	assert.NotNil(t, session)
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 	assert.NoDirExists(t, session.TmpPath)
 
-	err := session.Start(10 * time.Millisecond)
+	err = session.Start(10 * time.Millisecond)
 	require.NoError(t, err)
 	assert.DirExists(t, session.TmpPath)
 	matches, err := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix)
@@ -51,12 +53,14 @@ func TestSessionGetPrinter(t *testing.T) {
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
 
-	session := buildSession(expectedSession, 42, tmpDir)
-	assert.NotNil(t, session)
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	session.Start(10 * time.Millisecond)
 	require.NotNil(t, session)
-	prtr := session.Printer(expectedPrinter, 10)
+	prtr, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	assert.NotNil(t, prtr)
 
 	expectedPrintersDirPAth := printersDirPath(session.TmpPath)
@@ -84,17 +88,18 @@ func TestSession_FileLayer(t *testing.T) {
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
 
-	session := buildSession(expectedSession, 42, tmpDir)
-	assert.NotNil(t, session)
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	// Opening a printer in a not started session should panic
-	assert.Panics(t, func() {
-		session.Printer(expectedPrinter, 42)
-	})
+	_, err = session.Printer(expectedPrinter, 42)
+	assert.Error(t, err)
 
-	err := session.Start(sessionTimeout)
+	err = session.Start(sessionTimeout)
 	assert.NoError(t, err)
-	prtr10 := session.Printer(expectedPrinter, 10)
+	prtr10, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	require.DirExists(t, tmpDir)
@@ -162,9 +167,8 @@ func TestSession_FileLayer(t *testing.T) {
 
 	time.Sleep(sessionTimeout + 10*time.Millisecond + extraTimeout)
 	// Opening a printer after session timeout should panic
-	assert.Panics(t, func() {
-		session.Printer("another", 42)
-	})
+	_, err = session.Printer("another", 42)
+	assert.Error(t, err)
 }
 
 func TestSession_ReOpen(t *testing.T) {
@@ -177,12 +181,14 @@ func TestSession_ReOpen(t *testing.T) {
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
 
-	session := buildSession(expectedSession, 42, tmpDir)
-	assert.NotNil(t, session)
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
-	err := session.Start(sessionTimeout)
+	err = session.Start(sessionTimeout)
 	assert.NoError(t, err)
-	prtr10 := session.Printer(expectedPrinter, 10)
+	prtr10, err := session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	require.DirExists(t, tmpDir)
@@ -250,9 +256,8 @@ func TestSession_ReOpen(t *testing.T) {
 
 	time.Sleep(sessionTimeout + extraTimeout + 10*time.Millisecond)
 	// Opening a printer after session timeout should panic
-	assert.Panics(t, func() {
-		session.Printer("another", 42)
-	})
+	_, err = session.Printer("another", 42)
+	assert.Error(t, err)
 
 	// Clear & reOpen session
 	err = session.clear()
@@ -264,12 +269,14 @@ func TestSession_ReOpen(t *testing.T) {
 	assert.NoFileExists(t, printerTmpOutFilepath)
 	assert.NoFileExists(t, printerTmpErrFilepath)
 
-	session = buildSession(expectedSession, 42, tmpDir)
-	assert.NotNil(t, session)
+	session, err = buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	err = session.Start(sessionTimeout)
 	assert.NoError(t, err)
-	prtr10 = session.Printer(expectedPrinter, 10)
+	prtr10, err = session.Printer(expectedPrinter, 10)
+	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
 	require.DirExists(t, tmpDir)
@@ -335,9 +342,8 @@ func TestSession_ReOpen(t *testing.T) {
 
 	time.Sleep(sessionTimeout + extraTimeout + 10*time.Millisecond)
 	// Opening a printer after session timeout should panic
-	assert.Panics(t, func() {
-		session.Printer("another", 42)
-	})
+	_, err = session.Printer("another", 42)
+	assert.Error(t, err)
 }
 
 func TestSession_MultiplePrinters(t *testing.T) {
@@ -353,8 +359,9 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	expectedPrinter20c := "bar20c"
 	expectedPrinter30a := "bar30a"
 
-	session := buildSession(expectedSession, 42, tmpDir)
-	err := session.Start(10 * time.Millisecond)
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	err = session.Start(10 * time.Millisecond)
 	assert.NoError(t, err)
 
 	session.NotifyPrinter().Out("notif1,")
@@ -362,12 +369,24 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	sessionTmpOutFilepath := session.TmpOutName
 	assert.FileExists(t, sessionTmpOutFilepath)
 
-	prtr10a := session.Printer(expectedPrinter10a, 10)
-	prtr15a := session.Printer(expectedPrinter15a, 15)
-	prtr20a := session.Printer(expectedPrinter20a, 20)
-	prtr20b := session.Printer(expectedPrinter20b, 20)
-	prtr20c := session.Printer(expectedPrinter20c, 20)
-	prtr30a := session.Printer(expectedPrinter30a, 30)
+	prtr10a, err := session.Printer(expectedPrinter10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr10a)
+	prtr15a, err := session.Printer(expectedPrinter15a, 15)
+	require.NoError(t, err)
+	require.NotNil(t, prtr15a)
+	prtr20a, err := session.Printer(expectedPrinter20a, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtr20a)
+	prtr20b, err := session.Printer(expectedPrinter20b, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtr20b)
+	prtr20c, err := session.Printer(expectedPrinter20c, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtr20c)
+	prtr30a, err := session.Printer(expectedPrinter30a, 30)
+	require.NoError(t, err)
+	require.NotNil(t, prtr30a)
 
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	err = session.Flush()
@@ -472,15 +491,21 @@ func TestSession_EmptyPrinter(t *testing.T) {
 	expectedPrinter10a := "bar10a"
 	expectedPrinter20a := "bar20a"
 
-	session := buildSession(expectedSession, 42, tmpDir)
-	err := session.Start(10 * time.Millisecond)
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	err = session.Start(10 * time.Millisecond)
 	assert.NoError(t, err)
 
 	sessionTmpOutFilepath := session.TmpOutName
 	assert.FileExists(t, sessionTmpOutFilepath)
 
-	prtr10a := session.Printer(expectedPrinter10a, 10)
-	prtr20a := session.Printer(expectedPrinter20a, 20)
+	prtr10a, err := session.Printer(expectedPrinter10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr10a)
+	prtr20a, err := session.Printer(expectedPrinter20a, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtr20a)
 
 	// Never print on 10a and close 10a
 	// Consolidated session should contains what was printed on 20a
@@ -520,8 +545,9 @@ func TestSession_Timeout(t *testing.T) {
 	expectedPrinter20a := "bar20a"
 	sessionTimeout := 10 * time.Millisecond
 
-	session := buildSession(expectedSession, 42, tmpDir)
-	err := session.Start(sessionTimeout, func(s Session) {
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	err = session.Start(sessionTimeout, func(s Session) {
 		s.NotifyPrinter().Out("notifTimeout,")
 	})
 	assert.NoError(t, err)
@@ -531,8 +557,12 @@ func TestSession_Timeout(t *testing.T) {
 	sessionTmpOutFilepath := session.TmpOutName
 	assert.FileExists(t, sessionTmpOutFilepath)
 
-	prtr10a := session.Printer(expectedPrinter10a, 10)
-	prtr20a := session.Printer(expectedPrinter20a, 20)
+	prtr10a, err := session.Printer(expectedPrinter10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr10a)
+	prtr20a, err := session.Printer(expectedPrinter20a, 20)
+	require.NoError(t, err)
+	require.NotNil(t, prtr20a)
 
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 

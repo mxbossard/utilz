@@ -72,7 +72,7 @@ const (
 )
 
 type Sink interface {
-	Session(name string, priority int) *session
+	Session(name string, priority int) (*session, error)
 	NotifyPrinter() printz.Printer
 	Close() error
 
@@ -87,7 +87,7 @@ type Sink interface {
 }
 
 type Session interface {
-	Printer(name string, priority int) printz.Printer
+	Printer(name string, priority int) (printz.Printer, error)
 	ClosePrinter(name, message string) error
 	NotifyPrinter() printz.Printer
 

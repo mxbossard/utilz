@@ -95,9 +95,9 @@ func (s session) String() string {
 	return fmt.Sprintf("{Session> name: %s; Started: %v; Ended: %v; Cleared: %v}", s.Name, s.Started, s.Ended, s.cleared)
 }
 
-func (s *session) Printer(name string, priorityOrder int) printz.Printer {
+func (s *session) Printer(name string, priorityOrder int) (printz.Printer, error) {
 	if name == "" {
-		panic("cannot get printer of empty name")
+		return nil, fmt.Errorf("cannot get printer of empty name")
 	}
 
 	s.mutex.Lock()
@@ -105,19 +105,19 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 
 	// FIXME: should printer be getable & writable if session not started yet ?
 	if !s.Started {
-		panic(fmt.Errorf("session: [%s] not started yet", s.Name))
+		return nil, fmt.Errorf("session: [%s] not started yet", s.Name)
 	}
 
 	if s.Ended {
-		panic(fmt.Errorf("session: [%s] already ended with message: %s", s.Name, s.endMessage))
+		return nil, fmt.Errorf("session: [%s] already ended with message: %s", s.Name, s.endMessage)
 	}
 
 	if s.timeouted != nil {
-		panic(fmt.Sprintf("cannot get printer for session [%s] timeouted after: %s", s.Name, *s.timeouted))
+		return nil, fmt.Errorf("cannot get printer for session [%s] timeouted after: %s", s.Name, *s.timeouted)
 	}
 
 	if prtr, ok := s.printers[name]; ok {
-		return prtr
+		return prtr, nil
 	}
 
 	printerDirPath := printersDirPath(s.TmpPath)
@@ -125,7 +125,7 @@ func (s *session) Printer(name string, priorityOrder int) printz.Printer {
 	s.printers[name] = p
 	s.printersByPriority[priorityOrder] = append(s.printersByPriority[priorityOrder], p)
 
-	return p.ClosingPrinter
+	return p.ClosingPrinter, nil
 }
 
 func (s *session) closePrinter(name, message string) error {
@@ -177,7 +177,8 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 	printersDirPath := printersDirPath(sessionDirPath)
 	err = os.MkdirAll(printersDirPath, filez.DefaultDirPerms)
 	if err != nil {
-		panic(fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err))
+		err = fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err)
+		return
 	}
 
 	_, tmpOut, tmpErr := buildTmpOutputs(sessionDirPath, s.Name)
@@ -199,7 +200,8 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 			}
 			err := s.End(fmt.Sprintf("reach session timeout after %s", timeout))
 			if err != nil {
-				panic(err)
+				logger.Error(err.Error())
+				//panic(err)
 			}
 		}
 	}()
@@ -459,10 +461,10 @@ func (s *session) Reclaim() error {
 	panic("not implemented yet")
 }
 
-func buildSession(name string, priorityOrder int, screenDirPath string) *session {
+func buildSession(name string, priorityOrder int, screenDirPath string) (*session, error) {
 	sessionDirpath := sessionDirPath(screenDirPath, name)
 	if _, err := os.Stat(sessionDirpath); err == nil {
-		panic(fmt.Sprintf("unable to create async screen session: [%s] path already exists", sessionDirpath))
+		return nil, fmt.Errorf("unable to create async screen session: [%s] path already exists", sessionDirpath)
 	}
 
 	session := &session{
@@ -475,7 +477,7 @@ func buildSession(name string, priorityOrder int, screenDirPath string) *session
 		printers:           make(map[string]*printer),
 	}
 
-	return session
+	return session, nil
 }
 
 func updateSession(exists *session, filePath string) error {

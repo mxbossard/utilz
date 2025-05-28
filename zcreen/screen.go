@@ -30,20 +30,23 @@ type screen struct {
 	notifier *printer
 }
 
-func (s *screen) Session(name string, priorityOrder int) *session {
+func (s *screen) Session(name string, priorityOrder int) (*session, error) {
 	if name == "" {
 		panic("cannot get session of empty name")
 	}
 	s.Lock()
 	defer s.Unlock()
 	if session, ok := s.sessions[name]; ok {
-		return session
+		return session, nil
 	}
 
-	session := buildSession(name, priorityOrder, s.tmpPath)
+	session, err := buildSession(name, priorityOrder, s.tmpPath)
+	if err != nil {
+		return nil, err
+	}
 	//fmt.Printf("Built sink session: [%s]\n", name)
 	s.sessions[name] = session
-	return session
+	return session, nil
 }
 
 func (s *screen) NotifyPrinter() printz.Printer {
