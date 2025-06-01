@@ -164,7 +164,7 @@ func TestAsyncScreen_BasicOut(t *testing.T) {
 	assert.FileExists(t, printerTmpOutFilepath)
 	assert.FileExists(t, printerTmpErrFilepath)
 
-	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s })
+	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s }())
 	ser, err := deserializeSession(sessionSerFilepath)
 	require.NoError(t, err)
 	assert.NotNil(t, ser)
@@ -354,7 +354,7 @@ func TestAsyncScreen_BasicOutAndErr(t *testing.T) {
 	assert.FileExists(t, printerTmpOutFilepath)
 	assert.FileExists(t, printerTmpErrFilepath)
 
-	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s })
+	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s }())
 	ser, err := deserializeSession(sessionSerFilepath)
 	require.NoError(t, err)
 	assert.NotNil(t, ser)
