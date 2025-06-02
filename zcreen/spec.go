@@ -53,8 +53,8 @@ import (
 const (
 	sessionDirPrefix  = "___session__"
 	printersDirPrefix = "___printers__"
-	outFileNameSuffix = "-out.*"
-	errFileNameSuffix = "-err.*"
+	outFileNameSuffix = "-out"
+	errFileNameSuffix = "-err"
 	bufLen            = 1024
 )
 
@@ -62,7 +62,8 @@ const (
 	tmpDirFileMode        = 0760
 	notifierPrinterName   = "_-_notifier"
 	continuousFlushPeriod = 1 * time.Millisecond
-	lockFilename          = ".lock"
+	screenLockFilename    = "screen.lock"
+	lockFilename          = "sync.lock" // FIXME: rename syncLockFilename
 	fileLockingTimeout    = 2 * time.Second
 )
 
@@ -135,11 +136,13 @@ type Tailer interface {
 }
 
 func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
-	tmpOutFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix))
+	timestamp := time.Now().UnixNano()
+
+	tmpOutFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s-%d.*", name, outFileNameSuffix, timestamp))
 	if err != nil {
 		panic(err)
 	}
-	tmpErrFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix))
+	tmpErrFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s-%d.*", name, errFileNameSuffix, timestamp))
 	if err != nil {
 		panic(err)
 	}

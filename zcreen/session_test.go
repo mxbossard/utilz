@@ -38,10 +38,10 @@ func TestSessionStart(t *testing.T) {
 	err = session.Start(10 * time.Millisecond)
 	require.NoError(t, err)
 	assert.DirExists(t, session.TmpPath)
-	matches, err := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix)
+	matches, err := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix + "*")
 	require.NoError(t, err)
 	require.Len(t, matches, 1)
-	matches, err = filepath.Glob(expectedSessionDir + "/" + expectedSession + errFileNameSuffix)
+	matches, err = filepath.Glob(expectedSessionDir + "/" + expectedSession + errFileNameSuffix + "*")
 	require.NoError(t, err)
 	require.Len(t, matches, 1)
 }
@@ -66,12 +66,12 @@ func TestSessionGetPrinter(t *testing.T) {
 	expectedPrintersDirPAth := printersDirPath(session.TmpPath)
 
 	printerTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(expectedPrintersDirPAth + "/" + expectedPrinter + outFileNameSuffix)
+		matches, _ := filepath.Glob(expectedPrintersDirPAth + "/" + expectedPrinter + outFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(expectedPrintersDirPAth + "/" + expectedPrinter + errFileNameSuffix)
+		matches, _ := filepath.Glob(expectedPrintersDirPAth + "/" + expectedPrinter + errFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
@@ -114,22 +114,22 @@ func TestSession_FileLayer(t *testing.T) {
 	expectedSessionDir := sessionDirPath(tmpDir, expectedSession)
 	expectedPrintersDir := printersDirPath(expectedSessionDir)
 	sessionTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix)
+		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	sessionTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + errFileNameSuffix)
+		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + errFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + outFileNameSuffix)
+		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + outFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + errFileNameSuffix)
+		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + errFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
@@ -203,22 +203,22 @@ func TestSession_ReOpen(t *testing.T) {
 	expectedSessionDir := sessionDirPath(tmpDir, expectedSession)
 	expectedPrintersDir := printersDirPath(expectedSessionDir)
 	sessionTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix)
+		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	sessionTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + errFileNameSuffix)
+		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + errFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + outFileNameSuffix)
+		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + outFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + errFileNameSuffix)
+		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + errFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
@@ -289,22 +289,22 @@ func TestSession_ReOpen(t *testing.T) {
 
 	sessionSerFilepath = filepath.Join(tmpDir, expectedSession+serializedExtension)
 	sessionTmpOutFilepath = func() string {
-		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix)
+		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + outFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	sessionTmpErrFilepath = func() string {
-		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + errFileNameSuffix)
+		matches, _ := filepath.Glob(expectedSessionDir + "/" + expectedSession + errFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpOutFilepath = func() string {
-		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + outFileNameSuffix)
+		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + outFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath = func() string {
-		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + errFileNameSuffix)
+		matches, _ := filepath.Glob(expectedPrintersDir + "/" + expectedPrinter + errFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()

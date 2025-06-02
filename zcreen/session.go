@@ -83,6 +83,7 @@ type session struct {
 	TmpOutName, TmpErrName string
 	tmpOut, tmpErr         *os.File
 	cursorOut, cursorErr   int64
+	oldTmpSessionsScanned  bool
 
 	printersByPriority map[int][]*printer
 	printers           map[string]*printer
@@ -256,8 +257,10 @@ func (s *session) clear() (err error) {
 		return fmt.Errorf("cannot clear session: [%s] not ended", s.Name)
 	}
 	//fmt.Printf("Clearing session dir: [%s] ...\n", s.TmpPath)
-	s.Started = false
-	s.Ended = false
+
+	//s.Started = false
+	//s.Ended = false
+
 	//s.flushed = false
 
 	if s.tmpOut != nil {
@@ -462,17 +465,32 @@ func (s *session) Reclaim() error {
 }
 
 func buildSession(name string, priorityOrder int, screenDirPath string) (*session, error) {
-	sessionDirpath := sessionDirPath(screenDirPath, name)
-	if _, err := os.Stat(sessionDirpath); err == nil {
-		return nil, fmt.Errorf("unable to create async screen session: [%s] path already exists", sessionDirpath)
+	sessionSerPath := sessionSerializedPath(screenDirPath, name)
+	if _, err := os.Stat(sessionSerPath); err == nil {
+		//return nil, fmt.Errorf("unable to create async screen session: [%s] path already exists", sessionDirpath)
+		// session path already exists
+		session, err := deserializeSession(sessionSerPath)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("\n<<>> deserialized already existing session: %s ; path: %s\n", session, sessionSerPath)
+		session.PriorityOrder = priorityOrder
+		// Session must be restarted correctly
+		session.Started = false
+		session.Ended = false
+		session.readOnly = false
+		session.printersByPriority = make(map[int][]*printer)
+		session.printers = make(map[string]*printer)
+		return session, nil
 	}
 
+	sessionDirPath := sessionDirPath(screenDirPath, name)
 	session := &session{
 		mutex:              &sync.Mutex{},
 		Name:               name,
 		PriorityOrder:      priorityOrder,
+		TmpPath:            sessionDirPath,
 		readOnly:           false,
-		TmpPath:            sessionDirpath,
 		printersByPriority: make(map[int][]*printer),
 		printers:           make(map[string]*printer),
 	}

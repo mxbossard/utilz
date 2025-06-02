@@ -3,10 +3,13 @@ package zcreen
 import (
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/mxbossard/utilz/filez"
+	"github.com/mxbossard/utilz/printz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -52,7 +55,7 @@ func TestBuildAndCloseUniqScreen(t *testing.T) {
 
 	assert.NotPanics(t, func() {
 		NewAsyncScreen(tmpDir)
-	}, "Once closed it should be iossible to build another instance of screen")
+	}, "Once closed it should be possible to build another instance of screen")
 
 	_, err = screen.Session("foo", 0)
 	assert.Error(t, err, "Closed screen should not allow session creation")
@@ -87,7 +90,7 @@ func TestAsyncScreen_BasicOut_Restart(t *testing.T) {
 
 	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
 	sessionTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedSession + outFileNameSuffix)
+		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedSession + outFileNameSuffix + "*")
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
@@ -102,11 +105,14 @@ func TestAsyncScreen_BasicOut_Restart(t *testing.T) {
 	require.NotNil(t, screen2)
 
 	// Usage of second screen
-	session, err = screen2.Session(expectedSession, 42)
+	session2, err := screen2.Session(expectedSession, 42)
 	assert.NoError(t, err)
-	require.NotNil(t, session)
-	// Session MUST be already opened prtr2 MUST append next to prtr1
-	prtr2, err := session.Printer(expectedPrinter, 10)
+	require.NotNil(t, session2)
+	// Session MUST be reopened
+	err = session2.Start(time.Second)
+	assert.NoError(t, err)
+	// prtr2 MUST append next to prtr1
+	prtr2, err := session2.Printer(expectedPrinter, 10)
 	assert.NoError(t, err)
 	require.NotNil(t, prtr2)
 
@@ -116,5 +122,22 @@ func TestAsyncScreen_BasicOut_Restart(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify prtr1 & prtr2 where persisted in printer backing file
-	assert.Equal(t, expectedMessage1+expectedMessage2, func() string { s, _ := filez.ReadString(sessionTmpOutFilepath); return s })
+	session2TmpOutFilepath := func() string {
+		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedSession + outFileNameSuffix + "*")
+		sort.Strings(matches)
+		require.NotEmpty(t, matches)
+		return matches[1]
+	}()
+	assert.Equal(t, expectedMessage2, func() string { s, _ := filez.ReadString(session2TmpOutFilepath); return s }())
+
+	// Test tailing zcreen outputs both  messages concatenated
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, outW.String())
+	assert.Equal(t, expectedMessage1+expectedMessage2, outW.String())
 }

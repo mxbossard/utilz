@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"sync"
 	"time"
 
@@ -24,10 +25,12 @@ var (
 
 type screen struct {
 	sync.Mutex
-	fileLock *flock.Flock
-	tmpPath  string
-	sessions map[string]*session
-	notifier *printer
+	screenLock *flock.Flock
+	fileLock   *flock.Flock
+	tmpPath    string
+	sessions   map[string]*session
+	notifier   *printer
+	closed     bool
 }
 
 func (s *screen) Session(name string, priorityOrder int) (*session, error) {
@@ -36,6 +39,9 @@ func (s *screen) Session(name string, priorityOrder int) (*session, error) {
 	}
 	s.Lock()
 	defer s.Unlock()
+	if s.closed {
+		return nil, fmt.Errorf("cannot create a session in a closed zcreen")
+	}
 	if session, ok := s.sessions[name]; ok {
 		return session, nil
 	}
@@ -106,12 +112,21 @@ func (s *screen) FlushAllBlocking(timeout time.Duration) (err error) {
 }
 
 func (s *screen) Close() (err error) {
+	s.Lock()
+	defer s.Unlock()
+	defer s.screenLock.Unlock()
 	err = s.notifier.tmpOut.Close()
 	if err != nil {
 		return err
 	}
 	err = s.notifier.tmpErr.Close()
-	return
+
+	var agg errorz.Aggregated
+	for _, s := range s.sessions {
+		agg.Add(s.End("closing zcreen"))
+	}
+	s.closed = true
+	return agg.Return()
 }
 
 func (s *screen) Resync() error {
@@ -663,6 +678,43 @@ func (s *screenTailer) tailSession(session *session) (err error) {
 	}
 	session.tailed = true
 
+	if !session.oldTmpSessionsScanned {
+		// On first session tail, scan for older existing session tmp files
+		// In case of zcreen restart, each restart will add new tmp files
+		if session.cursorOut == 0 {
+			matches, _ := filepath.Glob(session.TmpPath + "/" + session.Name + outFileNameSuffix + "*")
+			sort.Strings(matches)
+			for _, match := range matches[0 : len(matches)-1] {
+				// Copy each older out session files
+				f, err := filez.Open(match)
+				if err != nil {
+					return err
+				}
+				_, err = filez.Copy(f, s.outputs.Out(), buf)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if session.cursorErr == 0 {
+			matches, _ := filepath.Glob(session.TmpPath + "/" + session.Name + errFileNameSuffix + "*")
+			sort.Strings(matches)
+			for _, match := range matches[0 : len(matches)-1] {
+				// Copy each older err session files
+				f, err := filez.Open(match)
+				if err != nil {
+					return err
+				}
+				_, err = filez.Copy(f, s.outputs.Err(), buf)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		session.oldTmpSessionsScanned = true
+	}
+
 	n, err := filez.CopyChunk(session.tmpOut, s.outputs.Out(), buf, session.cursorOut, -1)
 	if err != nil {
 		return fmt.Errorf("error tailing session %s out: %w", session.Name, err)
@@ -748,26 +800,36 @@ func clearSessionsMap(sessions *map[string]*session, name string) error {
 	return nil
 }
 
+// FIXME: does a sync screen exists ?
 func NewScreen(outputs printz.Outputs) *screen {
 	// FIXME: not implemented
 	panic("not implemented yet")
 }
 
 func NewAsyncScreen(tmpPath string) *screen {
-	if _, err := os.Stat(tmpPath); err == nil {
-		panic(fmt.Sprintf("unable to create async screen: [%s] path already exists", tmpPath))
-	}
+	//if _, err := os.Stat(tmpPath); err == nil {
+	//	panic(fmt.Sprintf("unable to create async screen: [%s] path already exists", tmpPath))
+	//}
 
 	err := os.MkdirAll(tmpPath, tmpDirFileMode)
 	if err != nil {
 		panic(err)
 	}
+
+	screenLockFilepath := filepath.Join(tmpPath, screenLockFilename)
+	screenLock := flock.New(screenLockFilepath)
+	err = utilz.FileLock(screenLock, time.Second)
+	if err != nil {
+		panic(fmt.Errorf("unable to create a new zcreen, dir: %s is lock by another instance: %w", tmpPath, err))
+	}
+
 	lockFilepath := filepath.Join(tmpPath, lockFilename)
 	return &screen{
-		tmpPath:  tmpPath,
-		fileLock: flock.New(lockFilepath),
-		sessions: make(map[string]*session),
-		notifier: buildPrinter(tmpPath, notifierPrinterName, 0),
+		tmpPath:    tmpPath,
+		screenLock: screenLock,
+		fileLock:   flock.New(lockFilepath), // FIXME: rename syncLock
+		sessions:   make(map[string]*session),
+		notifier:   buildPrinter(tmpPath, notifierPrinterName, 0),
 	}
 }
 
