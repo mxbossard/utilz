@@ -473,7 +473,6 @@ func buildSession(name string, priorityOrder int, screenDirPath string) (*sessio
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("\n<<>> deserialized already existing session: %s ; path: %s\n", session, sessionSerPath)
 		session.PriorityOrder = priorityOrder
 		// Session must be restarted correctly
 		session.Started = false
