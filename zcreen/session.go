@@ -80,7 +80,7 @@ type session struct {
 	serializationFilepath string
 
 	// FIXME: should replace following by a printer but cannot do it simply because files must be used by tailer !
-	TmpOutName, TmpErrName string
+	tmpOutName, tmpErrName string
 	tmpOut, tmpErr         *os.File
 	cursorOut, cursorErr   int64
 	oldTmpSessionsScanned  bool
@@ -183,8 +183,8 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 	}
 
 	_, tmpOut, tmpErr := buildTmpOutputs(sessionDirPath, s.Name)
-	s.TmpOutName = tmpOut.Name()
-	s.TmpErrName = tmpErr.Name()
+	s.tmpOutName = tmpOut.Name()
+	s.tmpErrName = tmpErr.Name()
 	s.tmpOut = tmpOut
 	s.tmpErr = tmpErr
 	s.notifier = buildPrinter(sessionDirPath, notifierPrinterName, 0)
@@ -272,14 +272,14 @@ func (s *session) clear() (err error) {
 		s.tmpErr = nil
 	}
 
-	if s.TmpOutName != "" {
-		err = os.RemoveAll(s.TmpOutName)
+	if s.tmpOutName != "" {
+		err = os.RemoveAll(s.tmpOutName)
 		if err != nil {
 			return err
 		}
 	}
-	if s.TmpErrName != "" {
-		err = os.RemoveAll(s.TmpErrName)
+	if s.tmpErrName != "" {
+		err = os.RemoveAll(s.tmpErrName)
 		if err != nil {
 			return err
 		}

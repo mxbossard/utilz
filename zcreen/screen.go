@@ -523,6 +523,84 @@ func scanSerializedSessions(zcreenPath string) (sessions []*session, err error) 
 	return
 }
 
+func hasNextSessionTmp(ses *session) (ok bool, nextTmpOut, nextTmpErr string) {
+	matches, _ := filepath.Glob(ses.TmpPath + "/" + ses.Name + outFileNameSuffix + "*")
+	if len(matches) > 0 {
+		sort.Strings(matches)
+		isNext := false
+		for _, match := range matches {
+			if ses.tmpOutName == "" || isNext {
+				nextTmpOut = match
+				ok = true
+				break
+			} else if match == ses.tmpOutName {
+				// found current one
+				isNext = true
+			}
+		}
+	}
+
+	matches, _ = filepath.Glob(ses.TmpPath + "/" + ses.Name + errFileNameSuffix + "*")
+	if len(matches) > 0 {
+		sort.Strings(matches)
+		isNext := false
+		for _, match := range matches {
+			if ses.tmpErrName == "" || isNext {
+				nextTmpErr = match
+				ok = true
+				break
+			} else if match == ses.tmpErrName {
+				// found current one
+				isNext = true
+			}
+		}
+	}
+
+	return
+}
+
+// Update session tmp path and file in case of tmp file change (if sink restart for example)
+// Always take next tmp files (ordered by timestamped name)
+func (s *screenTailer) updateNextSessionTmp(ses *session) (updated bool, err error) {
+	if !ses.cleared {
+		ok, nextOut, nextErr := hasNextSessionTmp(ses)
+		if ok {
+			if nextOut != "" {
+				if ses.tmpOut != nil {
+					err = ses.tmpOut.Close()
+					if err != nil {
+						return
+					}
+				}
+				ses.tmpOutName = nextOut
+				ses.tmpOut, err = os.OpenFile(nextOut, os.O_RDONLY, 0)
+				if err != nil {
+					err = fmt.Errorf("error opening session out tmp file (%s): %w", ses.tmpOutName, err)
+					return
+				}
+				updated = true
+			}
+			if nextErr != "" {
+				if ses.tmpErr != nil {
+					err = ses.tmpErr.Close()
+					if err != nil {
+						return
+					}
+				}
+				ses.tmpErrName = nextErr
+				ses.tmpErr, err = os.OpenFile(nextErr, os.O_RDONLY, 0)
+				if err != nil {
+					err = fmt.Errorf("error opening session err tmp file (%s): %w", ses.tmpErrName, err)
+					return
+				}
+				updated = true
+			}
+		}
+	}
+
+	return
+}
+
 func (s *screenTailer) scanSessions() (err error) {
 	pt := logger.PerfTimer("tmpPath", s.tmpPath)
 	defer pt.End("sessionsCount", len(s.sessions))
@@ -542,55 +620,77 @@ func (s *screenTailer) scanSessions() (err error) {
 	}
 
 	for _, scanned := range scannedSession {
-		if scanned.cleared {
-			// Remove cleared session
-			err = os.Remove(scanned.serializationFilepath)
-			if err != nil {
-				return fmt.Errorf("unable to remove serialized session file (%s): %w", scanned.serializationFilepath, err)
-			}
-		}
 
+		//if scanned.cleared {
+		//	// Remove cleared session
+		//	err = os.Remove(scanned.serializationFilepath)
+		//	if err != nil {
+		//		return fmt.Errorf("unable to remove serialized session file (%s): %w", scanned.serializationFilepath, err)
+		//	}
+		//}
+
+		var exists *session
+		var ok bool
 		// clear session
 		scanned.currentPriority = nil
 		scanned.tmpOut = nil
 		scanned.tmpErr = nil
-		if exists, ok := s.sessions[scanned.Name]; !ok {
+		if exists, ok = s.sessions[scanned.Name]; !ok {
 			// init session
-			if !scanned.cleared {
-				scanned.tmpOut, err = os.OpenFile(scanned.TmpOutName, os.O_RDONLY, 0)
-				if err != nil {
-					return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.TmpOutName, err)
-				}
-				scanned.tmpErr, err = os.OpenFile(scanned.TmpErrName, os.O_RDONLY, 0)
-				if err != nil {
-					return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.TmpErrName, err)
-				}
-			}
-			scanned.Ended = scanned.Ended || scanned.cleared
+			//if !scanned.cleared {
+			// Open tmp files if session is not known yet
+
+			// scanned.tmpOut, err = os.OpenFile(scanned.tmpOutName, os.O_RDONLY, 0)
+			// if err != nil {
+			// 	return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.tmpOutName, err)
+			// }
+			// scanned.tmpErr, err = os.OpenFile(scanned.tmpErrName, os.O_RDONLY, 0)
+			// if err != nil {
+			// 	return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.tmpErrName, err)
+			// }
+
+			// _, err := s.updateNextSessionTmp(scanned)
+			// if err != nil {
+			// 	return err
+			// }
+
+			//}
+			//scanned.Ended = scanned.Ended || scanned.cleared
 			s.sessions[scanned.Name] = scanned
 			s.sessionsByPriority[scanned.PriorityOrder] = append(s.sessionsByPriority[scanned.PriorityOrder], scanned)
+			exists = scanned
 		} else {
 			// update session
 			exists.Started = scanned.Started
 			exists.Ended = scanned.Ended || scanned.cleared
 			exists.cleared = scanned.cleared
 
-			if !exists.cleared {
-				if exists.tmpOut == nil && scanned.TmpOutName != "" {
-					exists.tmpOut, err = os.OpenFile(scanned.TmpOutName, os.O_RDONLY, 0)
-					if err != nil {
-						return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.TmpOutName, err)
-					}
-				}
-				if exists.tmpErr == nil && scanned.TmpErrName != "" {
-					exists.tmpErr, err = os.OpenFile(scanned.TmpErrName, os.O_RDONLY, 0)
-					if err != nil {
-						return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.TmpErrName, err)
-					}
-				}
-			}
+			// if !exists.cleared {
+			// 	// Open tmp files if existing session not cleared and files not already opened
+			// 	if exists.tmpOut == nil && scanned.tmpOutName != "" {
+			// 		exists.tmpOut, err = os.OpenFile(scanned.tmpOutName, os.O_RDONLY, 0)
+			// 		if err != nil {
+			// 			return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.tmpOutName, err)
+			// 		}
+			// 	}
+			// 	if exists.tmpErr == nil && scanned.tmpErrName != "" {
+			// 		exists.tmpErr, err = os.OpenFile(scanned.tmpErrName, os.O_RDONLY, 0)
+			// 		if err != nil {
+			// 			return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.tmpErrName, err)
+			// 		}
+			// 	}
+			// }
+
+			// _, err := s.updateNextSessionTmp(scanned)
+			// if err != nil {
+			// 	return err
+			// }
 		}
 
+		_, err := s.updateNextSessionTmp(scanned)
+		if err != nil {
+			return err
+		}
 	}
 
 	return
@@ -678,56 +778,98 @@ func (s *screenTailer) tailSession(session *session) (err error) {
 	}
 	session.tailed = true
 
-	if !session.oldTmpSessionsScanned {
-		// On first session tail, scan for older existing session tmp files
-		// In case of zcreen restart, each restart will add new tmp files
-		if session.cursorOut == 0 {
-			matches, _ := filepath.Glob(session.TmpPath + "/" + session.Name + outFileNameSuffix + "*")
-			sort.Strings(matches)
-			for _, match := range matches[0 : len(matches)-1] {
-				// Copy each older out session files
-				f, err := filez.Open(match)
-				if err != nil {
-					return err
-				}
-				_, err = filez.Copy(f, s.outputs.Out(), buf)
-				if err != nil {
-					return err
+	// TODO LOOP :
+	// TODO: check if next session tmp available
+	// Tail current session tmp
+	// if next session tmp available before tailing loop : update next session tmp and tail new session tmp.
+
+	/*
+		if !session.oldTmpSessionsScanned {
+			// On first session tail, scan for older existing session tmp files
+			// In case of zcreen restart, each restart will add new tmp files
+			if session.cursorOut == 0 {
+				matches, _ := filepath.Glob(session.TmpPath + "/" + session.Name + outFileNameSuffix + "*")
+				if len(matches) > 1 {
+					sort.Strings(matches)
+					fmt.Printf("\n<<>> Found files to aggregate: %s\n", matches)
+					for _, match := range matches[0 : len(matches)-1] {
+						fmt.Printf("<<>> recopying file: %s ...\n", match)
+						// Copy each older out session files
+						f, err := filez.Open(match)
+						if err != nil {
+							return err
+						}
+						_, err = filez.Copy(f, s.outputs.Out(), buf)
+						if err != nil {
+							return err
+						}
+					}
 				}
 			}
-		}
 
-		if session.cursorErr == 0 {
-			matches, _ := filepath.Glob(session.TmpPath + "/" + session.Name + errFileNameSuffix + "*")
-			sort.Strings(matches)
-			for _, match := range matches[0 : len(matches)-1] {
-				// Copy each older err session files
-				f, err := filez.Open(match)
-				if err != nil {
-					return err
-				}
-				_, err = filez.Copy(f, s.outputs.Err(), buf)
-				if err != nil {
-					return err
+			if session.cursorErr == 0 {
+				matches, _ := filepath.Glob(session.TmpPath + "/" + session.Name + errFileNameSuffix + "*")
+				if len(matches) > 1 {
+					sort.Strings(matches)
+					for _, match := range matches[0 : len(matches)-1] {
+						// Copy each older err session files
+						f, err := filez.Open(match)
+						if err != nil {
+							return err
+						}
+						_, err = filez.Copy(f, s.outputs.Err(), buf)
+						if err != nil {
+							return err
+						}
+					}
 				}
 			}
+			session.oldTmpSessionsScanned = true
 		}
-		session.oldTmpSessionsScanned = true
-	}
+	*/
 
-	n, err := filez.CopyChunk(session.tmpOut, s.outputs.Out(), buf, session.cursorOut, -1)
-	if err != nil {
-		return fmt.Errorf("error tailing session %s out: %w", session.Name, err)
-	}
-	session.cursorOut += int64(n)
-	logger.Debug("flushing session out ...", "session", session.Name, "tmpOut", session.tmpOut.Name(), "n", n, "cursorOut", session.cursorOut)
+	hasNextBefore, _, _ := hasNextSessionTmp(session)
+	for {
+		fmt.Printf("\n<<>> Copying file: %s ...\n", session.tmpErr.Name())
 
-	n, err = filez.CopyChunk(session.tmpErr, s.outputs.Err(), buf, session.cursorErr, -1)
-	if err != nil {
-		return fmt.Errorf("error tailing session %s err: %w", session.Name, err)
+		// Copy tmp files into outputs
+		n, err := filez.CopyChunk(session.tmpOut, s.outputs.Out(), buf, session.cursorOut, -1)
+		if err != nil {
+			return fmt.Errorf("error tailing session %s out: %w", session.Name, err)
+		}
+		session.cursorOut += int64(n)
+		logger.Debug("flushing session out ...", "session", session.Name, "tmpOut", session.tmpOut.Name(), "n", n, "cursorOut", session.cursorOut)
+
+		n, err = filez.CopyChunk(session.tmpErr, s.outputs.Err(), buf, session.cursorErr, -1)
+		if err != nil {
+			return fmt.Errorf("error tailing session %s err: %w", session.Name, err)
+		}
+		session.cursorErr += int64(n)
+		logger.Debug("flushing session err ...", "session", session.Name, "tmpErr", session.tmpErr.Name(), "n", n, "cursorErr", session.cursorErr)
+
+		// Check if new session tmp files exists
+		//hasNextAfter, err := s.updateNextSessionTmp(session)
+		// if err != nil {
+		// 	return err
+		// }
+
+		hasNextAfter, _, _ := hasNextSessionTmp(session)
+		if hasNextAfter && !hasNextBefore {
+			// Could have miss some chunk in current tmp files
+			hasNextBefore = true
+			continue
+		} else if hasNextAfter {
+			updated, err := s.updateNextSessionTmp(session)
+			if err != nil {
+				return err
+			}
+			if !updated {
+				break
+			}
+		} else {
+			break
+		}
 	}
-	session.cursorErr += int64(n)
-	logger.Debug("flushing session err ...", "session", session.Name, "tmpErr", session.tmpErr.Name(), "n", n, "cursorErr", session.cursorErr)
 
 	if session.Ended {
 		session.flushed = true
@@ -806,7 +948,7 @@ func NewScreen(outputs printz.Outputs) *screen {
 	panic("not implemented yet")
 }
 
-func NewAsyncScreen(tmpPath string) *screen {
+func NewAsyncScreen(tmpPath string, force bool) *screen {
 	//if _, err := os.Stat(tmpPath); err == nil {
 	//	panic(fmt.Sprintf("unable to create async screen: [%s] path already exists", tmpPath))
 	//}
@@ -817,6 +959,29 @@ func NewAsyncScreen(tmpPath string) *screen {
 	}
 
 	screenLockFilepath := filepath.Join(tmpPath, screenLockFilename)
+
+	if force {
+		// On force, override zcreen file locking
+		ok, err := filez.Exists(screenLockFilepath)
+		if err != nil {
+			panic(fmt.Errorf("Unable to stat file: %s", screenLockFilepath))
+		}
+		if ok {
+			// Lock file already exists
+
+			screenLock := flock.New(screenLockFilepath)
+			// Always unlock on start to acquire the lock
+			err = screenLock.Close()
+			if err != nil {
+				panic(fmt.Errorf("unable to acquire the lock on dir: %s ; err: %w", tmpPath, err))
+			}
+			err = os.Remove(screenLockFilepath)
+			if err != nil {
+				panic(fmt.Errorf("unable to remove lock on dir: %s ; err: %w", tmpPath, err))
+			}
+		}
+	}
+
 	screenLock := flock.New(screenLockFilepath)
 	err = utilz.FileLock(screenLock, time.Second)
 	if err != nil {

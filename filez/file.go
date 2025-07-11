@@ -1,6 +1,7 @@
 package filez
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -338,6 +339,23 @@ func PrintTreeOrPanic(parentPath string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func Exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+func ExistsOrPanic(path string) bool {
+	ok, err := Exists(path)
+	if err != nil {
+		panic(err)
+	}
+	return ok
 }
 
 func IsDirectory(path string) (bool, error) {

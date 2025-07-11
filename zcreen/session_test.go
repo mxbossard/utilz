@@ -366,7 +366,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 
 	session.NotifyPrinter().Out("notif1,")
 
-	sessionTmpOutFilepath := session.TmpOutName
+	sessionTmpOutFilepath := session.tmpOutName
 	assert.FileExists(t, sessionTmpOutFilepath)
 
 	prtr10a, err := session.Printer(expectedPrinter10a, 10)
@@ -497,7 +497,7 @@ func TestSession_EmptyPrinter(t *testing.T) {
 	err = session.Start(10 * time.Millisecond)
 	assert.NoError(t, err)
 
-	sessionTmpOutFilepath := session.TmpOutName
+	sessionTmpOutFilepath := session.tmpOutName
 	assert.FileExists(t, sessionTmpOutFilepath)
 
 	prtr10a, err := session.Printer(expectedPrinter10a, 10)
@@ -554,7 +554,7 @@ func TestSession_Timeout(t *testing.T) {
 
 	session.NotifyPrinter().Out("notif1,")
 
-	sessionTmpOutFilepath := session.TmpOutName
+	sessionTmpOutFilepath := session.tmpOutName
 	assert.FileExists(t, sessionTmpOutFilepath)
 
 	prtr10a, err := session.Printer(expectedPrinter10a, 10)

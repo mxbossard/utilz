@@ -48,19 +48,19 @@ func TestGetTailer(t *testing.T) {
 func TestGetAsyncScreen(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo40b"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(tmpDir)
+	s := NewAsyncScreen(tmpDir, false)
 	assert.NotNil(t, s)
 	assert.DirExists(t, tmpDir)
 
 	require.Panics(t, func() {
-		NewAsyncScreen(tmpDir)
+		NewAsyncScreen(tmpDir, false)
 	})
 }
 
 func TestGetReadOnlyAsyncScreen(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo40c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(tmpDir)
+	s := NewAsyncScreen(tmpDir, false)
 	assert.NotNil(t, s)
 	assert.DirExists(t, tmpDir)
 
@@ -79,7 +79,7 @@ func TestGetReadOnlyAsyncScreen(t *testing.T) {
 func TestScreenGetSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo1001"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(tmpDir)
+	s := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, s)
 	session, err := s.Session("bar1001", 42)
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestScreenGetSession(t *testing.T) {
 func TestScreenGetPrinter(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo2001"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(tmpDir)
+	s := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, s)
 	session, err := s.Session("foo2001", 42)
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestScreenGetPrinter(t *testing.T) {
 func TestAsyncScreen_BasicOut(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3001"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, screen)
 
 	expectedSession := "foo3001"
@@ -209,7 +209,7 @@ func TestAsyncScreen_BasicOut(t *testing.T) {
 func TestAsyncScreen_ClearSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3002"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, screen)
 
 	expectedSession := "foo3002"
@@ -305,7 +305,7 @@ func TestAsyncScreen_ClearSession(t *testing.T) {
 func TestAsyncScreen_BasicOutAndErr(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3003"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, screen)
 
 	expectedSession := "foo3003"
@@ -400,7 +400,7 @@ func TestAsyncScreen_BasicOutAndErr(t *testing.T) {
 func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo4001"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -524,7 +524,7 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo5001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -581,8 +581,8 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtrC40a)
 
-	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 	prtrB10a.Out("B10a1,")
 	prtrB30a.Out("B30a1,")
@@ -614,8 +614,8 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
-	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
-	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -624,7 +624,7 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	err = sessionA.Flush()
 	assert.NoError(t, err)
 
-	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
+	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -641,10 +641,10 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.TmpOutName))
+	assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.tmpOutName))
 	err = sessionC.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
 	err = screenTailer.tailAll()
@@ -670,7 +670,7 @@ func TestAsyncScreen_MultipleSessions(t *testing.T) {
 func TestAsyncScreen_Notifications(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo6001"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -727,8 +727,8 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtrC40a)
 
-	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 	screen.NotifyPrinter().Out("notif1,")
 
@@ -776,8 +776,8 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	// Only first 2 notifications are tailed. SessionB is flushed, SessionA is elected but not ended.
 	assert.Equal(t, "notif1,notif2,", outW.String())
 
-	assert.Empty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
-	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.TmpOutName))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 	// First 4 notifications are flushed. SessionB is flushed, SessionA is elected but not ended.
 	assert.Equal(t, "notif1,notif2,", outW.String())
@@ -785,7 +785,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	err = sessionA.Flush()
 	assert.NoError(t, err)
 
-	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.TmpOutName))
+	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -808,10 +808,10 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	// SessionC still not flushed.
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.TmpOutName))
+	assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.tmpOutName))
 	err = sessionC.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 	// SessionC is flushed, but tailer not flushed
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
@@ -843,7 +843,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 func TestTailOnlyBlocking(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7011c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -894,7 +894,7 @@ func TestTailOnlyBlocking(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		screen.NotifyPrinter().Out("notif2,")
 		err = screen.NotifyPrinter().Flush()
@@ -930,7 +930,7 @@ func TestTailOnlyBlocking(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChan <- "endAB"
 
@@ -963,7 +963,7 @@ func TestTailOnlyBlocking(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 	}()
 
 	err := screenTailer.tailAll()
@@ -983,7 +983,7 @@ func TestTailOnlyBlocking(t *testing.T) {
 func TestAsyncScreen_TailOnlyBlocking_ClearedSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3012"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, screen)
 
 	expectedSession := "foo3012"
@@ -1032,7 +1032,7 @@ func TestAsyncScreen_TailOnlyBlocking_ClearedSession(t *testing.T) {
 func TestTailBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -1087,7 +1087,7 @@ func TestTailBlocking_InOrder(t *testing.T) {
 
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		// Wait before printing
 		syncChan <- "startB"
@@ -1123,7 +1123,7 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		syncChan <- "finishB"
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		// Wait before printing
 		syncChan <- "startC"
@@ -1160,7 +1160,7 @@ func TestTailBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChan <- "endedC"
 	}()
@@ -1198,7 +1198,7 @@ func TestTailBlocking_InOrder(t *testing.T) {
 func TestAsyncScreen_TailBlocking_ClearedSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3112"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, screen)
 
 	expectedSession := "foo3112"
@@ -1247,7 +1247,7 @@ func TestAsyncScreen_TailBlocking_ClearedSession(t *testing.T) {
 func TestTailBlocking_InParallel(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7201c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -1295,7 +1295,7 @@ func TestTailBlocking_InParallel(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		syncChanA <- "endA"
 	}()
@@ -1327,7 +1327,7 @@ func TestTailBlocking_InParallel(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChanB <- "endB"
 	}()
@@ -1364,7 +1364,7 @@ func TestTailBlocking_InParallel(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChanC <- "endC"
 	}()
@@ -1399,7 +1399,7 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 	// test TailBlocking() print messages contiously and not only at the end of a session
 	tmpDir := "/tmp/utilz.zcreen.foo7301c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -1478,7 +1478,7 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 		syncChan <- "A7"
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 		expectedMsgChan <- ""
 
 		syncChan <- "END"
@@ -1508,7 +1508,7 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 func TestTailBlocking_OutOfOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo8001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -1557,7 +1557,7 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		syncChanA <- "endA"
 	}()
@@ -1590,7 +1590,7 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChanB <- "endB"
 	}()
@@ -1627,7 +1627,7 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChanC <- "endC"
 	}()
@@ -1660,7 +1660,7 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 func TestTailAllBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo9001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -1711,7 +1711,7 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.TmpOutName))
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		syncChan <- "endA+notif1"
 
@@ -1745,7 +1745,7 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.TmpOutName))
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChan <- "endB+notif2"
 
@@ -1782,7 +1782,7 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.TmpOutName))
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChan <- "endC"
 	}()
@@ -1818,7 +1818,7 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3212"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir)
+	screen := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, screen)
 
 	expectedSession := "foo3212"
