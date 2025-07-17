@@ -578,6 +578,13 @@ func (s *screenTailer) updateNextSessionTmp(ses *session) (updated bool, err err
 					err = fmt.Errorf("error opening session out tmp file (%s): %w", ses.tmpOutName, err)
 					return
 				}
+
+				// Clear cursor
+				ses.cursorOut = 0
+				ses.tailed = false
+				ses.flushed = false
+				ses.cleared = false
+				ses.printed = false
 				updated = true
 			}
 			if nextErr != "" {
@@ -593,6 +600,12 @@ func (s *screenTailer) updateNextSessionTmp(ses *session) (updated bool, err err
 					err = fmt.Errorf("error opening session err tmp file (%s): %w", ses.tmpErrName, err)
 					return
 				}
+				// Clear cursor
+				ses.cursorErr = 0
+				ses.tailed = false
+				ses.flushed = false
+				ses.cleared = false
+				ses.printed = false
 				updated = true
 			}
 		}
@@ -830,7 +843,7 @@ func (s *screenTailer) tailSession(session *session) (err error) {
 
 	hasNextBefore, _, _ := hasNextSessionTmp(session)
 	for {
-		fmt.Printf("\n<<>> Copying file: %s ...\n", session.tmpErr.Name())
+		fmt.Printf("\n<<>> Copying file: %s from %d | %d ...\n", session.tmpErr.Name(), session.cursorOut, session.cursorErr)
 
 		// Copy tmp files into outputs
 		n, err := filez.CopyChunk(session.tmpOut, s.outputs.Out(), buf, session.cursorOut, -1)

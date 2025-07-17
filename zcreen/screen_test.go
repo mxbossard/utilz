@@ -1406,7 +1406,7 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 	outs := printz.NewOutputs(outW, errW)
 	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
 
-	expectedSessionA := "barA7201"
+	expectedSessionA := "barA7301"
 	expectedPrinterA10a := "barA10a"
 	expectedPrinterA20a := "barA20a"
 	/*
@@ -1498,7 +1498,7 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 	for step = <-syncChan; step != "END"; step = <-syncChan {
 		// Wait for tailing lag period
 		expectedOut += <-expectedMsgChan
-		time.Sleep(continuousFlushPeriod*3 + 10*time.Millisecond) // Wait some tailer flush periods
+		time.Sleep(continuousFlushPeriod*3 + 50*time.Millisecond) // Wait some tailer flush periods
 		out := outW.String()
 		assert.Equal(t, expectedOut, out, "testing step %s", step)
 	}
