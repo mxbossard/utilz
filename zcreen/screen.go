@@ -291,7 +291,12 @@ func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) e
 
 	for blocking = s.sessions[sessionName]; blocking == nil || !blocking.Ended; {
 		if time.Since(startTime) > timeout {
-			err := errorz.Timeoutf(timeout, "TailBlocking() for session: [%s]", sessionName)
+			var err error
+			if blocking != nil {
+				err = errorz.Timeoutf(timeout, "TailBlocking() for session: [%s] (cursorOut: %d ; cursorErr: %d ; end: %v ; flush: %v ; tailed: %v)", sessionName, blocking.cursorOut, blocking.cursorErr, blocking.Ended, blocking.flushed, blocking.tailed)
+			} else {
+				err = errorz.Timeoutf(timeout, "TailBlocking() for session: [%s]", sessionName)
+			}
 			return err
 		}
 
@@ -675,8 +680,8 @@ func (s *screenTailer) scanSessions() (err error) {
 		} else {
 			// update session
 			exists.Started = scanned.Started
-			exists.Ended = scanned.Ended || scanned.cleared
-			exists.cleared = scanned.cleared
+			exists.Ended = scanned.Ended //|| scanned.cleared
+			//exists.cleared = scanned.cleared
 
 			// if !exists.cleared {
 			// 	// Open tmp files if existing session not cleared and files not already opened
@@ -843,7 +848,7 @@ func (s *screenTailer) tailSession(session *session) (err error) {
 
 	hasNextBefore, _, _ := hasNextSessionTmp(session)
 	for {
-		fmt.Printf("\n<<>> Copying file: %s from %d | %d ...\n", session.tmpErr.Name(), session.cursorOut, session.cursorErr)
+		//fmt.Printf("\n<<>> Copying file: %s from %d | %d ...\n", session.tmpErr.Name(), session.cursorOut, session.cursorErr)
 
 		// Copy tmp files into outputs
 		n, err := filez.CopyChunk(session.tmpOut, s.outputs.Out(), buf, session.cursorOut, -1)

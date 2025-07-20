@@ -1485,9 +1485,11 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 	}()
 
 	// idea: launch printers with delays in a goroutine then launch tailBlocking in another goroutine sync
+	syncChan2 := make(chan string)
 	go func() {
-		err := screenTailer.TailBlocking(expectedSessionA, 2*time.Second)
+		err := screenTailer.TailBlocking(expectedSessionA, 1*time.Second)
 		assert.NoError(t, err)
+		syncChan2 <- ""
 	}()
 
 	assert.Empty(t, outW.String())
@@ -1503,6 +1505,8 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 		assert.Equal(t, expectedOut, out, "testing step %s", step)
 	}
 
+	// Wait async TailBlocking() end
+	<-syncChan2
 }
 
 func TestTailBlocking_OutOfOrder(t *testing.T) {
