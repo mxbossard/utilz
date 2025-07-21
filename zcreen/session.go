@@ -68,7 +68,7 @@ type session struct {
 	Name             string
 	PriorityOrder    int
 	Started, Ended   bool
-	endMessage       string
+	EndMessage       string
 	printed          bool
 	flushed, tailed  bool
 	cleared          bool
@@ -110,7 +110,7 @@ func (s *session) Printer(name string, priorityOrder int) (printz.Printer, error
 	}
 
 	if s.Ended {
-		return nil, fmt.Errorf("session: [%s] already ended with message: %s", s.Name, s.endMessage)
+		return nil, fmt.Errorf("session: [%s] already ended with message: %s", s.Name, s.EndMessage)
 	}
 
 	if s.timeouted != nil {
@@ -166,7 +166,7 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 		return fmt.Errorf("cannot start session [%s] timeouted after: %s", s.Name, *s.timeouted)
 	}
 	if s.Ended {
-		return fmt.Errorf("cannot start session: [%s] already ended with message: %s", s.Name, s.endMessage)
+		return fmt.Errorf("cannot start session: [%s] already ended with message: %s", s.Name, s.EndMessage)
 	}
 	if s.Started {
 		// already started
@@ -195,11 +195,11 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 	go func() {
 		time.Sleep(timeout + extraTimeout)
 		if !s.Ended {
-			s.timeouted = &timeout
 			for _, tcb := range s.timeoutCallbacks {
 				tcb(s)
 			}
 			err := s.End(fmt.Sprintf("reach session timeout after %s", timeout))
+			s.timeouted = &timeout // Set timeout state after ending session
 			if err != nil {
 				logger.Error(err.Error())
 				//panic(err)
@@ -215,7 +215,7 @@ func (s *session) End(message string) (err error) {
 	if s.Ended {
 		return
 	}
-	s.endMessage = message
+	s.EndMessage = message
 
 	// close all opened printers
 	for _, prtr := range s.printers {
@@ -507,6 +507,7 @@ func updateSession(exists *session, filePath string) error {
 	session.tmpErr = nil
 	exists.Started = session.Started
 	exists.Ended = session.Ended
+	exists.EndMessage = session.EndMessage
 
 	logger.Debug("updated session", "session", *exists)
 

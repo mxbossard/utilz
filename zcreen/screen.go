@@ -293,7 +293,7 @@ func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) e
 		if time.Since(startTime) > timeout {
 			var err error
 			if blocking != nil {
-				err = errorz.Timeoutf(timeout, "TailBlocking() for session: [%s] (cursorOut: %d ; cursorErr: %d ; end: %v ; flush: %v ; tailed: %v)", sessionName, blocking.cursorOut, blocking.cursorErr, blocking.Ended, blocking.flushed, blocking.tailed)
+				err = errorz.Timeoutf(timeout, "TailBlocking() for session: [%s] (cursorOut: %d ; cursorErr: %d ; end: %v ; endMsg: %s ; flush: %v ; tailed: %v)", sessionName, blocking.cursorOut, blocking.cursorErr, blocking.Ended, blocking.EndMessage, blocking.flushed, blocking.tailed)
 			} else {
 				err = errorz.Timeoutf(timeout, "TailBlocking() for session: [%s]", sessionName)
 			}
@@ -681,6 +681,7 @@ func (s *screenTailer) scanSessions() (err error) {
 			// update session
 			exists.Started = scanned.Started
 			exists.Ended = scanned.Ended //|| scanned.cleared
+			exists.EndMessage = scanned.EndMessage
 			//exists.cleared = scanned.cleared
 
 			// if !exists.cleared {
