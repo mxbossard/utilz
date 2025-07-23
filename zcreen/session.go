@@ -166,7 +166,9 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 		return fmt.Errorf("cannot start session [%s] timeouted after: %s", s.Name, *s.timeouted)
 	}
 	if s.Ended {
-		return fmt.Errorf("cannot start session: [%s] already ended with message: %s", s.Name, s.EndMessage)
+		// Allow a session to be restarted
+		//return fmt.Errorf("cannot start session: [%s] already ended with message: %s", s.Name, s.EndMessage)
+
 	}
 	if s.Started {
 		// already started
@@ -192,6 +194,13 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 
 	s.timeoutCallbacks = timeoutCallbacks
 	s.Started = true
+	s.Ended = false
+	s.EndMessage = ""
+	s.printed = false
+	s.flushed = false
+	s.tailed = false
+	s.cleared = false
+	s.timeouted = nil
 	go func() {
 		time.Sleep(timeout + extraTimeout)
 		if !s.Ended {

@@ -230,7 +230,44 @@ type screenTailer struct {
 	blockingSessionsQueue *collectionz.Queue[string]
 }
 
-// Flush continuously until session is ended.
+func (s *screenTailer) tailOnce(sessionName string) (tailed, ended bool, err error) {
+	err = s.scanSessions()
+	if err != nil {
+		return
+	}
+
+	blocking := s.sessions[sessionName]
+	if blocking == nil {
+		return
+	}
+
+	if blocking.cleared {
+		// FIXME: probably not used anymore
+		err = s.ClearSession(sessionName)
+		return
+	}
+
+	logger.Debug("tailing ...", "session", sessionName)
+
+	err = s.tailSession(blocking)
+	if err != nil {
+		return
+	}
+
+	// tailed = blocking.cursorOut > 0 || blocking.cursorErr > 0
+	tailed = blocking.tailed
+	ended = blocking.Ended
+
+	// path := sessionSerializedPath(filepath.Dir(blocking.TmpPath), blocking.Name)
+	// err = updateSession(blocking, path)
+	// if err != nil {
+	// 	return err
+	// }
+
+	return
+}
+
+// Tail continuously until session is ended.
 // Tail only supplied session
 func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duration) error {
 	pt := logger.PerfTimer("sessionName", sessionName)
@@ -245,27 +282,16 @@ func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duratio
 			return err
 		}
 
-		err := s.scanSessions()
+		_, _, err := s.tailOnce(sessionName)
 		if err != nil {
 			return err
 		}
 
 		blocking = s.sessions[sessionName]
-		if blocking != nil && blocking.cleared {
-			err = s.ClearSession(sessionName)
-			return err
-		}
-		logger.Debug("tailing ...", "session", sessionName)
-		if blocking != nil {
-			err := s.tailSession(blocking)
-			if err != nil {
-				return err
-			}
-		}
-
 		if blocking == nil || !blocking.Ended {
 			time.Sleep(continuousFlushPeriod)
 		}
+
 	}
 
 	path := sessionSerializedPath(filepath.Dir(blocking.TmpPath), blocking.Name)
@@ -277,7 +303,7 @@ func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duratio
 	return nil
 }
 
-// Flush continuously until session is ended.
+// Tail continuously until session is ended.
 // Put supplied session on top for next session election.
 func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) error {
 	pt := logger.PerfTimer("sessionName", sessionName)
@@ -328,14 +354,22 @@ func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) e
 	return nil
 }
 
-// Flush continuously until all supplied sessions are ended.
-func (s *screenTailer) TailSuppliedBlocking(sessionNames []string, timeout time.Duration) error {
+// Tail continuously until all supplied sessions are ended.
+func (s *screenTailer) TailSuppliedBlocking0(sessionNames []string, timeout time.Duration) error {
 	pt := logger.PerfTimer()
 	defer pt.End()
 
 	startTime := time.Now()
 
-	err := s.tailAll()
+	// 1- Priorize supplied sessions
+	for k := len(sessionNames) - 1; k >= 0; k-- {
+		session := sessionNames[k]
+		s.blockingSessionsQueue.PushFront(session)
+	}
+
+	// fmt.Printf("\n<<>> blockingSessionsQueue: %s\n", s.blockingSessionsQueue)
+
+	_, err := s.tailNext()
 	if err != nil {
 		return err
 	}
@@ -376,11 +410,70 @@ func (s *screenTailer) TailSuppliedBlocking(sessionNames []string, timeout time.
 				return err
 			}
 		}
-		logger.Debug("TailAllBlocking flushAll ...", "notEnded", notEnded, "ended", ended)
-		err := s.tailAll()
+		logger.Debug("TailSuppliedBlocking tailNext ...", "notEnded", notEnded, "ended", ended)
+		_, err := s.tailNext()
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// Tail continuously until all supplied sessions are ended.
+func (s *screenTailer) TailSuppliedBlocking(sessionNames []string, timeout time.Duration) error {
+	pt := logger.PerfTimer()
+	defer pt.End()
+
+	startTime := time.Now()
+
+	err := s.tailNotifications()
+	if err != nil {
+		return err
+	}
+
+	for _, session := range sessionNames {
+		var tailed, ended bool
+		// k := 0
+		for !ended {
+			if time.Since(startTime) > timeout {
+				err := errorz.Timeoutf(timeout, "TailSuppliedBlocking() for session: [%s]", sessionNames)
+				return err
+			}
+
+			if !tailed {
+				// fmt.Printf("\n<<>> tailing notif before session: %s #%d\n", session, k)
+				// k++
+				// fmt.Printf("\n<<>> notifier %s / %s ; cursorOut: %d \n", session, s.electedSession, s.notifier.cursorOut)
+				err = s.tailNotifications()
+				if err != nil {
+					return err
+				}
+			}
+
+			tailed, ended, err = s.tailOnce(session)
+			if err != nil {
+				return err
+			}
+
+			if !ended {
+				time.Sleep(continuousFlushPeriod)
+			}
+		}
+
+		blocking := s.sessions[session]
+		if blocking != nil {
+			path := sessionSerializedPath(filepath.Dir(blocking.TmpPath), blocking.Name)
+			err := updateSession(blocking, path)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err = s.tailNotifications()
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -638,15 +731,6 @@ func (s *screenTailer) scanSessions() (err error) {
 	}
 
 	for _, scanned := range scannedSession {
-
-		//if scanned.cleared {
-		//	// Remove cleared session
-		//	err = os.Remove(scanned.serializationFilepath)
-		//	if err != nil {
-		//		return fmt.Errorf("unable to remove serialized session file (%s): %w", scanned.serializationFilepath, err)
-		//	}
-		//}
-
 		var exists *session
 		var ok bool
 		// clear session
@@ -655,25 +739,6 @@ func (s *screenTailer) scanSessions() (err error) {
 		scanned.tmpErr = nil
 		if exists, ok = s.sessions[scanned.Name]; !ok {
 			// init session
-			//if !scanned.cleared {
-			// Open tmp files if session is not known yet
-
-			// scanned.tmpOut, err = os.OpenFile(scanned.tmpOutName, os.O_RDONLY, 0)
-			// if err != nil {
-			// 	return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.tmpOutName, err)
-			// }
-			// scanned.tmpErr, err = os.OpenFile(scanned.tmpErrName, os.O_RDONLY, 0)
-			// if err != nil {
-			// 	return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.tmpErrName, err)
-			// }
-
-			// _, err := s.updateNextSessionTmp(scanned)
-			// if err != nil {
-			// 	return err
-			// }
-
-			//}
-			//scanned.Ended = scanned.Ended || scanned.cleared
 			s.sessions[scanned.Name] = scanned
 			s.sessionsByPriority[scanned.PriorityOrder] = append(s.sessionsByPriority[scanned.PriorityOrder], scanned)
 			exists = scanned
@@ -682,28 +747,6 @@ func (s *screenTailer) scanSessions() (err error) {
 			exists.Started = scanned.Started
 			exists.Ended = scanned.Ended //|| scanned.cleared
 			exists.EndMessage = scanned.EndMessage
-			//exists.cleared = scanned.cleared
-
-			// if !exists.cleared {
-			// 	// Open tmp files if existing session not cleared and files not already opened
-			// 	if exists.tmpOut == nil && scanned.tmpOutName != "" {
-			// 		exists.tmpOut, err = os.OpenFile(scanned.tmpOutName, os.O_RDONLY, 0)
-			// 		if err != nil {
-			// 			return fmt.Errorf("error opening session out tmp file (%s): %w", scanned.tmpOutName, err)
-			// 		}
-			// 	}
-			// 	if exists.tmpErr == nil && scanned.tmpErrName != "" {
-			// 		exists.tmpErr, err = os.OpenFile(scanned.tmpErrName, os.O_RDONLY, 0)
-			// 		if err != nil {
-			// 			return fmt.Errorf("error opening session err tmp file (%s): %w", scanned.tmpErrName, err)
-			// 		}
-			// 	}
-			// }
-
-			// _, err := s.updateNextSessionTmp(scanned)
-			// if err != nil {
-			// 	return err
-			// }
 		}
 
 		_, err := s.updateNextSessionTmp(scanned)
@@ -721,6 +764,74 @@ func (s *screenTailer) electSession() (err error) {
 	if s.electedSession == nil {
 		// FIXME: do not tail notifications here !
 		// 1- If no elected session, firstly print notifications
+		// err = s.tailNotifications()
+		// if err != nil {
+		// 	return err
+		// }
+
+		// 2- Scan serialized session
+		err = s.scanSessions()
+		if err != nil {
+			return err
+		}
+
+		for s.electedSession == nil && s.blockingSessionsQueue.Len() > 0 {
+			// 3a- Dequeue next session to tail
+			sessionName := s.blockingSessionsQueue.Front()
+			if session, ok := s.sessions[*sessionName]; ok {
+				s.electedSession = session
+			}
+			// Remove item
+			s.blockingSessionsQueue.PopFront()
+		}
+
+		if s.electedSession == nil {
+			// 3b- Elect a new session to tail
+			priorities := collectionz.Keys(s.sessionsByPriority)
+			slices.Sort(priorities)
+		end:
+			for _, priority := range priorities {
+				sessions, ok := s.sessionsByPriority[priority]
+				if ok {
+					for _, session := range sessions {
+						if !session.Started || session.Ended && session.flushed {
+							continue
+						}
+						s.electedSession = session
+						break end
+					}
+				}
+			}
+		}
+
+		if s.electedSession != nil {
+			logger.Debug("elected new session", "electedSession", s.electedSession.Name)
+		}
+	} else if !s.electedSession.cleared {
+		path := sessionSerializedPath(filepath.Dir(s.electedSession.TmpPath), s.electedSession.Name)
+		err = updateSession(s.electedSession, path)
+		if err != nil {
+			return err
+		}
+	}
+
+	return
+}
+
+// Attempt to elect a supplied session.
+func (s *screenTailer) electSuppliedSession(session string) (err error) {
+	if s.electedSession == nil {
+
+	}
+	return
+}
+
+// Attempt to elect a session among supplied sessions.
+// Lower priority number is higher priority.
+func (s *screenTailer) electAmongSuppliedSessions(sessions []string) (err error) {
+	if s.electedSession == nil {
+		// FIXME: do not tail notifications here !
+		// 1- If no elected session, firstly print notifications
 		err = s.tailNotifications()
 		if err != nil {
 			return err
@@ -733,7 +844,6 @@ func (s *screenTailer) electSession() (err error) {
 		}
 
 		for s.electedSession == nil && s.blockingSessionsQueue.Len() > 0 {
-			//if s.blockingSessionsQueue.Len() > 0 {
 			// 3a- Dequeue next session to tail
 			sessionName := s.blockingSessionsQueue.Front()
 			if session, ok := s.sessions[*sessionName]; ok {
@@ -801,51 +911,6 @@ func (s *screenTailer) tailSession(session *session) (err error) {
 	// TODO: check if next session tmp available
 	// Tail current session tmp
 	// if next session tmp available before tailing loop : update next session tmp and tail new session tmp.
-
-	/*
-		if !session.oldTmpSessionsScanned {
-			// On first session tail, scan for older existing session tmp files
-			// In case of zcreen restart, each restart will add new tmp files
-			if session.cursorOut == 0 {
-				matches, _ := filepath.Glob(session.TmpPath + "/" + session.Name + outFileNameSuffix + "*")
-				if len(matches) > 1 {
-					sort.Strings(matches)
-					fmt.Printf("\n<<>> Found files to aggregate: %s\n", matches)
-					for _, match := range matches[0 : len(matches)-1] {
-						fmt.Printf("<<>> recopying file: %s ...\n", match)
-						// Copy each older out session files
-						f, err := filez.Open(match)
-						if err != nil {
-							return err
-						}
-						_, err = filez.Copy(f, s.outputs.Out(), buf)
-						if err != nil {
-							return err
-						}
-					}
-				}
-			}
-
-			if session.cursorErr == 0 {
-				matches, _ := filepath.Glob(session.TmpPath + "/" + session.Name + errFileNameSuffix + "*")
-				if len(matches) > 1 {
-					sort.Strings(matches)
-					for _, match := range matches[0 : len(matches)-1] {
-						// Copy each older err session files
-						f, err := filez.Open(match)
-						if err != nil {
-							return err
-						}
-						_, err = filez.Copy(f, s.outputs.Err(), buf)
-						if err != nil {
-							return err
-						}
-					}
-				}
-			}
-			session.oldTmpSessionsScanned = true
-		}
-	*/
 
 	hasNextBefore, _, _ := hasNextSessionTmp(session)
 	for {
@@ -918,6 +983,12 @@ func (s *screenTailer) tailNext() (eneded bool, err error) {
 	if s.electedSession == nil || !s.electedSession.tailed {
 		err = s.tailNotifications()
 	}
+	// if s.electedSession == nil || s.electedSession.cursorErr == 0 && s.electedSession.cursorOut == 0 {
+	// 	err = s.tailNotifications()
+	// 	if err != nil {
+	// 		return
+	// 	}
+	// }
 
 	if s.electedSession == nil {
 		return

@@ -1791,7 +1791,8 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 		syncChan <- "endC"
 	}()
 
-	err := screenTailer.tailAll()
+	var err error
+	err = screenTailer.tailAll()
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
@@ -1820,12 +1821,12 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 }
 
 func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
-	tmpDir := "/tmp/utilz.zcreen.foo3212"
+	tmpDir := "/tmp/utilz.zcreen.foo9002d"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, screen)
 
-	expectedSession := "foo3212"
+	expectedSession := "foo9002"
 	expectedPrinter := "bar"
 	expectedMessage := "baz"
 
@@ -1866,4 +1867,238 @@ func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
 	err = screenTailer.TailAllBlocking(10 * time.Millisecond)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedMessage, outW.String())
+}
+
+func TestTailSuppliedBlocking_InOrder(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo9003e"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	screen := NewAsyncScreen(tmpDir, false)
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	expectedSessionA := "barA9003"
+	expectedPrinterA10a := "barA10a"
+	expectedPrinterA20a := "barA20a"
+	expectedSessionB := "barB9003"
+	expectedPrinterB10a := "barB10a"
+	expectedPrinterB30a := "barB30a"
+	expectedSessionC := "barC9003"
+	expectedPrinterC10a := "barC10a"
+	expectedPrinterC30a := "barC30a"
+	expectedPrinterC40a := "barC40a"
+
+	syncChan := make(chan string)
+	go func() {
+		// Wait before printing
+
+		syncChan <- "startA"
+
+		sessionA, err := screen.Session(expectedSessionA, 12)
+		require.NoError(t, err)
+		require.NotNil(t, sessionA)
+		err = sessionA.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrA10a, err := sessionA.Printer(expectedPrinterA10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA10a)
+		prtrA20a, err := sessionA.Printer(expectedPrinterA20a, 20)
+		require.NoError(t, err)
+		require.NotNil(t, prtrA20a)
+
+		prtrA10a.Out("A10a1,")
+		prtrA10a.Out("A10a2,")
+		err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
+		assert.NoError(t, err)
+
+		screen.NotifyPrinter().Out("notif1,")
+		err = screen.NotifyPrinter().Flush()
+		require.NoError(t, err)
+
+		prtrA20a.Out("A20a1,")
+		prtrA20a.Out("A20a2,")
+		err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
+		assert.NoError(t, err)
+		err = sessionA.End("msg")
+		assert.NoError(t, err)
+		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
+
+		syncChan <- "endA+notif1"
+
+		// Wait before printing
+		syncChan <- "startB"
+
+		screen.NotifyPrinter().Out("notif2,")
+		err = screen.NotifyPrinter().Flush()
+		require.NoError(t, err)
+
+		sessionB, err := screen.Session(expectedSessionB, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionB)
+		err = sessionB.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrB10a, err := sessionB.Printer(expectedPrinterB10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB10a)
+		prtrB30a, err := sessionB.Printer(expectedPrinterB30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrB30a)
+
+		prtrB10a.Out("B10a1,")
+		prtrB10a.Out("B10a2,")
+		err = sessionB.ClosePrinter(expectedPrinterB10a, "msg")
+		assert.NoError(t, err)
+
+		prtrB30a.Out("B30a1,")
+		prtrB30a.Out("B30a2,")
+		err = sessionB.ClosePrinter(expectedPrinterB30a, "msg")
+		assert.NoError(t, err)
+		err = sessionB.End("msg")
+		assert.NoError(t, err)
+		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
+
+		syncChan <- "endB+notif2"
+
+		// Wait before printing
+		syncChan <- "startC"
+
+		screen.NotifyPrinter().Out("notif3,")
+		err = screen.NotifyPrinter().Flush()
+		require.NoError(t, err)
+
+		sessionC, err := screen.Session(expectedSessionC, 42)
+		require.NoError(t, err)
+		require.NotNil(t, sessionC)
+		err = sessionC.Start(100 * time.Millisecond)
+		assert.NoError(t, err)
+		prtrC10a, err := sessionC.Printer(expectedPrinterC10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC10a)
+		prtrC30a, err := sessionC.Printer(expectedPrinterC30a, 30)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC30a)
+		prtrC40a, err := sessionC.Printer(expectedPrinterC40a, 40)
+		require.NoError(t, err)
+		require.NotNil(t, prtrC40a)
+
+		prtrC10a.Out("C10a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
+		assert.NoError(t, err)
+		prtrC30a.Out("C30a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC30a, "msg")
+		assert.NoError(t, err)
+		prtrC40a.Out("C40a1,")
+		err = sessionC.ClosePrinter(expectedPrinterC40a, "msg")
+		assert.NoError(t, err)
+		err = sessionC.End("msg")
+		assert.NoError(t, err)
+		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+
+		syncChan <- "endC"
+	}()
+
+	err := screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	outs = printz.NewOutputs(outW, errW)
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.Error(t, err)
+	assert.Equal(t, "", outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	outs = printz.NewOutputs(outW, errW)
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionC}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.Error(t, err)
+	assert.Equal(t, "", outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	outs = printz.NewOutputs(outW, errW)
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA, expectedSessionB}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.Error(t, err)
+	assert.Equal(t, "", outW.String())
+
+	<-syncChan
+	<-syncChan
+
+	// Should Flush A before B because A is the first session available.
+	outW.Reset()
+	errW.Reset()
+	outs = printz.NewOutputs(outW, errW)
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionC}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.Error(t, err)
+	assert.Equal(t, "", outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA, expectedSessionB}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.Error(t, err)
+	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	<-syncChan
+	<-syncChan
+
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionC}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.Error(t, err)
+	assert.Equal(t, "", outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA, expectedSessionB}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
+
+	<-syncChan
+	<-syncChan
+
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionC}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, "notif3,"+"C10a1,C30a1,C40a1,", outW.String())
+
+	outW.Reset()
+	errW.Reset()
+	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
+	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA, expectedSessionB}, 3*continuousFlushPeriod+10*time.Millisecond)
+	assert.NoError(t, err)
+	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
+
 }

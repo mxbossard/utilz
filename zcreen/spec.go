@@ -15,7 +15,7 @@ import (
   - for now only one part is supported to be displayed at once
 - A session is a structure which permit to print data on the screen.
   - Multiple sessions can coexist simultaneously
-  - Only one sessions is elected at once to be displayed until closed
+  - Only one sessions is elected at once to be displayed in a screen part until closed
 - A printer belong to a session
   - Multiple // printers can coexist simultaneously
   - Printers are flushed in order in session
@@ -36,8 +36,13 @@ import (
 
 ## Flushing
   - Flush a printer => write into tmp file
-  - Flush a session => concat closed printers + current printer into a session tmp file ()
+  - Flush a session => concat closed printers in order + currently opened printer into a session tmp file ()
   - Flush a screen => print sessions in order onto std outputs (keep written bytes count)
+
+
+## TODO
+  - Doc tailing
+  - Doc notifying
 
 
 
