@@ -1664,12 +1664,15 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 func TestTailAllBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo9001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	screen := NewAsyncScreen(tmpDir, false)
+	require.NoError(t, filez.MkdirAll(tmpDir, filez.DefaultDirPerms))
 
+	// Reverse order : build tailer first it should also works
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
 	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
+
+	screen := NewAsyncScreen(tmpDir, false)
 
 	expectedSessionA := "barA9001"
 	expectedPrinterA10a := "barA10a"
@@ -2005,7 +2008,6 @@ func TestTailSuppliedBlocking_InOrder(t *testing.T) {
 
 	outW.Reset()
 	errW.Reset()
-	outs = printz.NewOutputs(outW, errW)
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.Error(t, err)
@@ -2013,7 +2015,6 @@ func TestTailSuppliedBlocking_InOrder(t *testing.T) {
 
 	outW.Reset()
 	errW.Reset()
-	outs = printz.NewOutputs(outW, errW)
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionC}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.Error(t, err)
@@ -2021,7 +2022,6 @@ func TestTailSuppliedBlocking_InOrder(t *testing.T) {
 
 	outW.Reset()
 	errW.Reset()
-	outs = printz.NewOutputs(outW, errW)
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA, expectedSessionB}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.Error(t, err)
@@ -2033,7 +2033,6 @@ func TestTailSuppliedBlocking_InOrder(t *testing.T) {
 	// Should Flush A before B because A is the first session available.
 	outW.Reset()
 	errW.Reset()
-	outs = printz.NewOutputs(outW, errW)
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.NoError(t, err)
@@ -2044,7 +2043,7 @@ func TestTailSuppliedBlocking_InOrder(t *testing.T) {
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionC}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.Error(t, err)
-	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "notif1,", outW.String())
 
 	outW.Reset()
 	errW.Reset()
@@ -2061,21 +2060,21 @@ func TestTailSuppliedBlocking_InOrder(t *testing.T) {
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.NoError(t, err)
-	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+	assert.Equal(t, "notif1,"+"notif2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
 	outW.Reset()
 	errW.Reset()
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionC}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.Error(t, err)
-	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "notif1,"+"notif2,", outW.String())
 
 	outW.Reset()
 	errW.Reset()
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA, expectedSessionB}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.NoError(t, err)
-	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
+	assert.Equal(t, "notif1,"+"notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
 	<-syncChan
 	<-syncChan
@@ -2085,20 +2084,20 @@ func TestTailSuppliedBlocking_InOrder(t *testing.T) {
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.NoError(t, err)
-	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+	assert.Equal(t, "notif1,"+"notif2,"+"notif3,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
 	outW.Reset()
 	errW.Reset()
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionC}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.NoError(t, err)
-	assert.Equal(t, "notif3,"+"C10a1,C30a1,C40a1,", outW.String())
+	assert.Equal(t, "notif1,"+"notif2,"+"notif3,"+"C10a1,C30a1,C40a1,", outW.String())
 
 	outW.Reset()
 	errW.Reset()
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	err = screenTailer.TailSuppliedBlocking([]string{expectedSessionA, expectedSessionB}, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.NoError(t, err)
-	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
+	assert.Equal(t, "notif1,"+"notif2,"+"notif3,"+"A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
 }

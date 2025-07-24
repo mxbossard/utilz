@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/printz"
 )
 
@@ -70,6 +71,7 @@ const (
 	screenLockFilename    = "screen.lock"
 	lockFilename          = "sync.lock" // FIXME: rename syncLockFilename
 	fileLockingTimeout    = 2 * time.Second
+	tailerDelayTimeout    = 5 * time.Second
 )
 
 const (
@@ -176,6 +178,35 @@ func buildPrinter(tmpDir, name string, priorityOrder int) *printer {
 		panic(err)
 	}
 	tmpErrFile, err := os.Create(filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix)))
+	if err != nil {
+		panic(err)
+	}
+	tmpOutputs := printz.NewOutputs(tmpOutFile, tmpErrFile)
+
+	prtr := printz.New(tmpOutputs)
+	closingPrtr := printz.Closing(prtr)
+	p := &printer{
+		ClosingPrinter: closingPrtr,
+		name:           name,
+		tmpOut:         tmpOutFile,
+		tmpErr:         tmpErrFile,
+		open:           true,
+		priorityOrder:  priorityOrder,
+	}
+	return p
+}
+
+func buildReadOnlyPrinter(tmpDir, name string, priorityOrder int) *printer {
+	outNotifierPath := filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix))
+	errNotifierPath := filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix))
+	// filez.WaitUntilExistsOrPanic(outNotifierPath, tailerDelayTimeout)
+	// filez.WaitUntilExistsOrPanic(errNotifierPath, tailerDelayTimeout)
+
+	tmpOutFile, err := filez.Open3(outNotifierPath, os.O_RDONLY+os.O_CREATE, filez.DefaultFilePerms)
+	if err != nil {
+		panic(err)
+	}
+	tmpErrFile, err := filez.Open3(errNotifierPath, os.O_RDONLY+os.O_CREATE, filez.DefaultFilePerms)
 	if err != nil {
 		panic(err)
 	}

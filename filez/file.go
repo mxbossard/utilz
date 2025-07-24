@@ -7,6 +7,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/mxbossard/utilz/errorz"
 )
 
 const (
@@ -356,6 +359,31 @@ func ExistsOrPanic(path string) bool {
 		panic(err)
 	}
 	return ok
+}
+
+func WaitUntilExists(path string, timeout time.Duration) error {
+	start := time.Now()
+	for {
+		if time.Since(start) > timeout {
+			return errorz.Timeoutf(timeout, "waiting file: %s to exists", path)
+		}
+		ok, err := Exists(path)
+		if err != nil {
+			return err
+		}
+		if ok {
+			break
+		}
+		time.Sleep(100 * time.Microsecond)
+	}
+	return nil
+}
+
+func WaitUntilExistsOrPanic(path string, timeout time.Duration) {
+	err := WaitUntilExists(path, timeout)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func IsDirectory(path string) (bool, error) {

@@ -1093,7 +1093,7 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 		panic(fmt.Sprintf("unable to create read only async screen tailer: [%s] path do not exists", tmpPath))
 	}
 
-	notifier := buildPrinter(tmpPath, notifierPrinterName, 0)
+	notifier := buildReadOnlyPrinter(tmpPath, notifierPrinterName, 0)
 	lockFilepath := filepath.Join(tmpPath, lockFilename)
 	return &screenTailer{
 		outputs:               outputs,
