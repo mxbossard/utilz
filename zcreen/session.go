@@ -105,16 +105,17 @@ func (s *session) Printer(name string, priorityOrder int) (printz.Printer, error
 	defer s.mutex.Unlock()
 
 	// FIXME: should printer be getable & writable if session not started yet ?
-	if !s.Started {
-		return nil, fmt.Errorf("session: [%s] not started yet", s.Name)
-	}
+	// For concurrent reason on who should open the session, and who will get the first printer, do not forbit to get a printer on a not started session.
+	// if !s.Started {
+	// 	return nil, fmt.Errorf("session: [%s] not started yet", s.Name)
+	// }
 
 	if s.Ended {
-		return nil, fmt.Errorf("session: [%s] already ended with message: %s", s.Name, s.EndMessage)
+		return nil, fmt.Errorf("cannot get printer: [%s / #%d] for session: [%s] already ended with message: %s", name, priorityOrder, s.Name, s.EndMessage)
 	}
 
 	if s.timeouted != nil {
-		return nil, fmt.Errorf("cannot get printer for session [%s] timeouted after: %s", s.Name, *s.timeouted)
+		return nil, fmt.Errorf("cannot get printer: [%s / #%d] for session: [%s] timeouted after: %s", name, priorityOrder, s.Name, *s.timeouted)
 	}
 
 	if prtr, ok := s.printers[name]; ok {
@@ -146,7 +147,7 @@ func (s *session) closePrinter(name, message string) error {
 		prtr.closeMessage = message
 
 	} else {
-		return fmt.Errorf("no printer opened with name: [%s]", name)
+		return fmt.Errorf("no printer opened with name: [%s] closing message: %s", name, message)
 	}
 	// err := serializeSession(s)
 	// return err
@@ -168,7 +169,6 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 	if s.Ended {
 		// Allow a session to be restarted
 		//return fmt.Errorf("cannot start session: [%s] already ended with message: %s", s.Name, s.EndMessage)
-
 	}
 	if s.Started {
 		// already started
@@ -221,6 +221,9 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 }
 
 func (s *session) End(message string) (err error) {
+	if !s.Started {
+		return fmt.Errorf("cannot end not yet started session: %s with message: %s", s.Name, message)
+	}
 	if s.Ended {
 		return
 	}
@@ -253,7 +256,7 @@ func (s *session) End(message string) (err error) {
 			return err
 		}
 	}
-	logger.Debug("session ended", "session", s.Name)
+	logger.Debug("session ended", "session", s.Name, "message", message)
 
 	return
 }
@@ -364,7 +367,7 @@ func (s *session) consolidatePrinter(prtr *printer) error {
 
 // Consolidate session outputs with supplied printer content
 func (s *session) consolidateNotifier() error {
-	if s.notifier.IsClosed() {
+	if s.notifier != nil && s.notifier.IsClosed() {
 		// FIXME: should check if notifier files are closed, not the printer
 		return nil
 	}
