@@ -44,6 +44,7 @@ import (
 ## TODO
   - Doc tailing
   - Doc notifying
+  - Doc why multiple sessions files ? Do we need to add multiple notifier files ?
 
 
 

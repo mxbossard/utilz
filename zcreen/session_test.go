@@ -33,7 +33,7 @@ func TestSessionStart(t *testing.T) {
 	session, err := buildSession(expectedSession, 42, tmpDir)
 	require.NoError(t, err)
 	require.NotNil(t, session)
-	assert.NoDirExists(t, session.TmpPath)
+	assert.DirExists(t, session.TmpPath)
 
 	err = session.Start(10 * time.Millisecond)
 	require.NoError(t, err)
@@ -92,9 +92,9 @@ func TestSession_FileLayer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, session)
 
-	// Opening a printer in a not started session should panic
+	// Opening a printer in a not started session should not error
 	_, err = session.Printer(expectedPrinter, 42)
-	assert.Error(t, err)
+	assert.NoError(t, err)
 
 	err = session.Start(sessionTimeout)
 	assert.NoError(t, err)
@@ -263,7 +263,7 @@ func TestSession_ReOpen(t *testing.T) {
 	err = session.clear()
 	assert.NoError(t, err)
 
-	require.NoDirExists(t, session.TmpPath)
+	require.DirExists(t, session.TmpPath)
 	assert.NoFileExists(t, sessionTmpOutFilepath)
 	assert.NoFileExists(t, sessionTmpErrFilepath)
 	assert.NoFileExists(t, printerTmpOutFilepath)

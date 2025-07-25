@@ -48,12 +48,13 @@ func TestGetTailer(t *testing.T) {
 func TestGetAsyncScreen(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo40b"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	s := NewAsyncScreen(tmpDir, false)
+	s := NewAsyncScreen(tmpDir, true)
 	assert.NotNil(t, s)
 	assert.DirExists(t, tmpDir)
 
 	require.Panics(t, func() {
-		NewAsyncScreen(tmpDir, false)
+		duplicate := NewAsyncScreen(tmpDir, false)
+		assert.NotNil(t, duplicate)
 	})
 }
 
@@ -85,7 +86,7 @@ func TestScreenGetSession(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, session)
 	assert.DirExists(t, tmpDir)
-	assert.NoDirExists(t, tmpDir+"/"+sessionDirPrefix+"bar1001")
+	assert.DirExists(t, tmpDir+"/"+sessionDirPrefix+"bar1001")
 
 	err = session.Start(100 * time.Millisecond)
 	require.NoError(t, err)

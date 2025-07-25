@@ -123,7 +123,8 @@ func (s *screen) Close() (err error) {
 
 	var agg errorz.Aggregated
 	for _, s := range s.sessions {
-		agg.Add(s.End("closing zcreen"))
+		// Closing screen SHOULD not end sessions but close it : In case of zcreen failure, a restart must take back the session not ended.
+		agg.Add(s.close("screen closed"))
 	}
 	s.closed = true
 	return agg.Return()
@@ -460,6 +461,8 @@ func (s *screenTailer) TailSuppliedBlocking(sessionNames []string, timeout time.
 				time.Sleep(continuousFlushPeriod)
 			}
 		}
+
+		fmt.Printf("session %s is ended\n", session)
 
 		blocking := s.sessions[session]
 		if blocking != nil {
@@ -818,74 +821,6 @@ func (s *screenTailer) electSession() (err error) {
 	return
 }
 
-// Attempt to elect a supplied session.
-func (s *screenTailer) electSuppliedSession(session string) (err error) {
-	if s.electedSession == nil {
-
-	}
-	return
-}
-
-// Attempt to elect a session among supplied sessions.
-// Lower priority number is higher priority.
-func (s *screenTailer) electAmongSuppliedSessions(sessions []string) (err error) {
-	if s.electedSession == nil {
-		// FIXME: do not tail notifications here !
-		// 1- If no elected session, firstly print notifications
-		err = s.tailNotifications()
-		if err != nil {
-			return err
-		}
-
-		// 2- Scan serialized session
-		err = s.scanSessions()
-		if err != nil {
-			return err
-		}
-
-		for s.electedSession == nil && s.blockingSessionsQueue.Len() > 0 {
-			// 3a- Dequeue next session to tail
-			sessionName := s.blockingSessionsQueue.Front()
-			if session, ok := s.sessions[*sessionName]; ok {
-				s.electedSession = session
-			}
-			// Remove item
-			s.blockingSessionsQueue.PopFront()
-		}
-
-		if s.electedSession == nil {
-			// 3b- Elect a new session to tail
-			priorities := collectionz.Keys(s.sessionsByPriority)
-			slices.Sort(priorities)
-		end:
-			for _, priority := range priorities {
-				sessions, ok := s.sessionsByPriority[priority]
-				if ok {
-					for _, session := range sessions {
-						if !session.Started || session.Ended && session.flushed {
-							continue
-						}
-						s.electedSession = session
-						break end
-					}
-				}
-			}
-		}
-
-		if s.electedSession != nil {
-			logger.Debug("elected new session", "electedSession", s.electedSession.Name)
-		}
-	} else if !s.electedSession.cleared {
-		path := sessionSerializedPath(filepath.Dir(s.electedSession.TmpPath), s.electedSession.Name)
-		err = updateSession(s.electedSession, path)
-		if err != nil {
-			return err
-		}
-	}
-
-	return
-}
-
 func (s *screenTailer) tailNotifications() error {
 	n, err := filez.CopyChunk(s.notifier.tmpOut, s.outputs.Out(), buf, s.notifier.cursorOut, -1)
 	if err != nil {
@@ -1108,11 +1043,15 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 
 func NewAsyncScreenTailerWaiting(outputs printz.Outputs, tmpPath string, timeout time.Duration) *screenTailer {
 	startTime := time.Now()
-	for ok, _ := filez.IsDirectory(tmpPath); !ok; {
+	for ok, err := filez.IsDirectory(tmpPath); !ok; {
+		if err != nil {
+			panic(err)
+		}
 		if time.Since(startTime) > timeout {
 			panic(fmt.Sprintf("unable to create read only async screen tailer: [%s] path do not exists after timeout: [%s]", tmpPath, timeout))
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
+		ok, err = filez.IsDirectory(tmpPath)
 	}
 	return NewAsyncScreenTailer(outputs, tmpPath)
 }

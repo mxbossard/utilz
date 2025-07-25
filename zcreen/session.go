@@ -73,7 +73,7 @@ type session struct {
 	flushed, tailed  bool
 	cleared          bool
 	readOnly         bool
-	timeouted        *time.Duration
+	Timeouted        *time.Duration
 	timeoutCallbacks []func(Session)
 
 	TmpPath               string
@@ -114,8 +114,8 @@ func (s *session) Printer(name string, priorityOrder int) (printz.Printer, error
 		return nil, fmt.Errorf("cannot get printer: [%s / #%d] for session: [%s] already ended with message: %s", name, priorityOrder, s.Name, s.EndMessage)
 	}
 
-	if s.timeouted != nil {
-		return nil, fmt.Errorf("cannot get printer: [%s / #%d] for session: [%s] timeouted after: %s", name, priorityOrder, s.Name, *s.timeouted)
+	if s.Timeouted != nil {
+		return nil, fmt.Errorf("cannot get printer: [%s / #%d] for session: [%s] timeouted after: %s", name, priorityOrder, s.Name, *s.Timeouted)
 	}
 
 	if prtr, ok := s.printers[name]; ok {
@@ -163,8 +163,8 @@ func (s *session) NotifyPrinter() printz.Printer {
 }
 
 func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)) (err error) {
-	if s.timeouted != nil {
-		return fmt.Errorf("cannot start session [%s] timeouted after: %s", s.Name, *s.timeouted)
+	if s.Timeouted != nil {
+		return fmt.Errorf("cannot start session [%s] timeouted after: %s", s.Name, *s.Timeouted)
 	}
 	if s.Ended {
 		// Allow a session to be restarted
@@ -175,23 +175,6 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 		return nil
 	}
 
-	//sessionDirPath := filepath.Dir(s.TmpPath)
-	sessionDirPath := s.TmpPath
-	printersDirPath := printersDirPath(sessionDirPath)
-	err = os.MkdirAll(printersDirPath, filez.DefaultDirPerms)
-	if err != nil {
-		err = fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err)
-		return
-	}
-
-	_, tmpOut, tmpErr := buildTmpOutputs(sessionDirPath, s.Name)
-	s.tmpOutName = tmpOut.Name()
-	s.tmpErrName = tmpErr.Name()
-	s.tmpOut = tmpOut
-	s.tmpErr = tmpErr
-	s.notifier = buildPrinter(sessionDirPath, notifierPrinterName, 0)
-	//buildPrinter(sessionDirpath, notifierPrinterName+"-"+name, 0),
-
 	s.timeoutCallbacks = timeoutCallbacks
 	s.Started = true
 	s.Ended = false
@@ -200,7 +183,7 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 	s.flushed = false
 	s.tailed = false
 	s.cleared = false
-	s.timeouted = nil
+	s.Timeouted = nil
 	go func() {
 		time.Sleep(timeout + extraTimeout)
 		if !s.Ended {
@@ -208,7 +191,7 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 				tcb(s)
 			}
 			err := s.End(fmt.Sprintf("reach session timeout after %s", timeout))
-			s.timeouted = &timeout // Set timeout state after ending session
+			s.Timeouted = &timeout // Set timeout state after ending session
 			if err != nil {
 				logger.Error(err.Error())
 				//panic(err)
@@ -220,15 +203,8 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 	return
 }
 
-func (s *session) End(message string) (err error) {
-	if !s.Started {
-		return fmt.Errorf("cannot end not yet started session: %s with message: %s", s.Name, message)
-	}
-	if s.Ended {
-		return
-	}
-	s.EndMessage = message
-
+// Close a session : cannot write anymore in it but the session is not ended (could be reopen)
+func (s *session) close(message string) (err error) {
 	// close all opened printers
 	for _, prtr := range s.printers {
 		err = s.closePrinter(prtr.name, message)
@@ -249,8 +225,31 @@ func (s *session) End(message string) (err error) {
 		return err
 	}
 
+	// if s.timeouted == nil {
+	// 	err = serializeSession(s)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	return nil
+}
+
+func (s *session) End(message string) (err error) {
+	if !s.Started {
+		return fmt.Errorf("cannot end not yet started session: %s with message: %s", s.Name, message)
+	}
+	if s.Ended {
+		return
+	}
+
+	s.close(message)
+
+	// Must End after close since close have a different comportment if session is ended.
 	s.Ended = true
-	if s.timeouted == nil {
+	s.EndMessage = message
+
+	if s.Timeouted == nil {
 		err = serializeSession(s)
 		if err != nil {
 			return err
@@ -315,6 +314,13 @@ func (s *session) clear() (err error) {
 	s.printersByPriority = make(map[int][]*printer)
 	s.printers = make(map[string]*printer)
 	s.cleared = true
+
+	printersDirPath := printersDirPath(s.TmpPath)
+	err = os.MkdirAll(printersDirPath, filez.DefaultDirPerms)
+	if err != nil {
+		err = fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err)
+		return err
+	}
 
 	err = serializeSession(s)
 
@@ -476,37 +482,51 @@ func (s *session) Reclaim() error {
 	panic("not implemented yet")
 }
 
-func buildSession(name string, priorityOrder int, screenDirPath string) (*session, error) {
+func buildSession(name string, priorityOrder int, screenDirPath string) (s *session, err error) {
+	sessionDirPath := sessionDirPath(screenDirPath, name)
 	sessionSerPath := sessionSerializedPath(screenDirPath, name)
 	if _, err := os.Stat(sessionSerPath); err == nil {
 		//return nil, fmt.Errorf("unable to create async screen session: [%s] path already exists", sessionDirpath)
 		// session path already exists
-		session, err := deserializeSession(sessionSerPath)
+		s, err = deserializeSession(sessionSerPath)
 		if err != nil {
 			return nil, err
 		}
-		session.PriorityOrder = priorityOrder
+		s.PriorityOrder = priorityOrder
 		// Session must be restarted correctly
-		session.Started = false
-		session.Ended = false
-		session.readOnly = false
-		session.printersByPriority = make(map[int][]*printer)
-		session.printers = make(map[string]*printer)
-		return session, nil
+		s.Started = false
+		//session.Ended = false
+		s.readOnly = false
+		s.printersByPriority = make(map[int][]*printer)
+		s.printers = make(map[string]*printer)
+	} else {
+		s = &session{
+			mutex:              &sync.Mutex{},
+			Name:               name,
+			PriorityOrder:      priorityOrder,
+			TmpPath:            sessionDirPath,
+			readOnly:           false,
+			printersByPriority: make(map[int][]*printer),
+			printers:           make(map[string]*printer),
+		}
 	}
 
-	sessionDirPath := sessionDirPath(screenDirPath, name)
-	session := &session{
-		mutex:              &sync.Mutex{},
-		Name:               name,
-		PriorityOrder:      priorityOrder,
-		TmpPath:            sessionDirPath,
-		readOnly:           false,
-		printersByPriority: make(map[int][]*printer),
-		printers:           make(map[string]*printer),
+	// Init session pointers
+	printersDirPath := printersDirPath(sessionDirPath)
+	err = os.MkdirAll(printersDirPath, filez.DefaultDirPerms)
+	if err != nil {
+		err = fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err)
+		return nil, err
 	}
 
-	return session, nil
+	_, tmpOut, tmpErr := buildTmpOutputs(sessionDirPath, s.Name)
+	s.tmpOutName = tmpOut.Name()
+	s.tmpErrName = tmpErr.Name()
+	s.tmpOut = tmpOut
+	s.tmpErr = tmpErr
+	s.notifier = buildPrinter(sessionDirPath, notifierPrinterName, 0)
+
+	return s, nil
 }
 
 func updateSession(exists *session, filePath string) error {
