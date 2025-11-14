@@ -236,9 +236,9 @@ func (s *session) close(message string) (err error) {
 }
 
 func (s *session) End(message string) (err error) {
-	if !s.Started {
-		return fmt.Errorf("cannot end not yet started session: %s with message: %s", s.Name, message)
-	}
+	// if !s.Started {
+	// 	return fmt.Errorf("cannot end not yet started session: %s with message: %s", s.Name, message)
+	// }
 	if s.Ended {
 		return
 	}

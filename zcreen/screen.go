@@ -270,6 +270,7 @@ func (s *screenTailer) tailOnce(sessionName string) (tailed, ended bool, err err
 
 // Tail continuously until session is ended.
 // Tail only supplied session
+// If session does not exists, do nothing.
 func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duration) error {
 	pt := logger.PerfTimer("sessionName", sessionName)
 	defer pt.End()
@@ -291,6 +292,16 @@ func (s *screenTailer) TailOnlyBlocking(sessionName string, timeout time.Duratio
 		blocking = s.sessions[sessionName]
 		if blocking == nil || !blocking.Ended {
 			time.Sleep(continuousFlushPeriod)
+
+			err = s.scanSessions()
+			if err != nil {
+				return err
+			}
+		}
+
+		if s.sessions[sessionName] == nil {
+			// Session does not exist after a scan
+			return nil
 		}
 
 	}
@@ -1030,7 +1041,7 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 
 	notifier := buildReadOnlyPrinter(tmpPath, notifierPrinterName, 0)
 	lockFilepath := filepath.Join(tmpPath, lockFilename)
-	return &screenTailer{
+	s := &screenTailer{
 		outputs:               outputs,
 		tmpPath:               tmpPath,
 		fileLock:              flock.New(lockFilepath),
@@ -1039,6 +1050,8 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 		notifier:              notifier,
 		blockingSessionsQueue: collectionz.NewQueue[string](),
 	}
+
+	return s
 }
 
 func NewAsyncScreenTailerWaiting(outputs printz.Outputs, tmpPath string, timeout time.Duration) *screenTailer {
@@ -1053,7 +1066,8 @@ func NewAsyncScreenTailerWaiting(outputs printz.Outputs, tmpPath string, timeout
 		time.Sleep(10 * time.Millisecond)
 		ok, err = filez.IsDirectory(tmpPath)
 	}
-	return NewAsyncScreenTailer(outputs, tmpPath)
+	s := NewAsyncScreenTailer(outputs, tmpPath)
+	return s
 }
 
 func Clear(zcreenPath string) error {

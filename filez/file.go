@@ -388,7 +388,9 @@ func WaitUntilExistsOrPanic(path string, timeout time.Duration) {
 
 func IsDirectory(path string) (bool, error) {
 	fileInfo, err := os.Stat(path)
-	if err != nil {
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
 		return false, err
 	}
 
