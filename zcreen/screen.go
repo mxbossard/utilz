@@ -631,6 +631,11 @@ func scanSerializedSessions(zcreenPath string) (sessions []*session, err error) 
 		}
 		scanned.serializationFilepath = filePath
 		sessions = append(sessions, scanned)
+		printerDirPath := printersDirPath(scanned.TmpPath)
+		err = scanAndUpdateTmpPrinters(printerDirPath, &scanned.printers)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/mxbossard/utilz/filez"
@@ -159,6 +161,7 @@ func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
 }
 
 func buildTmpPrinter(tmpDir, name string, priorityOrder int) *printer {
+	name += fmt.Sprintf("__%d", priorityOrder)
 	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, name)
 	prtr := printz.New(tmpOutputs)
 	closingPrtr := printz.Closing(prtr)
@@ -171,6 +174,52 @@ func buildTmpPrinter(tmpDir, name string, priorityOrder int) *printer {
 		priorityOrder:  priorityOrder,
 	}
 	return p
+}
+
+func scanAndUpdateTmpPrinters(tmpDir string, tmpPrinters *map[string]*printer) error {
+	wildcardPath := filepath.Join(tmpDir, "*")
+	printersFiles, err := filepath.Glob(wildcardPath)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("<< scanning session %s printerFile: %s\n", tmpDir, printersFiles)
+	filenamePattern, err := regexp.Compile(".*/(.+)__(\\d+)(?:" + outFileNameSuffix + ").*")
+	if err != nil {
+		panic(err)
+	}
+	for _, printerFile := range printersFiles {
+		if filenamePattern.MatchString(printerFile) {
+			matches := filenamePattern.FindStringSubmatch(printerFile)
+			printerName := matches[1]
+			priority := matches[2]
+			priorityOrder, err := strconv.Atoi(priority)
+			if err != nil {
+				return err
+			}
+			// fmt.Printf("<< scanning session %s printerFile: %s => name: %s #%d\n", tmpDir, printerFile, printerName, priorityOrder)
+			if *tmpPrinters == nil {
+				m := make(map[string]*printer)
+				*tmpPrinters = m
+			}
+			if _, ok := (*tmpPrinters)[printerName]; !ok {
+				// printer file does not exists in tmpPrintersMap
+				tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, printerName)
+				prtr := printz.New(tmpOutputs)
+				closingPrtr := printz.Closing(prtr)
+				p := &printer{
+					ClosingPrinter: closingPrtr,
+					name:           printerName,
+					tmpOut:         tmpOut,
+					tmpErr:         tmpErr,
+					open:           false, // A scanned printer cannot be scanned open.
+					priorityOrder:  priorityOrder,
+				}
+				(*tmpPrinters)[printerName] = p
+				fmt.Printf("<< scanning session printerFile: %s => name: %s #%d\n", printerFile, printerName, priorityOrder)
+			}
+		}
+	}
+	return nil
 }
 
 func buildPrinter(tmpDir, name string, priorityOrder int) *printer {
