@@ -1019,10 +1019,10 @@ func NewAsyncScreen(tmpPath string, force bool) *screen {
 	}
 
 	screenLock := flock.New(screenLockFilepath)
-	err = utilz.FileLock(screenLock, time.Second)
-	if err != nil {
-		panic(fmt.Errorf("unable to create a new zcreen, dir: %s is lock by another instance: %w", tmpPath, err))
-	}
+	// err = utilz.FileLock(screenLock, time.Second)
+	// if err != nil {
+	// 	panic(fmt.Errorf("unable to create a new zcreen, dir: %s is lock by another instance: %w", tmpPath, err))
+	// }
 
 	lockFilepath := filepath.Join(tmpPath, lockFilename)
 	return &screen{

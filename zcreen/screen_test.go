@@ -52,7 +52,7 @@ func TestGetAsyncScreen(t *testing.T) {
 	assert.NotNil(t, s)
 	assert.DirExists(t, tmpDir)
 
-	require.Panics(t, func() {
+	require.NotPanics(t, func() {
 		duplicate := NewAsyncScreen(tmpDir, false)
 		assert.NotNil(t, duplicate)
 	})

@@ -22,6 +22,8 @@ import (
 */
 
 func TestBuildAndCloseUniqScreen(t *testing.T) {
+	// Disable this test because we want to be able to run multiple screen sink concurently.
+	t.Skip()
 	tmpDir := "/tmp/utilz.zcreen.TestBuildAndCloseUniqScreen"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
