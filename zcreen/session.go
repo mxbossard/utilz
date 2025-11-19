@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,51 +18,6 @@ import (
 	"github.com/mxbossard/utilz/printz"
 	"github.com/mxbossard/utilz/utilz"
 )
-
-type printer struct {
-	printz.ClosingPrinter
-
-	name string
-	// open bool
-	open          bool
-	closeMessage  string
-	consolidated  bool
-	priorityOrder int
-
-	tmpOut, tmpErr       *os.File
-	cursorOut, cursorErr int64
-}
-
-func (p *printer) Close(message string) error {
-	err := p.ClosingPrinter.Close(message)
-	if err != nil {
-		return err
-	}
-
-	if p.tmpOut != nil {
-		err := p.tmpOut.Close()
-		if err != nil {
-			return err
-		}
-		err = os.RemoveAll(p.tmpOut.Name())
-		if err != nil {
-			return err
-		}
-	}
-
-	if p.tmpErr != nil {
-		err := p.tmpErr.Close()
-		if err != nil {
-			return err
-		}
-		err = os.RemoveAll(p.tmpErr.Name())
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 // FIXME: use a different struct for serialization with exported fields.
 type session struct {
@@ -83,7 +41,6 @@ type session struct {
 	tmpOutName, tmpErrName string
 	tmpOut, tmpErr         *os.File
 	cursorOut, cursorErr   int64
-	oldTmpSessionsScanned  bool
 
 	printersByPriority map[int][]*printer
 	printers           map[string]*printer
@@ -123,7 +80,7 @@ func (s *session) Printer(name string, priorityOrder int) (printz.Printer, error
 	}
 
 	printerDirPath := printersDirPath(s.TmpPath)
-	p := buildTmpPrinter(printerDirPath, name, priorityOrder)
+	p := buildTmpPrinter(printerDirPath, name, priorityOrder, true)
 	s.printers[name] = p
 	s.printersByPriority[priorityOrder] = append(s.printersByPriority[priorityOrder], p)
 
@@ -145,6 +102,10 @@ func (s *session) closePrinter(name, message string) error {
 		prtr.consolidated = false
 		prtr.open = false
 		prtr.closeMessage = message
+		err := prtr.Flush()
+		if err != nil {
+			return err
+		}
 
 	} else {
 		return fmt.Errorf("no printer opened with name: [%s] closing message: %s", name, message)
@@ -211,14 +172,16 @@ func (s *session) close(message string) (err error) {
 		if err != nil {
 			return err
 		}
+		prtr.Flush()
 	}
 
-	err = s.Flush()
-	if err != nil {
-		return err
-	}
+	// FIXME: we shoud wait for session tail to flush sessions ?
+	// err = s.Flush()
+	// if err != nil {
+	// 	return err
+	// }
 
-	// FIXME: we shoud wait for session end to consolidate notifications ?
+	// FIXME: we shoud wait for session tail to consolidate notifications ?
 	// Consolidate notifications "after suite"
 	err = s.consolidateNotifier()
 	if err != nil {
@@ -482,6 +445,64 @@ func (s *session) Reclaim() error {
 	panic("not implemented yet")
 }
 
+func (s *session) refresh() error {
+	printerDirPath := printersDirPath(s.TmpPath)
+	wildcardPath := filepath.Join(printerDirPath, "*")
+	printersFiles, err := filepath.Glob(wildcardPath)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("<< scanning session %s printerFile: %s\n", tmpDir, printersFiles)
+	filenamePattern, err := regexp.Compile(".*/(\\d+)__(.+)(?:" + outFileNameSuffix + ").*")
+	if err != nil {
+		panic(err)
+	}
+	for _, printerFile := range printersFiles {
+		if filenamePattern.MatchString(printerFile) {
+			matches := filenamePattern.FindStringSubmatch(printerFile)
+			priority := matches[1]
+			printerPriority, err := strconv.Atoi(priority)
+			printerName := matches[2]
+			if err != nil {
+				return err
+			}
+			// fmt.Printf("<< scanning session %s printerFile: %s => name: %s #%d\n", printerDirPath, printerFile, printerName, printerPriority)
+			if s.printers == nil {
+				s.printers = make(map[string]*printer)
+			}
+			if _, ok := s.printers[printerName]; !ok {
+				// printer file does not exists in tmpPrintersMap
+				// tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(printerDirPath, printerName)
+				// prtr := printz.New(tmpOutputs)
+				prtr := buildTmpPrinter(printerDirPath, printerName, printerPriority, false)
+				// closingPrtr := printz.Closing(prtr)
+				// p := &printer{
+				// 	ClosingPrinter: closingPrtr,
+				// 	name:           printerName,
+				// 	tmpOut:         tmpOut,
+				// 	tmpErr:         tmpErr,
+				// 	open:           false, // A scanned printer cannot be scanned open.
+				// 	priorityOrder:  priorityOrder,
+				// }
+				s.printers[printerName] = prtr
+				// fmt.Printf("<< scanning session printerFile: %s => name: %s #%d\n", printerFile, printerName, printerPriority)
+			}
+		}
+	}
+
+	// Clear and rebuild priority map
+	s.printersByPriority = make(map[int][]*printer)
+	for _, printer := range s.printers {
+		s.printersByPriority[printer.priorityOrder] = append(s.printersByPriority[printer.priorityOrder], printer)
+	}
+	for _, printers := range s.printersByPriority {
+		slices.SortStableFunc(printers, func(a, b *printer) int {
+			return strings.Compare(a.name, b.name)
+		})
+	}
+	return nil
+}
+
 func buildSession(name string, priorityOrder int, screenDirPath string) (s *session, err error) {
 	sessionDirPath := sessionDirPath(screenDirPath, name)
 	sessionSerPath := sessionSerializedPath(screenDirPath, name)
@@ -599,6 +620,10 @@ func deserializeSession(path string) (s *session, err error) {
 	defer func() { f.Close() }()
 	dec := gob.NewDecoder(f)
 	s = &session{mutex: &sync.Mutex{}}
+	s.printersByPriority = make(map[int][]*printer)
+	s.printers = make(map[string]*printer)
+	s.notifier = buildPrinter(s.TmpPath, notifierPrinterName, 0)
+
 	err = dec.Decode(s)
 	logger.Debug("deserialized session", "name", s.Name, "filepath", path)
 	return s, err

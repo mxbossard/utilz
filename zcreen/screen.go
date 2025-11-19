@@ -250,6 +250,11 @@ func (s *screenTailer) tailOnce(sessionName string) (tailed, ended bool, err err
 
 	logger.Debug("tailing ...", "session", sessionName)
 
+	err = blocking.Flush()
+	if err != nil {
+		return
+	}
+
 	err = s.tailSession(blocking)
 	if err != nil {
 		return
@@ -630,6 +635,12 @@ func scanSerializedSessions(zcreenPath string) (sessions []*session, err error) 
 			return
 		}
 		scanned.serializationFilepath = filePath
+		// printerDirPath := printersDirPath(scanned.TmpPath)
+		// err = scanAndUpdateTmpPrinters(printerDirPath, &scanned.printers)
+		err = scanned.refresh()
+		if err != nil {
+			return nil, err
+		}
 		sessions = append(sessions, scanned)
 	}
 	return

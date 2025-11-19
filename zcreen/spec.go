@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/mxbossard/utilz/filez"
@@ -143,14 +145,36 @@ type Tailer interface {
 	Clear() error
 }
 
-func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
-	timestamp := time.Now().UnixNano()
+func buildTmpFilename(name, qualifier string, timestamp int64) string {
+	return fmt.Sprintf("%s%s-%d.*", name, qualifier, timestamp)
+}
 
-	tmpOutFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s-%d.*", name, outFileNameSuffix, timestamp))
+func tmpFilenameMatches(dir, name, qualifier string) []string {
+	wildcardPath := fmt.Sprintf("%s%s-*", name, qualifier)
+	matches, err := filepath.Glob(dir + "/" + wildcardPath)
 	if err != nil {
 		panic(err)
 	}
-	tmpErrFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("%s%s-%d.*", name, errFileNameSuffix, timestamp))
+	return matches
+}
+
+func priorizedTmpFilenameMatches(dir, name, qualifier string) []string {
+	wildcardPath := fmt.Sprintf("*__%s%s-*", name, qualifier)
+	matches, err := filepath.Glob(dir + "/" + wildcardPath)
+	if err != nil {
+		panic(err)
+	}
+	return matches
+}
+
+func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
+	timestamp := time.Now().UnixNano()
+
+	tmpOutFile, err := os.CreateTemp(tmpDir, buildTmpFilename(name, outFileNameSuffix, timestamp))
+	if err != nil {
+		panic(err)
+	}
+	tmpErrFile, err := os.CreateTemp(tmpDir, buildTmpFilename(name, errFileNameSuffix, timestamp))
 	if err != nil {
 		panic(err)
 	}
@@ -158,8 +182,9 @@ func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
 	return tmpOutputs, tmpOutFile, tmpErrFile
 }
 
-func buildTmpPrinter(tmpDir, name string, priorityOrder int) *printer {
-	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, name)
+func buildTmpPrinter(tmpDir, name string, priorityOrder int, opened bool) *printer {
+	priorizedName := fmt.Sprintf("%d__%s", priorityOrder, name)
+	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, priorizedName)
 	prtr := printz.New(tmpOutputs)
 	closingPrtr := printz.Closing(prtr)
 	p := &printer{
@@ -167,10 +192,56 @@ func buildTmpPrinter(tmpDir, name string, priorityOrder int) *printer {
 		name:           name,
 		tmpOut:         tmpOut,
 		tmpErr:         tmpErr,
-		open:           true,
+		open:           opened,
 		priorityOrder:  priorityOrder,
 	}
 	return p
+}
+
+func scanAndUpdateTmpPrinters(tmpDir string, tmpPrinters *map[string]*printer) error {
+	wildcardPath := filepath.Join(tmpDir, "*")
+	printersFiles, err := filepath.Glob(wildcardPath)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("<< scanning session %s printerFile: %s\n", tmpDir, printersFiles)
+	filenamePattern, err := regexp.Compile(".*/(\\d+)__(.+)(?:" + outFileNameSuffix + ").*")
+	if err != nil {
+		panic(err)
+	}
+	for _, printerFile := range printersFiles {
+		if filenamePattern.MatchString(printerFile) {
+			matches := filenamePattern.FindStringSubmatch(printerFile)
+			priority := matches[1]
+			printerName := matches[2]
+			priorityOrder, err := strconv.Atoi(priority)
+			if err != nil {
+				return err
+			}
+			// fmt.Printf("<< scanning session %s printerFile: %s => name: %s #%d\n", tmpDir, printerFile, printerName, priorityOrder)
+			if *tmpPrinters == nil {
+				m := make(map[string]*printer)
+				*tmpPrinters = m
+			}
+			if _, ok := (*tmpPrinters)[printerName]; !ok {
+				// printer file does not exists in tmpPrintersMap
+				tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, printerName)
+				prtr := printz.New(tmpOutputs)
+				closingPrtr := printz.Closing(prtr)
+				p := &printer{
+					ClosingPrinter: closingPrtr,
+					name:           printerName,
+					tmpOut:         tmpOut,
+					tmpErr:         tmpErr,
+					open:           false, // A scanned printer cannot be scanned open.
+					priorityOrder:  priorityOrder,
+				}
+				(*tmpPrinters)[printerName] = p
+				fmt.Printf("<< scanning session printerFile: %s => name: %s #%d\n", printerFile, printerName, priorityOrder)
+			}
+		}
+	}
+	return nil
 }
 
 func buildPrinter(tmpDir, name string, priorityOrder int) *printer {

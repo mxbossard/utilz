@@ -136,23 +136,24 @@ func TestAsyncScreen_BasicOut(t *testing.T) {
 	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
 	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
 	printersDirTmpFilepath := printersDirPath(sessionDirTmpFilepath)
+
 	sessionTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedSession + outFileNameSuffix + "*")
+		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	sessionTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedSession + errFileNameSuffix + "*")
+		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(printersDirTmpFilepath + "/" + expectedPrinter + outFileNameSuffix + "*")
+		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, outFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(printersDirTmpFilepath + "/" + expectedPrinter + errFileNameSuffix + "*")
+		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, errFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
@@ -327,22 +328,22 @@ func TestAsyncScreen_BasicOutAndErr(t *testing.T) {
 	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
 	printersDirTmpFilepath := printersDirPath(sessionDirTmpFilepath)
 	sessionTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedSession + outFileNameSuffix + "*")
+		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	sessionTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(sessionDirTmpFilepath + "/" + expectedSession + errFileNameSuffix + "*")
+		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(printersDirTmpFilepath + "/" + expectedPrinter + outFileNameSuffix + "*")
+		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, outFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches, _ := filepath.Glob(printersDirTmpFilepath + "/" + expectedPrinter + errFileNameSuffix + "*")
+		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, errFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
@@ -420,7 +421,8 @@ func TestAsyncScreen_MultiplePrinters(t *testing.T) {
 	assert.NoError(t, err)
 
 	sessionTmpOutFilepath := func() string {
-		matches, _ := filepath.Glob(sessionDirPath(tmpDir, expectedSession) + "/" + expectedSession + outFileNameSuffix + "*")
+		// matches, _ := filepath.Glob(sessionDirPath(tmpDir, expectedSession) + "/" + expectedSession + outFileNameSuffix + "*")
+		matches := tmpFilenameMatches(sessionDirPath(tmpDir, expectedSession), expectedSession, outFileNameSuffix)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()

@@ -283,6 +283,12 @@ func TestRunningTwoScreensConcurrently(t *testing.T) {
 	s1s.End("foo")
 	s2s.End("bar")
 
+	err = screen1.Close()
+	require.NoError(t, err)
+
+	err = screen2.Close()
+	require.NoError(t, err)
+
 	// ----- Tailing suite by suite
 
 	// Check First screen content
