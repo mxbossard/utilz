@@ -622,9 +622,12 @@ func deserializeSession(path string) (s *session, err error) {
 	s = &session{mutex: &sync.Mutex{}}
 	s.printersByPriority = make(map[int][]*printer)
 	s.printers = make(map[string]*printer)
+	err = dec.Decode(s)
+	if s.TmpPath == "" {
+		panic("empty session TmpPath")
+	}
 	s.notifier = buildPrinter(s.TmpPath, notifierPrinterName, 0)
 
-	err = dec.Decode(s)
 	logger.Debug("deserialized session", "name", s.Name, "filepath", path)
 	return s, err
 }

@@ -41,6 +41,9 @@ import (
   - Flush a printer => write into tmp file
   - Flush a session => concat closed printers in order + currently opened printer into a session tmp file ()
   - Flush a screen => print sessions in order onto std outputs (keep written bytes count)
+  - /!\ CHANGE: flush a session MUST not concat closed printer. Flush a session MUST only flush all session printers.
+  - /!\ CHANGE: flush screen MUST only flush all sessions.
+  - /!\ CHANGE: flush screen tailer MUST concat session closed printers into session tmp files.
 
 
 ## TODO
