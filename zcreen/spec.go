@@ -46,6 +46,10 @@ import (
   - /!\ CHANGE: flush screen tailer MUST concat session closed printers into session tmp files.
 
 
+## Consolidation
+  - New function to consolidate all session printers & notifiers files into session tmp file.
+  - Consolidated data MUST not be reconsolidated later. HOW ? => Reading context stored in tailer with a pointer on each file.
+
 ## TODO
   - Doc tailing
   - Doc notifying

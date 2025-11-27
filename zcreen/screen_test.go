@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestGetScreen(t *testing.T) {
+func TestScreen_Get(t *testing.T) {
 	t.Skip()
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -32,7 +32,7 @@ func TestGetScreen(t *testing.T) {
 	assert.Implements(t, (*Sink)(nil), s)
 }
 
-func TestGetTailer(t *testing.T) {
+func TestAsyncScreen_GetTailer(t *testing.T) {
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
@@ -45,7 +45,7 @@ func TestGetTailer(t *testing.T) {
 	assert.Implements(t, (*Tailer)(nil), s)
 }
 
-func TestGetAsyncScreen(t *testing.T) {
+func TestAsyncScreen_GetAsyncScreen(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo40b"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir, true)
@@ -58,7 +58,7 @@ func TestGetAsyncScreen(t *testing.T) {
 	})
 }
 
-func TestGetReadOnlyAsyncScreen(t *testing.T) {
+func TestAsyncScreen_GetReadOnlyAsyncScreen(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo40c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir, false)
@@ -77,7 +77,7 @@ func TestGetReadOnlyAsyncScreen(t *testing.T) {
 
 }
 
-func TestScreenGetSession(t *testing.T) {
+func TestAsyncScreen_GetSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo1001"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir, false)
@@ -100,7 +100,7 @@ func TestScreenGetSession(t *testing.T) {
 	require.Len(t, matches, 1)
 }
 
-func TestScreenGetPrinter(t *testing.T) {
+func TestAsyncScreen_GetPrinter(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo2001"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir, false)
@@ -843,7 +843,7 @@ func TestAsyncScreen_Notifications(t *testing.T) {
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,"+"notif5,", outW.String())
 }
 
-func TestTailOnlyBlocking(t *testing.T) {
+func TestAsyncTailer_TailOnlyBlocking(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7011c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
@@ -983,7 +983,7 @@ func TestTailOnlyBlocking(t *testing.T) {
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", outW.String())
 }
 
-func TestAsyncScreen_TailOnlyBlocking_ClearedSession(t *testing.T) {
+func TestAsyncTailer_TailOnlyBlocking_ClearedSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3012"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
@@ -1032,7 +1032,7 @@ func TestAsyncScreen_TailOnlyBlocking_ClearedSession(t *testing.T) {
 	assert.Equal(t, expectedMessage, outW.String())
 }
 
-func TestTailBlocking_InOrder(t *testing.T) {
+func TestAsyncTailer_TailBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
@@ -1198,7 +1198,7 @@ func TestTailBlocking_InOrder(t *testing.T) {
 	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,"+"notif3,"+"C10a1,C30a1,C40a1,", outW.String())
 }
 
-func TestAsyncScreen_TailBlocking_ClearedSession(t *testing.T) {
+func TestAsyncTailer_TailBlocking_ClearedSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo3112"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
@@ -1247,7 +1247,7 @@ func TestAsyncScreen_TailBlocking_ClearedSession(t *testing.T) {
 	assert.Equal(t, expectedMessage, outW.String())
 }
 
-func TestTailBlocking_InParallel(t *testing.T) {
+func TestAsyncTailer_TailBlocking_InParallel(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo7201c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
@@ -1397,7 +1397,7 @@ func TestTailBlocking_InParallel(t *testing.T) {
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }
 
-func TestTailBlocking_ContinuousFlow(t *testing.T) {
+func TestAsyncTailer_TailBlocking_ContinuousFlow(t *testing.T) {
 
 	// test TailBlocking() print messages contiously and not only at the end of a session
 	tmpDir := "/tmp/utilz.zcreen.foo7301c"
@@ -1512,7 +1512,7 @@ func TestTailBlocking_ContinuousFlow(t *testing.T) {
 	<-syncChan2
 }
 
-func TestTailBlocking_OutOfOrder(t *testing.T) {
+func TestAsyncTailer_TailBlocking_OutOfOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo8001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
@@ -1664,7 +1664,7 @@ func TestTailBlocking_OutOfOrder(t *testing.T) {
 	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,"+"A10a1,A10a2,A20a1,A20a2,"+"C10a1,C30a1,C40a1,", outW.String())
 }
 
-func TestTailAllBlocking_InOrder(t *testing.T) {
+func TestAsyncTailer_TailAllBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo9001c"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	require.NoError(t, filez.MkdirAll(tmpDir, filez.DefaultDirPerms))
@@ -1826,7 +1826,7 @@ func TestTailAllBlocking_InOrder(t *testing.T) {
 	assert.Equal(t, "notif1,"+"A10a1,A10a2,A20a1,A20a2,"+"notif2,"+"B10a1,B10a2,B30a1,B30a2,"+"notif3,"+"C10a1,C30a1,C40a1,", outW.String())
 }
 
-func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
+func TestAsyncTailer_TailAllBlocking_ClearedSession(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo9002d"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)
@@ -1875,7 +1875,7 @@ func TestAsyncScreen_TailAllBlocking_ClearedSession(t *testing.T) {
 	assert.Equal(t, expectedMessage, outW.String())
 }
 
-func TestTailSuppliedBlocking_InOrder(t *testing.T) {
+func TestAsyncTailer_TailSuppliedBlocking_InOrder(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.foo9003e"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen := NewAsyncScreen(tmpDir, false)

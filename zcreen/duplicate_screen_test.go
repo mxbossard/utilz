@@ -16,7 +16,7 @@ import (
 	Tailers are responsible to concat correctly sink files.
 */
 
-func TestRunningTwoScreensSequentially(t *testing.T) {
+func TestDuplicateScreen_RunningTwoScreensSequentially(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.TestRunningTwoScreensSequentially"
 	require.NoError(t, os.RemoveAll(tmpDir))
 
@@ -161,7 +161,7 @@ func TestRunningTwoScreensSequentially(t *testing.T) {
 
 }
 
-func TestRunningTwoScreensConcurrently(t *testing.T) {
+func TestDuplicateScreen_RunningTwoScreensConcurrently(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.TestRunningTwoScreensConcurrently"
 	require.NoError(t, os.RemoveAll(tmpDir))
 

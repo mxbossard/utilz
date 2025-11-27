@@ -21,7 +21,7 @@ import (
 	Add a ticker which update sink activity / lock
 */
 
-func TestBuildAndCloseUniqScreen(t *testing.T) {
+func TestRestartScreen_BuildAndCloseUniqScreen(t *testing.T) {
 	// Disable this test because we want to be able to run multiple screen sink concurently.
 	t.Skip()
 	tmpDir := "/tmp/utilz.zcreen.TestBuildAndCloseUniqScreen"
@@ -64,7 +64,7 @@ func TestBuildAndCloseUniqScreen(t *testing.T) {
 	assert.Error(t, err, "Closed screen should not allow session creation")
 }
 
-func TestAsyncScreen_BasicOut_CleanRestart(t *testing.T) {
+func TestRestartScreen_BasicOut_CleanRestart(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.TestAsyncScreen_BasicOut_CleanRestart"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	screen1 := NewAsyncScreen(tmpDir, false)
@@ -145,7 +145,7 @@ func TestAsyncScreen_BasicOut_CleanRestart(t *testing.T) {
 	assert.Equal(t, expectedMessage1+expectedMessage2, outW.String())
 }
 
-func TestAsyncScreen_BasicOut_DirtyRestart(t *testing.T) {
+func TestRestartScreen_BasicOut_DirtyRestart(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.TestAsyncScreen_BasicOut_DirtyRestart"
 	require.NoError(t, os.RemoveAll(tmpDir))
 
@@ -239,7 +239,7 @@ func TestAsyncScreen_BasicOut_DirtyRestart(t *testing.T) {
 	assert.Equal(t, expectedMessage1+expectedMessage2, outW.String())
 }
 
-func TestAsyncScreen_BasicOut_TailingBeforeCleanRestart(t *testing.T) {
+func TestRestartScreen_BasicOut_TailingBeforeCleanRestart(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.TestAsyncScreen_BasicOut_TailingBeforeDirtyRestart"
 	require.NoError(t, os.RemoveAll(tmpDir))
 
@@ -351,7 +351,7 @@ func TestAsyncScreen_BasicOut_TailingBeforeCleanRestart(t *testing.T) {
 	assert.Equal(t, expectedMessage1+expectedMessage2, outW.String())
 }
 
-func TestAsyncScreen_BasicOut_TailingBeforeDirtyRestart(t *testing.T) {
+func TestRestartScreen_BasicOut_TailingBeforeDirtyRestart(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.TestAsyncScreen_BasicOut_TailingBeforeDirtyRestart"
 	require.NoError(t, os.RemoveAll(tmpDir))
 
