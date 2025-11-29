@@ -37,7 +37,7 @@ import (
   - Session printers are concatenated in order
 
 
-## Flushing
+## Flushing v2
   - Flush a printer => write into tmp file
   - Flush a session => concat closed printers in order + currently opened printer into a session tmp file ()
   - Flush a screen => print sessions in order onto std outputs (keep written bytes count)
@@ -46,14 +46,31 @@ import (
   - /!\ CHANGE: flush screen tailer MUST concat session closed printers into session tmp files.
 
 
-## Consolidation
-  - New function to consolidate all session printers & notifiers files into session tmp file.
-  - Consolidated data MUST not be reconsolidated later. HOW ? => Reading context stored in tailer with a pointer on each file.
+## Tailer v2
+  - Tailer is now responsible to concat all session files.
+  - Sessions files MUST NOT be consolidated on session or screen flush anymore.
+  - Session consolidation must gather all available printers and notifiers files.
+  - Multiple screen MUST write in their own printer and notifiers files.
+  - Tailer MUST track bytes counts read on each files.
+  - Tailer COULD have a session serialized on a file.
+  - Session tmp files COULD be consolidated on session end, but it's not necessary.
+    - /!\ If a session is consolidated, MUST rm all files which were consolidated.
+	- A session can be ended and re-opened, so multiple session tmp files can be consolidated.
+    - A concurrent tailer on an opened session will tail printers & notifiers files until session is ended.
+	- => To avoid problems of files in progress of reading by a tailer deleted by a concurrent screen, MUST delegate
+	  session tmp files consolidation to a tailer which will write lock the file then delete all other files.
+	  Next tailers will attempt to read session tmp files, then printer & notifiers files if session was reopened and it should be OK.
+
+
+
+
 
 ## TODO
   - Doc tailing
   - Doc notifying
   - Doc why multiple sessions files ? Do we need to add multiple notifier files ?
+
+
 
 
 
