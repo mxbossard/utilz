@@ -154,7 +154,7 @@ func TestScreen_BasicOut(t *testing.T) {
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
@@ -263,8 +263,8 @@ func TestScreen_BasicOutAndErr(t *testing.T) {
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
