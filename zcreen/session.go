@@ -14,6 +14,7 @@ import (
 
 	"github.com/gofrs/flock"
 	"github.com/mxbossard/utilz/collectionz"
+	"github.com/mxbossard/utilz/errorz"
 	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/printz"
 	"github.com/mxbossard/utilz/utilz"
@@ -183,10 +184,10 @@ func (s *session) close(message string) (err error) {
 
 	// FIXME: we shoud wait for session tail to consolidate notifications ?
 	// Consolidate notifications "after suite"
-	err = s.consolidateNotifier()
-	if err != nil {
-		return err
-	}
+	// err = s.consolidateNotifier()
+	// if err != nil {
+	// 	return err
+	// }
 
 	// if s.timeouted == nil {
 	// 	err = serializeSession(s)
@@ -429,15 +430,25 @@ func (s *session) Flush() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	err := s.consolidateAll()
-	if err != nil {
-		return nil
+	agg := errorz.NewAggregated()
+	// Flush all printers
+	for _, prtr := range s.printers {
+		err := prtr.Flush()
+		agg.Add(err)
 	}
+	// Flush notifier
+	err := s.notifier.Flush()
+	agg.Add(err)
+
+	// err := s.consolidateAll()
+	// if err != nil {
+	// 	return nil
+	// }
 
 	//s.flushed = true
 	//err = serializeSession(s)
 
-	return err
+	return agg.Return()
 }
 
 func (s *session) Reclaim() error {

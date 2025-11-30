@@ -445,7 +445,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	prtr15a.Out("15a-1,")
@@ -458,7 +458,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	err = session.Flush()
@@ -466,7 +466,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	// Close a printer which is not first => nothing more should be written
@@ -477,7 +477,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	prtr20a.Out("20a-3,")
@@ -488,7 +488,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	// Close first printer => should write next printers
@@ -499,7 +499,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	session.ClosePrinter(expectedPrinter15a, "msg")
@@ -510,7 +510,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	prtr20b.Out("20b-2,")
@@ -523,7 +523,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	// Close last printer => should write everything
@@ -536,7 +536,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,"+"30a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,notif4,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	time.Sleep(2 * time.Millisecond)
@@ -545,7 +545,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,"+"30a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,notif4,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	err = session.End("msg")
@@ -553,13 +553,13 @@ func TestSession_MultiplePrinters(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,notif2,"+"10a-1,10a-2,10a-3,"+"15a-1,"+"20a-1,20a-2,20a-3,20b-1,20c-1,20b-2,"+"30a-1,"+"notif3,notif4,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,notif3,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notif3,notif4,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 }
 
 func TestSession_EmptyPrinter(t *testing.T) {
-	tmpDir := "/tmp/session_test_460"
+	tmpDir := "/tmp/session_test_470"
 	expectedSession := "bar401"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	os.MkdirAll(tmpDir, 0744)
@@ -683,7 +683,7 @@ func TestSession_Timeout(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,10a1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	session.ClosePrinter(expectedPrinter20a, "msg")
@@ -693,7 +693,7 @@ func TestSession_Timeout(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,10a1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	session.ClosePrinter(expectedPrinter10a, "msg")
@@ -703,7 +703,7 @@ func TestSession_Timeout(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,10a1,20a1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	err = session.Flush()
@@ -711,7 +711,7 @@ func TestSession_Timeout(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,10a1,20a1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	time.Sleep(2 * time.Millisecond)
@@ -720,7 +720,7 @@ func TestSession_Timeout(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,10a1,20a1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 
 	time.Sleep(sessionTimeout + extraTimeout)
@@ -730,6 +730,6 @@ func TestSession_Timeout(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,10a1,20a1,notif2,notifTimeout,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(sessionNotifierErrFilepath))
 }
