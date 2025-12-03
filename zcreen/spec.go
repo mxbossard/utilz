@@ -62,7 +62,84 @@ import (
 	  Next tailers will attempt to read session tmp files, then printer & notifiers files if session was reopened and it should be OK.
 
 
+## File Layer Implementation
+### Initial naïve implementation (v1)
+Only one zcreen can write.
+Printers & Sessions states are held in session .ser file.
 
+<ZCREEN_TMP_DIR>
+├── <SESSION_NAME>.ser
+├── _-_notifier-err
+├── _-_notifier-out
+├── ___session__<SESSION_NAME>
+│   ├── <SESSION_NAME>-err-1764765448370487489.1629834888
+│   ├── <SESSION_NAME>-err-1764765448402195207.2822699552
+│   ├── <SESSION_NAME>-out-1764765448370487489.1778338562
+│   ├── <SESSION_NAME>-out-1764765448402195207.138887125
+│   ├── _-_notifier-err
+│   ├── _-_notifier-out
+│   └── ___printers__
+│       ├── <P0>__<PRINTER_A_NAME>-err-1764765448370618463.132613444
+│       ├── <P0>__<PRINTER_A_NAME>-err-1764765448460120374.655308445
+│       ├── <P0>__<PRINTER_A_NAME>-err-1764765448462155450.1849251374
+│       ├── <P1>__<PRINTER_B_NAME>-err-1764765448402296979.1246430089
+│       ├── <P1>__<PRINTER_B_NAME>-err-1764765448460199228.4158067380
+│       ├── <P1>__<PRINTER_B_NAME>-err-1764765448462273041.2430513684
+│       ├── [...]
+│       ├── <Pk>__<PRINTER_N_NAME>-out-1764765448622031527.1079825214
+│       ├── <Pk>__<PRINTER_N_NAME>-out-1764765448627213256.3498790631
+│       └── <Pk>__<PRINTER_N_NAME>-out-1764765448630265033.2664619092
+└── sync.lock
+
+### New implementation (v2)
+Multiple zcreen can write simultaneously each in their own printer files.
+Tailer v2 will consolidate each files in a coherent display.
+- Allow different screen to write on same session/printer.
+- /!\ Must know when a printer / session is closed for consolidation ordering.
+- Closing printers & sessions is an information needed only by tailer for consolidation.
+- Writes on a reopened printer or session already tailed will not be displayed. => We MUST forbid session or printer reopening unless cleared.
+- Should a zcreen B allow print on a printer closed by a zcreen A ? CAN a printer be safely reopened ?
+- Should a zcreen B allow print in a session closed by a screen A ? CAN a session be safely reopened ?
+
+
+
+<ZCREEN_TMP_DIR>
+├── __notifiers
+│   ├── err-<PID_A>.TIMESTAMP_1
+│   ├── err-[...]
+│   ├── err-<PID_N>.TIMESTAMP_P
+│   ├── out-<PID_A>.TIMESTAMP_1
+│   ├── out-[...]
+│   └── out-<PID_N>.TIMESTAMP_P
+└── __sessions
+    └── <P0>__<SESSION_NAME>
+        ├── __notifiers
+        │   ├── err.<PID_A>.TIMESTAMP_1
+        │   ├── err.[...]
+    	│   ├── err.<PID_N>.TIMESTAMP_P
+        │   ├── out.<PID_A>.TIMESTAMP_1
+        │   ├── out.[...]
+        │   └── out.<PID_N>.TIMESTAMP_P
+        ├── __printers
+        │   ├── <P0>__<PRINTER_A_NAME>__err.<PID_A>-TIMESTAMP_1
+        │   ├── <P0>__<PRINTER_A_NAME>__out.<PID_A>-TIMESTAMP_1
+        │   ├── <P0>__<PRINTER_A_NAME>__err.[...]
+        │   ├── <P0>__<PRINTER_A_NAME>__out.[...]
+        │   ├── <P0>__<PRINTER_A_NAME>__err.<PID_N>-TIMESTAMP_P
+        │   ├── <P0>__<PRINTER_A_NAME>__out.<PID_N>-TIMESTAMP_P
+        │   ├── <P1>__<PRINTER_B_NAME>__err.<PID_A>-TIMESTAMP_1
+        │   ├── <P1>__<PRINTER_B_NAME>__out.<PID_A>-TIMESTAMP_1
+        │   ├── <P1>__<PRINTER_B_NAME>__err.[...]
+        │   ├── <P1>__<PRINTER_B_NAME>__out.[...]
+        │   ├── <P1>__<PRINTER_B_NAME>__err.<PID_N>-TIMESTAMP_P
+        │   ├── <P1>__<PRINTER_B_NAME>__out.<PID_N>-TIMESTAMP_P
+        │   ├── <Pk>__<PRINTER_N_NAME>__err.<PID_A>-TIMESTAMP_1
+        │   ├── <Pk>__<PRINTER_N_NAME>__out.<PID_A>-TIMESTAMP_1
+        │   ├── <Pk>__<PRINTER_N_NAME>__err.[...]
+        │   ├── <Pk>__<PRINTER_N_NAME>__out.[...]
+        │   ├── <Pk>__<PRINTER_N_NAME>__err.<PID_N>-TIMESTAMP_P
+        │   └── <Pk>__<PRINTER_N_NAME>__out.<PID_N>-TIMESTAMP_P
+        └── __session.ser
 
 
 ## TODO
