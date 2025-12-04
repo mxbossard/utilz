@@ -105,41 +105,44 @@ Tailer v2 will consolidate each files in a coherent display.
 
 <ZCREEN_TMP_DIR>
 ├── __notifiers
-│   ├── err-<PID_A>.TIMESTAMP_1
-│   ├── err-[...]
-│   ├── err-<PID_N>.TIMESTAMP_P
-│   ├── out-<PID_A>.TIMESTAMP_1
-│   ├── out-[...]
-│   └── out-<PID_N>.TIMESTAMP_P
+│   ├── err.<TIMESTAMP_1>.<PID_A>
+│   ├── err.[...]
+│   ├── err.<PID_N>.TIMESTAMP_P
+│   ├── out.<TIMESTAMP_1>.<PID_A>
+│   ├── out.[...]
+│   └── out.<PID_N>.TIMESTAMP_P
 └── __sessions
     └── <P0>__<SESSION_NAME>
         ├── __notifiers
-        │   ├── err.<PID_A>.TIMESTAMP_1
+        │   ├── err.<TIMESTAMP_1>.<PID_A>
         │   ├── err.[...]
-    	│   ├── err.<PID_N>.TIMESTAMP_P
-        │   ├── out.<PID_A>.TIMESTAMP_1
+    	│   ├── err.<TIMESTAMP_P>.<PID_N>
+        │   ├── out.<TIMESTAMP_1>.<PID_A>
         │   ├── out.[...]
-        │   └── out.<PID_N>.TIMESTAMP_P
+        │   └── out.<TIMESTAMP_P>.<PID_N>
         ├── __printers
-        │   ├── <P0>__<PRINTER_A_NAME>__err.<PID_A>-TIMESTAMP_1
-        │   ├── <P0>__<PRINTER_A_NAME>__out.<PID_A>-TIMESTAMP_1
-        │   ├── <P0>__<PRINTER_A_NAME>__err.[...]
-        │   ├── <P0>__<PRINTER_A_NAME>__out.[...]
-        │   ├── <P0>__<PRINTER_A_NAME>__err.<PID_N>-TIMESTAMP_P
-        │   ├── <P0>__<PRINTER_A_NAME>__out.<PID_N>-TIMESTAMP_P
-        │   ├── <P1>__<PRINTER_B_NAME>__err.<PID_A>-TIMESTAMP_1
-        │   ├── <P1>__<PRINTER_B_NAME>__out.<PID_A>-TIMESTAMP_1
-        │   ├── <P1>__<PRINTER_B_NAME>__err.[...]
-        │   ├── <P1>__<PRINTER_B_NAME>__out.[...]
-        │   ├── <P1>__<PRINTER_B_NAME>__err.<PID_N>-TIMESTAMP_P
-        │   ├── <P1>__<PRINTER_B_NAME>__out.<PID_N>-TIMESTAMP_P
-        │   ├── <Pk>__<PRINTER_N_NAME>__err.<PID_A>-TIMESTAMP_1
-        │   ├── <Pk>__<PRINTER_N_NAME>__out.<PID_A>-TIMESTAMP_1
-        │   ├── <Pk>__<PRINTER_N_NAME>__err.[...]
-        │   ├── <Pk>__<PRINTER_N_NAME>__out.[...]
-        │   ├── <Pk>__<PRINTER_N_NAME>__err.<PID_N>-TIMESTAMP_P
-        │   └── <Pk>__<PRINTER_N_NAME>__out.<PID_N>-TIMESTAMP_P
-        └── __session.ser
+        │   ├── <P0>__<PRINTER_A_NAME>
+        │   │   ├── err.<TIMESTAMP_1>.<PID_A>
+    	│   │   ├── err.[...]
+    	│   │   ├── err.<TIMESTAMP_P>.<PID_N>
+    	│   │   ├── out.<TIMESTAMP_1>.<PID_A>
+	    │   │   ├── out.[...]
+        │   │   └── out.<TIMESTAMP_P>.<PID_N>
+        │   ├── <P1>__<PRINTER_B_NAME>
+        │   │   ├── err.<TIMESTAMP_1>.<PID_A>
+        │   │   ├── err.[...]
+        │   │   ├── err.<TIMESTAMP_P>.<PID_N>
+        │   │   ├── out.<TIMESTAMP_1>.<PID_A>
+        │   │   ├── out.[...]
+        │   │   └── out.<TIMESTAMP_P>.<PID_N>
+        │   └── <Pk>__<PRINTER_N_NAME>
+        │       ├── err.<TIMESTAMP_1>.<PID_A>
+        │       ├── err.[...]
+        │       ├── err.<TIMESTAMP_P>.<PID_N>
+        │       ├── out.<TIMESTAMP_1>.<PID_A>
+        │       ├── out.[...]
+        │       └── out.<TIMESTAMP_P>.<PID_N>
+        └── __session.ser
 
 
 ## TODO

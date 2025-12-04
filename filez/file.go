@@ -125,6 +125,23 @@ func TouchOrPanic(name string) *os.File {
 	return f
 }
 
+func TouchMkdirAll(name string) (*os.File, error) {
+	dir := filepath.Dir(name)
+	err := MkdirAll(dir, DefaultDirPerms)
+	if err != nil {
+		return nil, err
+	}
+	return Open3(name, os.O_CREATE, DefaultFilePerms)
+}
+
+func TouchMkdirAllOrPanic(name string) *os.File {
+	f, err := TouchMkdirAll(name)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
 func Open3(name string, flag int, perm fs.FileMode) (*os.File, error) {
 	return os.OpenFile(name, flag, perm)
 }

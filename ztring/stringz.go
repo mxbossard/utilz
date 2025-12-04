@@ -129,3 +129,11 @@ func JoinStringers[T fmt.Stringer](stringers []T, separator string) string {
 	}
 	return b.String()
 }
+
+func ReplaceLast(s, old, new string) string {
+	i := strings.LastIndex(s, old)
+	if i == -1 {
+		return s
+	}
+	return s[:i] + new + s[i + len(old):]
+}

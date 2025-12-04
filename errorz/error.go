@@ -124,6 +124,10 @@ func ConsumedAggregated(errorsChan chan error) Aggregated {
 	return errors
 }
 
+func NewAgg(errors ...error) Aggregated {
+	return NewAggregated(errors...)
+}
+
 func NewAggregated(errors ...error) Aggregated {
 	agg := Aggregated{}
 	agg.AddAll(errors...)
