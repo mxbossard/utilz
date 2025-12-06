@@ -12,10 +12,10 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/gofrs/flock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/zlog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -63,7 +63,7 @@ func TestUnixFlock(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			file := filez.Open3OrPanic(filepath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC, 0666)
+			file := filez.OpenOrPanic(filepath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC, 0666)
 			//m.Lock()
 			err := unix.Flock(int(file.Fd()), unix.LOCK_EX)
 			assert.NoError(t, err)
@@ -90,7 +90,7 @@ func TestUnixFlock(t *testing.T) {
 func TestFcntlFlock(t *testing.T) {
 	t.Skip()
 	filepath := filez.MkTempOrPanic("zqlite-TestFcntlFlock")
-	file := filez.Open3OrPanic(filepath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC, 0666)
+	file := filez.OpenOrPanic(filepath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC, 0666)
 	//m := &sync.Mutex{}
 
 	count := 10

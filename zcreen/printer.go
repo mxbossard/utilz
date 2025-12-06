@@ -3,15 +3,15 @@ package zcreen
 import (
 	"os"
 
+	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/printz"
 )
 
 type printer struct {
 	printz.ClosingPrinter
 
-	name string
-	// open bool
-	open          bool
+	name          string
+	open          bool // FIXME: open is not used in printer => should be removed
 	closeMessage  string
 	consolidated  bool
 	priorityOrder int
@@ -49,4 +49,53 @@ func (p *printer) Close(message string) error {
 	}
 
 	return nil
+}
+
+type fsPrinter struct {
+	printer
+
+	closeFilepath string
+}
+
+func (p *fsPrinter) Close(message string) error {
+	err := filez.WriteString(p.closeFilepath, message, filez.DefaultFilePerms)
+	if err != nil {
+		return err
+	}
+	err = p.printer.Close(message)
+	return err
+}
+
+func buildFsOutputs(outFilepath, errFilepath string) (printz.Outputs, *os.File, *os.File) {
+	filez.TouchMkdirAllOrPanic(outFilepath)
+	filez.TouchMkdirAllOrPanic(errFilepath)
+	outFile := filez.OpenOrPanic(outFilepath, os.O_WRONLY+os.O_APPEND, filez.DefaultFilePerms)
+	errFile := filez.OpenOrPanic(errFilepath, os.O_WRONLY+os.O_APPEND, filez.DefaultFilePerms)
+	outputs := printz.NewOutputs(outFile, errFile)
+	return outputs, outFile, errFile
+}
+
+func buildFsPrinter(name string, priority int, outFilepath, errFilepath, closeFilepath string, opened bool) *fsPrinter {
+	outputs, outFile, errFile := buildFsOutputs(outFilepath, errFilepath)
+	prtr := printz.New(outputs)
+	closingPrtr := printz.Closing(prtr)
+	p := printer{
+		ClosingPrinter: closingPrtr,
+		name:           name,
+		tmpOut:         outFile,
+		tmpErr:         errFile,
+		open:           opened,
+		priorityOrder:  priority,
+	}
+	return &fsPrinter{printer: p, closeFilepath: closeFilepath}
+}
+
+func buildNotifierPrinter(zcreenPath, sessionName string, sessionPriority int, opened bool) *fsPrinter {
+	notifierOutFilepath, notifierErrFilepath, closeFilepath := forgeNotiferPrinterFilepathes(zcreenPath, sessionName, sessionPriority)
+	return buildFsPrinter("__notifier", 0, notifierOutFilepath, notifierErrFilepath, closeFilepath, opened)
+}
+
+func buildSessionPrinter(zcreenPath, sessionName string, sessionPriority int, printerName string, printerPriority int, opened bool) *fsPrinter {
+	printerOutFilepath, printerErrFilepath, closeFilepath := forgeSessionPrinterFilepathes(zcreenPath, sessionName, sessionPriority, printerName, printerPriority)
+	return buildFsPrinter(printerName, printerPriority, printerOutFilepath, printerErrFilepath, closeFilepath, opened)
 }

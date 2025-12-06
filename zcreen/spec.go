@@ -55,12 +55,18 @@ import (
   - Tailer COULD have a session serialized on a file.
   - Session tmp files COULD be consolidated on session end, but it's not necessary.
     - /!\ If a session is consolidated, MUST rm all files which were consolidated.
-	- A session can be ended and re-opened, so multiple session tmp files can be consolidated.
-    - A concurrent tailer on an opened session will tail printers & notifiers files until session is ended.
 	- => To avoid problems of files in progress of reading by a tailer deleted by a concurrent screen, MUST delegate
 	  session tmp files consolidation to a tailer which will write lock the file then delete all other files.
 	  Next tailers will attempt to read session tmp files, then printer & notifiers files if session was reopened and it should be OK.
-
+    - A session can be ended and re-opened, so multiple session tmp files COULD be consolidated.
+  - A concurrent tailer on an opened session will tail printers & notifiers files until session is ended.
+  - Since multiple printer parts must be consolidated, tailer NEED to order them.
+    - 1- Order parts by creation time.
+    - 2- Consolidated ended parts first.
+	- 3- Consolidate first not eneded part then stop consolidation.
+	- Do we need a timeout for a not closed part ?
+	- Closing a printer close only it's corresponding part.
+    - Printer parts must be ended
 
 ## File Layer Implementation
 ### Initial naïve implementation (v1)
@@ -378,11 +384,11 @@ func buildReadOnlyPrinter(tmpDir, name string, priorityOrder int) *printer {
 	// filez.WaitUntilExistsOrPanic(outNotifierPath, tailerDelayTimeout)
 	// filez.WaitUntilExistsOrPanic(errNotifierPath, tailerDelayTimeout)
 
-	tmpOutFile, err := filez.Open3(outNotifierPath, os.O_RDONLY+os.O_CREATE, filez.DefaultFilePerms)
+	tmpOutFile, err := filez.Open(outNotifierPath, os.O_RDONLY+os.O_CREATE, filez.DefaultFilePerms)
 	if err != nil {
 		panic(err)
 	}
-	tmpErrFile, err := filez.Open3(errNotifierPath, os.O_RDONLY+os.O_CREATE, filez.DefaultFilePerms)
+	tmpErrFile, err := filez.Open(errNotifierPath, os.O_RDONLY+os.O_CREATE, filez.DefaultFilePerms)
 	if err != nil {
 		panic(err)
 	}

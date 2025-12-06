@@ -101,12 +101,12 @@ func MkdirTemp2OrPanic(dir, pattern string) string {
 	return p
 }
 
-func Open(name string) (*os.File, error) {
+func OpenReadOnly(name string) (*os.File, error) {
 	return os.Open(name)
 }
 
-func OpenOrPanic(name string) *os.File {
-	f, err := Open(name)
+func OpenReadOnlyOrPanic(name string) *os.File {
+	f, err := OpenReadOnly(name)
 	if err != nil {
 		panic(err)
 	}
@@ -114,11 +114,11 @@ func OpenOrPanic(name string) *os.File {
 }
 
 func Touch(name string) (*os.File, error) {
-	return Open3(name, os.O_CREATE, DefaultFilePerms)
+	return Open(name, os.O_CREATE, DefaultFilePerms)
 }
 
 func TouchOrPanic(name string) *os.File {
-	f, err := Open3(name, os.O_CREATE, DefaultFilePerms)
+	f, err := Open(name, os.O_CREATE, DefaultFilePerms)
 	if err != nil {
 		panic(err)
 	}
@@ -131,7 +131,7 @@ func TouchMkdirAll(name string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Open3(name, os.O_CREATE, DefaultFilePerms)
+	return Open(name, os.O_CREATE, DefaultFilePerms)
 }
 
 func TouchMkdirAllOrPanic(name string) *os.File {
@@ -142,12 +142,12 @@ func TouchMkdirAllOrPanic(name string) *os.File {
 	return f
 }
 
-func Open3(name string, flag int, perm fs.FileMode) (*os.File, error) {
+func Open(name string, flag int, perm fs.FileMode) (*os.File, error) {
 	return os.OpenFile(name, flag, perm)
 }
 
-func Open3OrPanic(name string, flag int, perm fs.FileMode) *os.File {
-	f, err := Open3(name, flag, perm)
+func OpenOrPanic(name string, flag int, perm fs.FileMode) *os.File {
+	f, err := Open(name, flag, perm)
 	if err != nil {
 		panic(err)
 	}

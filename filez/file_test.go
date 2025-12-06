@@ -103,7 +103,7 @@ func TestMkdirTempOrPanic(t *testing.T) {
 }
 
 func TestMkdirTemp2(t *testing.T) {
-	// TODO: test existing dir 
+	// TODO: test existing dir
 	// TODO: test not existing dir
 
 	_, err := MkdirTemp2("", "/")
@@ -119,26 +119,26 @@ func TestMkdirTemp2OrPanic(t *testing.T) {
 func TestOpen(t *testing.T) {
 	// TODO
 
-	_, err := Open("/-do-not-exists-_")
+	_, err := OpenReadOnly("/-do-not-exists-_")
 	assert.Error(t, err)
 }
 
 func TestOpenOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-		OpenOrPanic("/-do-not-exists-_")
+		OpenReadOnlyOrPanic("/-do-not-exists-_")
 	})
 }
 
 func TestOpen3(t *testing.T) {
 	// TODO
 
-	_, err := Open3("/-do-not-exists-_", 42, 0400)
+	_, err := Open("/-do-not-exists-_", 42, 0400)
 	assert.Error(t, err)
 }
 
 func TestOpen3OrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-		Open3OrPanic("/-do-not-exists-_", 42, 0400)
+		OpenOrPanic("/-do-not-exists-_", 42, 0400)
 	})
 }
 
@@ -167,7 +167,6 @@ func TestMkdirOrPanic(t *testing.T) {
 		MkdirOrPanic("", 0400)
 	})
 }
-
 
 func TestChdirAndWorkingDir(t *testing.T) {
 	// TODO
@@ -230,28 +229,28 @@ func TestWriteStringThenReadString(t *testing.T) {
 
 func TestReadOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
 
 func TestReadStringOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
 
 func TestWriteOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
 
 func TestWriteStringOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
@@ -262,7 +261,7 @@ func TestReadFile(t *testing.T) {
 
 func TestReadFileOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
@@ -273,7 +272,7 @@ func TestReadFileString(t *testing.T) {
 
 func TestReadFileStringOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
@@ -284,7 +283,7 @@ func TestPrint(t *testing.T) {
 
 func TestPrintOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
@@ -295,7 +294,7 @@ func TestPrintTree(t *testing.T) {
 
 func TestPrintTreeOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
@@ -306,7 +305,7 @@ func TestIsDirectory(t *testing.T) {
 
 func TestIsDirectoryOrPanic(t *testing.T) {
 	assert.Panics(t, func() {
-	// TODO
+		// TODO
 		panic("TODO")
 	})
 }
@@ -319,11 +318,11 @@ func TestCopy_SmallBuffer(t *testing.T) {
 	err = WriteString(src, expected, 0600)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, ReadStringOrPanic(src))
-	
+
 	dst := &bytes.Buffer{}
 
 	b := make([]byte, 3)
-	fSrc, err := Open(src)
+	fSrc, err := OpenReadOnly(src)
 	assert.NoError(t, err)
 	n, err := Copy(fSrc, dst, b)
 	assert.NoError(t, err)
@@ -340,11 +339,11 @@ func TestCopy_LargeBuffer(t *testing.T) {
 	err = WriteString(src, expected, 0600)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, ReadStringOrPanic(src))
-	
+
 	dst := &bytes.Buffer{}
 
-	b := make([]byte, len(expected) * 10)
-	fSrc, err := Open(src)
+	b := make([]byte, len(expected)*10)
+	fSrc, err := OpenReadOnly(src)
 	assert.NoError(t, err)
 	n, err := Copy(fSrc, dst, b)
 	assert.NoError(t, err)
@@ -361,11 +360,11 @@ func TestCopyChunk_UntilEnd(t *testing.T) {
 	err = WriteString(src, expected, 0600)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, ReadStringOrPanic(src))
-	
+
 	dst := &bytes.Buffer{}
 
 	b := make([]byte, 3)
-	fSrc, err := Open(src)
+	fSrc, err := OpenReadOnly(src)
 	assert.NoError(t, err)
 	n, err := CopyChunk(fSrc, dst, b, 7, -1)
 	assert.NoError(t, err)
@@ -381,11 +380,11 @@ func TestCopyChunk_SmallBuffer(t *testing.T) {
 	err = WriteString(src, expected, 0600)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, ReadStringOrPanic(src))
-	
+
 	dst := &bytes.Buffer{}
 
 	b := make([]byte, 3)
-	fSrc, err := Open(src)
+	fSrc, err := OpenReadOnly(src)
 	assert.NoError(t, err)
 	n, err := CopyChunk(fSrc, dst, b, 7, 12)
 	assert.NoError(t, err)
@@ -401,18 +400,14 @@ func TestCopyChunk_LargeBuffer(t *testing.T) {
 	err = WriteString(src, expected, 0600)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, ReadStringOrPanic(src))
-	
+
 	dst := &bytes.Buffer{}
 
-	b := make([]byte, len(expected) * 10)
-	fSrc, err := Open(src)
+	b := make([]byte, len(expected)*10)
+	fSrc, err := OpenReadOnly(src)
 	assert.NoError(t, err)
 	n, err := CopyChunk(fSrc, dst, b, 7, 12)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(5), n)
 	assert.Equal(t, expected[7:12], dst.String())
 }
-
-
-
-
