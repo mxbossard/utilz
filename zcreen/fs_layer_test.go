@@ -60,6 +60,10 @@ func TestFsLayer_AllFiles(t *testing.T) {
 	alpha1Bar1Printer4.Out("msg_alpha1Bar1Printer4\n")
 	err = alpha1Bar1Printer4.Flush()
 	assert.NoError(t, err)
+	alpha1Bar1Printer5 := buildSessionPrinter(tmpDir, "alpha", 1, "bar", 1, false)
+	alpha1Bar1Printer5.Out("msg_alpha1Bar1Printer5\n")
+	err = alpha1Bar1Printer5.Flush()
+	assert.NoError(t, err)
 	alpha1Baz2Printer1 := buildSessionPrinter(tmpDir, "alpha", 1, "baz", 2, false)
 	alpha1Baz2Printer1.Out("msg_alpha1Baz2Printer1\n")
 	err = alpha1Baz2Printer1.Flush()
@@ -93,7 +97,7 @@ func TestFsLayer_AllFiles(t *testing.T) {
 	require.NotNil(t, zg.sessionsByPrioName)
 	assert.Len(t, zg.sessionsByPrioName, 2)
 
-	alphaSg := zg.sessionsByPrioName[forgePrioNameKey(1, "alpha")]
+	alphaSg := *zg.sessionsByPrioName[forgePrioNameKey(1, "alpha")]
 	require.NotNil(t, alphaSg)
 	require.NotNil(t, alphaSg.notifierParts)
 	assert.Len(t, alphaSg.notifierParts.partsByKey, 0)
@@ -147,22 +151,24 @@ func TestFsLayer_AllFiles(t *testing.T) {
 	assert.Equal(t, "", errW.String())
 
 	// Re outputing should not print more data
+	outW.Reset()
+	errW.Reset()
 	alphaOutputer.Outputs(outs, "alpha")
 	assert.True(t, alphaOutputer.HasNext())
-	assert.Equal(t, "msg_globalNotifier\nmsg_alpha1Bar1Printer1\n", outW.String())
+	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// Use a second outputer should print all available session datas without global notifications
-	outW.Reset()
-	errW.Reset()
+	out2W.Reset()
+	err2W.Reset()
 	alphaOutputer2 := zgo.SessionOutputer("alpha")
 	require.NotNil(t, alphaOutputer2)
 	assert.True(t, alphaOutputer2.HasNext())
 	assert.True(t, alphaOutputer2.HasNext())
 	alphaOutputer2.Outputs(outs2, "alpha")
 	assert.True(t, alphaOutputer2.HasNext())
-	assert.Equal(t, "msg_alpha1Bar1Printer1\n", outW.String())
-	assert.Equal(t, "", errW.String())
+	assert.Equal(t, "msg_alpha1Bar1Printer1\n", out2W.String())
+	assert.Equal(t, "", err2W.String())
 
 	// bravo session outputs
 	outW.Reset()
@@ -177,36 +183,63 @@ func TestFsLayer_AllFiles(t *testing.T) {
 	assert.Equal(t, "", errW.String())
 
 	// Re outputing should not print more data
+	outW.Reset()
+	errW.Reset()
 	bravoOutputer.Outputs(outs, "bravo")
 	assert.True(t, bravoOutputer.HasNext())
-	assert.Equal(t, "msg_bravo1Notifier1\nmsg_bravo1Notifier2\nmsg_bravo1Notifier3\nmsg_bravo1Foo1Printer1\n", outW.String())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = bravoOutputer.Update()
+	assert.NoError(t, err)
+	bravoOutputer.Outputs(outs, "bravo")
+	assert.True(t, bravoOutputer.HasNext())
+	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// Closing printer should print more data
-	err = alpha1Foo1Printer1.Close("close1")
+	outW.Reset()
+	errW.Reset()
+	err = alpha1Bar1Printer1.Close("close1")
+	assert.NoError(t, err)
+	err = alphaOutputer.Update()
 	assert.NoError(t, err)
 	alphaOutputer.Outputs(outs, "alpha")
 	assert.True(t, alphaOutputer.HasNext())
-	assert.Equal(t, "msg_globalNotifier\nmsg_alpha1Bar1Printer1\nmsg_alpha1Bar1Printer1\n", outW.String())
+	assert.Equal(t, "msg_alpha1Bar1Printer2\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// Closing last printer part should print it first
+	outW.Reset()
+	errW.Reset()
 	err = alpha1Bar1Printer4.Close("close2")
 	assert.NoError(t, err)
 	err = alpha1Baz2Printer1.Close("close3")
 	assert.NoError(t, err)
+	err = alphaOutputer.Update()
+	assert.NoError(t, err)
 	alphaOutputer.Outputs(outs, "alpha")
 	assert.True(t, alphaOutputer.HasNext())
-	assert.Equal(t, "msg_globalNotifier\nmsg_alpha1Bar1Printer1\nmsg_alpha1Bar1Printer4\n", outW.String())
+	assert.Equal(t, "msg_alpha1Bar1Printer4\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// Closing all printer parts should print next printer
-	err = alpha1Bar1Printer3.Close("close4")
+	// The printer should be considered closed since all parts are closed
+	outW.Reset()
+	errW.Reset()
+	err = alpha1Bar1Printer5.Close("close4")
 	assert.NoError(t, err)
-	err = alpha1Bar1Printer2.Close("close5")
+	err = alpha1Bar1Printer3.Close("close5")
+	assert.NoError(t, err)
+	err = alpha1Bar1Printer2.Close("close6")
+	assert.NoError(t, err)
+	err = alphaOutputer.Update()
 	assert.NoError(t, err)
 	alphaOutputer.Outputs(outs, "alpha")
 	assert.True(t, alphaOutputer.HasNext())
-	assert.Equal(t, "msg_globalNotifier\nmsg_alpha1Bar1Printer1\nmsg_alpha1Bar1Printer4\nmsg_alpha1Bar1Printer2\nmsg_alpha1Bar1Printer3\nmsg_alpha1Baz2Printer1\n", outW.String())
+	assert.Equal(t, "msg_alpha1Bar1Printer3\nmsg_alpha1Bar1Printer5\nmsg_alpha1Foo1Printer1\n", outW.String())
 	assert.Equal(t, "", errW.String())
+
 }
