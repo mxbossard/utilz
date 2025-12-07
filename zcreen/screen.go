@@ -611,7 +611,7 @@ func NewAsyncScreen(tmpPath string, force bool) *screen {
 		// On force, override zcreen file locking
 		ok, err := filez.Exists(screenLockFilepath)
 		if err != nil {
-			panic(fmt.Errorf("Unable to stat file: %s", screenLockFilepath))
+			panic(fmt.Errorf("unable to stat file: %s", screenLockFilepath))
 		}
 		if ok {
 			// Lock file already exists

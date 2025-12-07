@@ -133,9 +133,11 @@ type printerGroup struct {
 	name     string
 	priority int
 
-	partsByKey map[string]*printerPart
-	pointer    string
-	closed     bool
+	partsByKey  map[string]*printerPart
+	pointer     string
+	closed      bool
+	outputedOut int64
+	outputedErr int64
 	// closeMsg string
 }
 
@@ -414,9 +416,13 @@ func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printe
 		}
 
 		if i > 0 || j > 0 {
-			(*cursors)[pp.outFile] += int64(i)
-			(*cursors)[pp.errFile] += int64(j)
+			ii := int64(i)
+			jj := int64(j)
+			(*cursors)[pp.outFile] += ii
+			(*cursors)[pp.errFile] += jj
 			printedSomeStuff = true
+			pg.outputedOut += ii
+			pg.outputedErr += jj
 			// fmt.Printf("advanced cursor to out: %d err: %d\n", (*cursors)[pp.outFile], (*cursors)[pp.errFile])
 		}
 
@@ -433,10 +439,10 @@ func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printe
 	if printedSomeStuff {
 		err = outs.Flush()
 		if err != nil {
-			return err
+			return
 		}
 	}
-	return nil
+	return
 }
 
 type zcreenGroupOutputer struct {
@@ -447,7 +453,7 @@ type zcreenGroupOutputer struct {
 }
 
 // Output all parts of a printer keeping read context at global outputer level.
-func (o *zcreenGroupOutputer) outputsGlobalPrinter(outs printz.Outputs, pg *printerGroup, buf []byte, waitForClosed bool) (err error) {
+func (o *zcreenGroupOutputer) outputsGlobalPrinter(outs printz.Outputs, pg *printerGroup, buf []byte, waitForClosed bool) error {
 	return outputsPrinterGroup(o.cursors, o.outputedParts, outs, pg, buf, waitForClosed)
 }
 
@@ -491,12 +497,12 @@ func (o *zcreenGroupOutputer) SessionOutputer(sessionName string) *sessionGroupO
 }
 
 type sessionGroupOutputer struct {
-	zgo *zcreenGroupOutputer
-	sg  *sessionGroup
-	//printerPointer *printerGroup
-	cursors          *map[*os.File]int64
-	outputedPrinters *map[*printerGroup]bool
-	outputedParts    *map[*printerPart]bool
+	zgo                *zcreenGroupOutputer
+	sg                 *sessionGroup
+	blockingPrinterKey string
+	cursors            *map[*os.File]int64
+	outputedPrinters   *map[*printerGroup]bool
+	outputedParts      *map[*printerPart]bool
 }
 
 func (o *sessionGroupOutputer) Update() (err error) {
@@ -511,9 +517,8 @@ func (o *sessionGroupOutputer) HasNext() bool {
 }
 
 // Output all parts of a printer keeping read context at session outputer level.
-func (o *sessionGroupOutputer) outputsSessionPrinter(outs printz.Outputs, pg *printerGroup, buf []byte, waitForClosed bool) (err error) {
-	err = outputsPrinterGroup(o.cursors, o.outputedParts, outs, pg, buf, waitForClosed)
-	return
+func (o *sessionGroupOutputer) outputsSessionPrinter(outs printz.Outputs, pg *printerGroup, buf []byte, waitForClosed bool) error {
+	return outputsPrinterGroup(o.cursors, o.outputedParts, outs, pg, buf, waitForClosed)
 }
 
 func (o *sessionGroupOutputer) Outputs(outs printz.Outputs, sessionName string) (err error) {
@@ -534,16 +539,73 @@ func (o *sessionGroupOutputer) Outputs(outs printz.Outputs, sessionName string) 
 	sort.Strings(printerGroupsKeys)
 
 	// First Seek closed printers and promote them top priority
-	var closedPgks, openedPgks []string
+	// FIXME: MUST order printers by priority. MUST NOT elect a printer with higher priority unless all lower pritority pg are closed !
+	closedPgks := make(map[int][]string)
+	openedPgks := make(map[int][]string)
+	var orderedPgks []string
 	for _, pgk := range printerGroupsKeys {
 		pg := o.sg.printersByPrioName[pgk]
-		if pg.closed {
-			closedPgks = append(closedPgks, pgk)
+		if pgk == o.blockingPrinterKey {
+			// SKip blocking printer which is in first place
+			continue
+		} else if pg.closed {
+			closedPgks[pg.priority] = append(closedPgks[pg.priority], pgk)
 		} else {
-			openedPgks = append(openedPgks, pgk)
+			openedPgks[pg.priority] = append(openedPgks[pg.priority], pgk)
 		}
 	}
-	orderedPgks := append(closedPgks, openedPgks...)
+
+	// 1- Blocking printer is always oredered first
+	var currentPriority = 0
+	if o.blockingPrinterKey != "" {
+		pg := o.sg.printersByPrioName[o.blockingPrinterKey]
+		currentPriority = pg.priority
+		orderedPgks = append(orderedPgks, o.blockingPrinterKey)
+	}
+
+	// 2- Then closed printers with same priority are placed
+	for priority, pgk := range closedPgks {
+		if priority == currentPriority {
+			orderedPgks = append(orderedPgks, pgk...)
+		}
+	}
+
+	// 3- Then closed printers with higher priority are placed
+	// FIXME: this can output printer in disorder.
+	for priority, pgk := range closedPgks {
+		if priority < currentPriority {
+			orderedPgks = append(orderedPgks, pgk...)
+		}
+	}
+
+	// 4- Then opened printers with equal priority are placed
+	for priority, pgk := range openedPgks {
+		if priority == currentPriority {
+			orderedPgks = append(orderedPgks, pgk...)
+		}
+	}
+
+	// 5- Then opened printers with higher priority are placed
+	// FIXME: this can output printer in disorder.
+	for priority, pgk := range openedPgks {
+		if priority < currentPriority {
+			orderedPgks = append(orderedPgks, pgk...)
+		}
+	}
+
+	// 6- Then closed printers with lower priority are placed
+	for priority, pgk := range closedPgks {
+		if priority > currentPriority {
+			orderedPgks = append(orderedPgks, pgk...)
+		}
+	}
+
+	// 7- Then opened printers with lower priority are placed
+	for priority, pgk := range openedPgks {
+		if priority > currentPriority {
+			orderedPgks = append(orderedPgks, pgk...)
+		}
+	}
 
 	for _, pgk := range orderedPgks {
 		pg := o.sg.printersByPrioName[pgk]
@@ -567,8 +629,10 @@ func (o *sessionGroupOutputer) Outputs(outs printz.Outputs, sessionName string) 
 		if pg.closed {
 			// Flag printer group as outputed
 			(*o.outputedPrinters)[pg] = true
-		} else {
-			// current part not closed => exit loop
+			o.blockingPrinterKey = ""
+		} else if pg.outputedOut > 0 || pg.outputedErr > 0 {
+			// current part partially outputed and not closed => exit loop
+			o.blockingPrinterKey = pgk
 			break
 		}
 	}

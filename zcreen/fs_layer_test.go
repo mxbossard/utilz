@@ -110,7 +110,7 @@ func TestFsLayer_AllFiles(t *testing.T) {
 
 	alpha_1_bar_pg := alphaSg.printersByPrioName[forgePrioNameKey(1, "bar")]
 	require.NotNil(t, alpha_1_bar_pg)
-	assert.Len(t, alpha_1_bar_pg.partsByKey, 4)
+	assert.Len(t, alpha_1_bar_pg.partsByKey, 5)
 
 	alpha_2_baz_pg := alphaSg.printersByPrioName[forgePrioNameKey(2, "baz")]
 	require.NotNil(t, alpha_2_baz_pg)
