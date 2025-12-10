@@ -2,7 +2,6 @@ package zcreen
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -50,22 +49,22 @@ func TestScreen_GetSession(t *testing.T) {
 	require.NoError(t, os.RemoveAll(tmpDir))
 	s := NewAsyncScreen(tmpDir, false)
 	require.NotNil(t, s)
+	expectedSessionDir := forgeSessionDirPath(tmpDir, "bar1001", 42)
 	session, err := s.Session("bar1001", 42)
 	require.NoError(t, err)
 	assert.NotNil(t, session)
 	assert.DirExists(t, tmpDir)
-	assert.DirExists(t, tmpDir+"/"+sessionDirPrefix+"bar1001")
+	assert.DirExists(t, expectedSessionDir)
 
 	err = session.Start(100 * time.Millisecond)
 	require.NoError(t, err)
-	expectedSessionDir := filepath.Join(tmpDir, sessionDirPrefix+"bar1001")
 	assert.DirExists(t, expectedSessionDir)
-	matches, err := filepath.Glob(expectedSessionDir + "/bar1001" + outFileNameSuffix + "*")
-	require.NoError(t, err)
-	require.Len(t, matches, 1)
-	matches, err = filepath.Glob(expectedSessionDir + "/bar1001" + errFileNameSuffix + "*")
-	require.NoError(t, err)
-	require.Len(t, matches, 1)
+	// matches, err := filepath.Glob(expectedSessionDir + "/bar1001" + outFileNameSuffix + "*")
+	// require.NoError(t, err)
+	// require.Len(t, matches, 1)
+	// matches, err = filepath.Glob(expectedSessionDir + "/bar1001" + errFileNameSuffix + "*")
+	// require.NoError(t, err)
+	// require.Len(t, matches, 1)
 }
 
 func TestScreen_GetPrinter(t *testing.T) {
@@ -101,36 +100,36 @@ func TestScreen_BasicOut(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
-	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
-	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
-	printersDirTmpFilepath := printersDirPath(sessionDirTmpFilepath)
+	sessionDirFilepath := forgeSessionDirPath(tmpDir, expectedSession, 42)
+	sessionSerFilepath := sessionSerializedPath(sessionDirFilepath)
+	printersDirFilepath := printersDirPath(sessionDirFilepath)
 
-	sessionTmpOutFilepath := func() string {
-		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
-	sessionTmpErrFilepath := func() string {
-		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
+	// sessionTmpOutFilepath := func() string {
+	// 	matches := tmpFilenameMatches(sessionDirFilepath, expectedSession, outFileQualifier)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
+	// sessionTmpErrFilepath := func() string {
+	// 	matches := tmpFilenameMatches(sessionDirFilepath, expectedSession, errFileQualifier)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
 	printerTmpOutFilepath := func() string {
-		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, outFileNameSuffix)
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, errFileNameSuffix)
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 
 	require.DirExists(t, tmpDir)
-	require.DirExists(t, sessionDirTmpFilepath)
+	require.DirExists(t, sessionDirFilepath)
 	assert.FileExists(t, sessionSerFilepath)
-	assert.FileExists(t, sessionTmpOutFilepath)
-	assert.FileExists(t, sessionTmpErrFilepath)
+	// assert.FileExists(t, sessionTmpOutFilepath)
+	// assert.FileExists(t, sessionTmpErrFilepath)
 	assert.FileExists(t, printerTmpOutFilepath)
 	assert.FileExists(t, printerTmpErrFilepath)
 
@@ -140,22 +139,22 @@ func TestScreen_BasicOut(t *testing.T) {
 	assert.NotNil(t, ser)
 
 	prtr10.Out(expectedMessage)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = prtr10.Flush()
 	assert.NoError(t, err)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
@@ -210,35 +209,35 @@ func TestScreen_BasicOutAndErr(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
-	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
-	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
-	printersDirTmpFilepath := printersDirPath(sessionDirTmpFilepath)
-	sessionTmpOutFilepath := func() string {
-		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
-	sessionTmpErrFilepath := func() string {
-		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
+	sessionDirFilepath := forgeSessionDirPath(tmpDir, expectedSession, 42)
+	sessionSerFilepath := sessionSerializedPath(sessionDirFilepath)
+	printersDirFilepath := printersDirPath(sessionDirFilepath)
+	// sessionTmpOutFilepath := func() string {
+	// 	matches := tmpFilenameMatches(sessionDirFilepath, expectedSession, outFileQualifier)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
+	// sessionTmpErrFilepath := func() string {
+	// 	matches := tmpFilenameMatches(sessionDirFilepath, expectedSession, errFileQualifier)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
 	printerTmpOutFilepath := func() string {
-		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, outFileNameSuffix)
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, errFileNameSuffix)
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 
 	require.DirExists(t, tmpDir)
-	require.DirExists(t, sessionDirTmpFilepath)
+	require.DirExists(t, sessionDirFilepath)
 	assert.FileExists(t, sessionSerFilepath)
-	assert.FileExists(t, sessionTmpOutFilepath)
-	assert.FileExists(t, sessionTmpErrFilepath)
+	// assert.FileExists(t, sessionTmpOutFilepath)
+	// assert.FileExists(t, sessionTmpErrFilepath)
 	assert.FileExists(t, printerTmpOutFilepath)
 	assert.FileExists(t, printerTmpErrFilepath)
 
@@ -249,22 +248,97 @@ func TestScreen_BasicOutAndErr(t *testing.T) {
 
 	prtr10.Out(expectedOutMessage)
 	prtr10.Err(expectedErrMessage)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = prtr10.Flush()
 	assert.NoError(t, err)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
+}
+
+func TestScreen_Resync(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.foo3004"
+	require.NoError(t, os.RemoveAll(tmpDir))
+
+	expectedSession1 := "foo30041"
+	expectedPrinter1 := "bar1"
+	expectedMessage1 := "baz1"
+	expectedMessage1b := "baz1b"
+
+	expectedSession2 := "foo30042"
+	expectedPrinter2 := "bar2"
+	expectedMessage2 := "baz2"
+
+	expectedSession3 := "foo30043"
+	expectedPrinter3 := "bar3"
+	expectedMessage3 := "baz3"
+
+	// build a first screen1 with session & printer
+	screen1 := NewAsyncScreen(tmpDir, false)
+	require.NotNil(t, screen1)
+	session1, err := screen1.Session(expectedSession1, 42)
+	require.NoError(t, err)
+	require.NotNil(t, session1)
+	err = session1.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr110, err := session1.Printer(expectedPrinter1, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr110)
+	prtr110.Out(expectedMessage1)
+
+	session3, err := screen1.Session(expectedSession3, 42)
+	require.NoError(t, err)
+	require.NotNil(t, session3)
+	err = session3.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr310, err := session3.Printer(expectedPrinter3, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr310)
+	prtr310.Out(expectedMessage3)
+	session3.End("end3")
+
+	screen1.Close()
+
+	// build a second screen with a new session
+	screen2 := NewAsyncScreen(tmpDir, false)
+	require.NotNil(t, screen2)
+	err = screen2.Resync()
+	assert.NoError(t, err)
+	session2, err := screen2.Session(expectedSession2, 42)
+	require.NoError(t, err)
+	require.NotNil(t, session2)
+	err = session2.Start(100 * time.Millisecond)
+	assert.NoError(t, err)
+	prtr210, err := session2.Printer(expectedPrinter2, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr210)
+	prtr210.Out(expectedMessage2)
+
+	// Use an already existing session & printer
+	session1b, err := screen2.Session(expectedSession1, 42)
+	require.NoError(t, err)
+	require.NotNil(t, session1b)
+	prtr110b, err := session2.Printer(expectedPrinter1, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr210)
+	prtr110b.Out(expectedMessage1b)
+
+	// Use an already existing and ended session
+	session3b, err := screen2.Session(expectedSession3, 42)
+	require.NoError(t, err)
+	require.NotNil(t, session3b)
+	_, err = session3b.Printer(expectedPrinter3, 10)
+	assert.Error(t, err)
 }

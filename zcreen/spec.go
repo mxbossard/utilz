@@ -131,6 +131,9 @@ Tailer v2 will consolidate each files in a coherent display.
         │   │   ├── err.<TIMESTAMP_1>.<PID_A>
     	│   │   ├── err.[...]
     	│   │   ├── err.<TIMESTAMP_P>.<PID_N>
+		│   │   ├── closed.<TIMESTAMP_1>.<PID_A>
+    	│   │   ├── closed.[...]
+    	│   │   ├── closed.<TIMESTAMP_P>.<PID_N>
     	│   │   ├── out.<TIMESTAMP_1>.<PID_A>
 	    │   │   ├── out.[...]
         │   │   └── out.<TIMESTAMP_P>.<PID_N>
@@ -138,6 +141,9 @@ Tailer v2 will consolidate each files in a coherent display.
         │   │   ├── err.<TIMESTAMP_1>.<PID_A>
         │   │   ├── err.[...]
         │   │   ├── err.<TIMESTAMP_P>.<PID_N>
+		│   │   ├── closed.<TIMESTAMP_1>.<PID_A>
+        │   │   ├── closed.[...]
+        │   │   ├── closed.<TIMESTAMP_P>.<PID_N>
         │   │   ├── out.<TIMESTAMP_1>.<PID_A>
         │   │   ├── out.[...]
         │   │   └── out.<TIMESTAMP_P>.<PID_N>
@@ -145,6 +151,9 @@ Tailer v2 will consolidate each files in a coherent display.
         │       ├── err.<TIMESTAMP_1>.<PID_A>
         │       ├── err.[...]
         │       ├── err.<TIMESTAMP_P>.<PID_N>
+		│       ├── closed.<TIMESTAMP_1>.<PID_A>
+        │       ├── closed.[...]
+        │       ├── closed.<TIMESTAMP_P>.<PID_N>
         │       ├── out.<TIMESTAMP_1>.<PID_A>
         │       ├── out.[...]
         │       └── out.<TIMESTAMP_P>.<PID_N>
@@ -170,16 +179,18 @@ Tailer v2 will consolidate each files in a coherent display.
 */
 
 const (
-	sessionDirPrefix  = "___session__"
-	printersDirPrefix = "___printers__"
-	outFileNameSuffix = "-out"
-	errFileNameSuffix = "-err"
-	bufLen            = 1024
+	sessionDirPrefix0  = "___session__"
+	printersDirPrefix0 = "___printers__"
+	outFileQualifier   = "out"
+	errFileQualifier   = "err"
+	outFileNameSuffix0 = "-out"
+	errFileNameSuffix0 = "-err"
+	bufLen             = 1024
 )
 
 const (
 	tmpDirFileMode        = 0760
-	notifierPrinterName   = "_-_notifier"
+	notifierPrinterName0  = "_-_notifier"
 	continuousFlushPeriod = 1 * time.Millisecond
 	screenLockFilename    = "screen.lock"
 	lockFilename          = "sync.lock" // FIXME: rename syncLockFilename
@@ -188,8 +199,9 @@ const (
 )
 
 const (
-	serializedExtension = ".ser"
-	extraTimeout        = 20 * time.Millisecond
+	serializedExtension0    = ".ser"
+	sessionSerialedFilename = "__session.ser"
+	extraTimeout            = 20 * time.Millisecond
 )
 
 type Sink interface {
@@ -268,23 +280,14 @@ func tmpFilenameMatches(dir, name, qualifier string) []string {
 	return matches
 }
 
-func priorizedTmpFilenameMatches(dir, name, qualifier string) []string {
-	wildcardPath := fmt.Sprintf("*__%s%s-*", name, qualifier)
-	matches, err := filepath.Glob(dir + "/" + wildcardPath)
-	if err != nil {
-		panic(err)
-	}
-	return matches
-}
-
-func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
+func buildTmpOutputs0(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
 	timestamp := time.Now().UnixNano()
 
-	tmpOutFile, err := os.CreateTemp(tmpDir, buildTmpFilename(name, outFileNameSuffix, timestamp))
+	tmpOutFile, err := os.CreateTemp(tmpDir, buildTmpFilename(name, outFileNameSuffix0, timestamp))
 	if err != nil {
 		panic(err)
 	}
-	tmpErrFile, err := os.CreateTemp(tmpDir, buildTmpFilename(name, errFileNameSuffix, timestamp))
+	tmpErrFile, err := os.CreateTemp(tmpDir, buildTmpFilename(name, errFileNameSuffix0, timestamp))
 	if err != nil {
 		panic(err)
 	}
@@ -292,30 +295,30 @@ func buildTmpOutputs(tmpDir, name string) (printz.Outputs, *os.File, *os.File) {
 	return tmpOutputs, tmpOutFile, tmpErrFile
 }
 
-func buildTmpPrinter(tmpDir, name string, priorityOrder int, opened bool) *printer {
+func buildTmpPrinter0(tmpDir, name string, priorityOrder int, opened bool) *printer0 {
 	priorizedName := fmt.Sprintf("%d__%s", priorityOrder, name)
-	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, priorizedName)
+	tmpOutputs, tmpOut, tmpErr := buildTmpOutputs0(tmpDir, priorizedName)
 	prtr := printz.New(tmpOutputs)
 	closingPrtr := printz.Closing(prtr)
-	p := &printer{
+	p := &printer0{
 		ClosingPrinter: closingPrtr,
 		name:           name,
 		tmpOut:         tmpOut,
 		tmpErr:         tmpErr,
-		open:           opened,
-		priorityOrder:  priorityOrder,
+		// open:           opened,
+		priorityOrder: priorityOrder,
 	}
 	return p
 }
 
-func scanAndUpdateTmpPrinters(tmpDir string, tmpPrinters *map[string]*printer) error {
+func scanAndUpdateTmpPrinters0(tmpDir string, tmpPrinters *map[string]*printer0) error {
 	wildcardPath := filepath.Join(tmpDir, "*")
 	printersFiles, err := filepath.Glob(wildcardPath)
 	if err != nil {
 		return err
 	}
 	// fmt.Printf("<< scanning session %s printerFile: %s\n", tmpDir, printersFiles)
-	filenamePattern, err := regexp.Compile(".*/(\\d+)__(.+)(?:" + outFileNameSuffix + ").*")
+	filenamePattern, err := regexp.Compile(".*/(\\d+)__(.+)(?:" + outFileNameSuffix0 + ").*")
 	if err != nil {
 		panic(err)
 	}
@@ -330,21 +333,21 @@ func scanAndUpdateTmpPrinters(tmpDir string, tmpPrinters *map[string]*printer) e
 			}
 			// fmt.Printf("<< scanning session %s printerFile: %s => name: %s #%d\n", tmpDir, printerFile, printerName, priorityOrder)
 			if *tmpPrinters == nil {
-				m := make(map[string]*printer)
+				m := make(map[string]*printer0)
 				*tmpPrinters = m
 			}
 			if _, ok := (*tmpPrinters)[printerName]; !ok {
 				// printer file does not exists in tmpPrintersMap
-				tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(tmpDir, printerName)
+				tmpOutputs, tmpOut, tmpErr := buildTmpOutputs0(tmpDir, printerName)
 				prtr := printz.New(tmpOutputs)
 				closingPrtr := printz.Closing(prtr)
-				p := &printer{
+				p := &printer0{
 					ClosingPrinter: closingPrtr,
 					name:           printerName,
 					tmpOut:         tmpOut,
 					tmpErr:         tmpErr,
-					open:           false, // A scanned printer cannot be scanned open.
-					priorityOrder:  priorityOrder,
+					// open:           false, // A scanned printer cannot be scanned open.
+					priorityOrder: priorityOrder,
 				}
 				(*tmpPrinters)[printerName] = p
 				fmt.Printf("<< scanning session printerFile: %s => name: %s #%d\n", printerFile, printerName, priorityOrder)
@@ -354,12 +357,12 @@ func scanAndUpdateTmpPrinters(tmpDir string, tmpPrinters *map[string]*printer) e
 	return nil
 }
 
-func buildPrinter(tmpDir, name string, priorityOrder int) *printer {
-	tmpOutFile, err := os.Create(filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix)))
+func buildPrinter0(tmpDir, name string, priorityOrder int) *printer0 {
+	tmpOutFile, err := os.Create(filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix0)))
 	if err != nil {
 		panic(err)
 	}
-	tmpErrFile, err := os.Create(filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix)))
+	tmpErrFile, err := os.Create(filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix0)))
 	if err != nil {
 		panic(err)
 	}
@@ -367,20 +370,20 @@ func buildPrinter(tmpDir, name string, priorityOrder int) *printer {
 
 	prtr := printz.New(tmpOutputs)
 	closingPrtr := printz.Closing(prtr)
-	p := &printer{
+	p := &printer0{
 		ClosingPrinter: closingPrtr,
 		name:           name,
 		tmpOut:         tmpOutFile,
 		tmpErr:         tmpErrFile,
-		open:           true,
-		priorityOrder:  priorityOrder,
+		// open:           true,
+		priorityOrder: priorityOrder,
 	}
 	return p
 }
 
-func buildReadOnlyPrinter(tmpDir, name string, priorityOrder int) *printer {
-	outNotifierPath := filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix))
-	errNotifierPath := filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix))
+func buildReadOnlyPrinter0(tmpDir, name string, priorityOrder int) *printer0 {
+	outNotifierPath := filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, outFileNameSuffix0))
+	errNotifierPath := filepath.Join(tmpDir, fmt.Sprintf("%s%s", name, errFileNameSuffix0))
 	// filez.WaitUntilExistsOrPanic(outNotifierPath, tailerDelayTimeout)
 	// filez.WaitUntilExistsOrPanic(errNotifierPath, tailerDelayTimeout)
 
@@ -396,13 +399,13 @@ func buildReadOnlyPrinter(tmpDir, name string, priorityOrder int) *printer {
 
 	prtr := printz.New(tmpOutputs)
 	closingPrtr := printz.Closing(prtr)
-	p := &printer{
+	p := &printer0{
 		ClosingPrinter: closingPrtr,
 		name:           name,
 		tmpOut:         tmpOutFile,
 		tmpErr:         tmpErrFile,
-		open:           true,
-		priorityOrder:  priorityOrder,
+		// open:           true,
+		priorityOrder: priorityOrder,
 	}
 	return p
 }

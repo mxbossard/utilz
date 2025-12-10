@@ -26,7 +26,7 @@ func TestFsLayer_EmptyDir(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	zg := buildZcreenGroup(tmpDir)
-	updated,err := zg.scanFiles()
+	updated, err := zg.scanFiles()
 	assert.False(t, updated)
 	assert.NoError(t, err)
 }
@@ -44,9 +44,9 @@ func buildTestFsPrinter(t *testing.T, m *map[string]*fsPrinter, tmpDir, session 
 	}
 	(*m)[key] = p
 	msg = fmt.Sprintf("msg-%s\n", key)
-        p.Out(msg)
+	p.Out(msg)
 	err := p.Flush()
-        assert.NoError(t, err)
+	assert.NoError(t, err)
 
 	return
 }
@@ -126,7 +126,7 @@ func TestFsLayer_ScanFiles(t *testing.T) {
 
 	require.NotNil(t, alphaSg.notifierParts)
 	assert.Len(t, alphaSg.notifierParts.partsByKey, 2)
-	
+
 	require.NotNil(t, alphaSg.printersByPrioName)
 	assert.Len(t, alphaSg.printersByPrioName, 3)
 
@@ -195,9 +195,9 @@ func TestFsLayer_Sessions(t *testing.T) {
 	assert.True(t, updated)
 	require.NoError(t, err)
 
-	zgo := zg.Outputer()
-        require.NotNil(t, zgo)
-	sessions := zgo.Sessions()
+	zgo := zg.outputer()
+	require.NotNil(t, zgo)
+	sessions := zgo.sessions()
 	assert.Len(t, sessions, 3)
 	assert.Equal(t, []string{"bravo", "gamma", "alpha"}, sessions)
 }
@@ -222,120 +222,129 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	assert.True(t, updated)
 	require.NoError(t, err)
 
-	zgo := zg.Outputer()
-        require.NotNil(t, zgo)
+	zgo := zg.outputer()
+	require.NotNil(t, zgo)
 
-        outW := &strings.Builder{}
-        errW := &strings.Builder{}
-        outs := printz.NewOutputs(outW, errW)
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
 
-        out2W := &strings.Builder{}
-        err2W := &strings.Builder{}
-        outs2 := printz.NewOutputs(out2W, err2W)
+	out2W := &strings.Builder{}
+	err2W := &strings.Builder{}
+	outs2 := printz.NewOutputs(out2W, err2W)
 
-        // alpha session outputs
-        outW.Reset()
-        errW.Reset()
-        alphaOutputer := zgo.SessionOutputer("alpha")
-        require.NotNil(t, alphaOutputer)
-        assert.True(t, alphaOutputer.HasNext())
-        assert.True(t, alphaOutputer.HasNext())
-        alphaOutputer.Outputs(outs)
-        assert.True(t, alphaOutputer.HasNext())
-        assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-alpha_5_notifier_1\nmsg-alpha_5_notifier_2\nmsg-alpha_5_bar_0_1\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	// alpha session outputs
+	outW.Reset()
+	errW.Reset()
+	alphaOutputer := zgo.sessionOutputer("alpha")
+	require.NotNil(t, alphaOutputer)
+	assert.True(t, alphaOutputer.hasNext())
+	assert.True(t, alphaOutputer.hasNext())
+	err = alphaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, alphaOutputer.hasNext())
+	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-alpha_5_notifier_1\nmsg-alpha_5_notifier_2\nmsg-alpha_5_bar_0_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        // Re outputing should not print more data
-        outW.Reset()
-        errW.Reset()
-        alphaOutputer.Outputs(outs)
-        assert.True(t, alphaOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	// Re outputing should not print more data
+	outW.Reset()
+	errW.Reset()
+	err = alphaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, alphaOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        // Use a second outputer should print all available session datas without global notifications
-        out2W.Reset()
-        err2W.Reset()
-        alphaOutputer2 := zgo.SessionOutputer("alpha")
-        require.NotNil(t, alphaOutputer2)
-        assert.True(t, alphaOutputer2.HasNext())
-        assert.True(t, alphaOutputer2.HasNext())
-        alphaOutputer2.Outputs(outs2)
-        assert.True(t, alphaOutputer2.HasNext())
-        assert.Equal(t, "msg-alpha_5_notifier_1\nmsg-alpha_5_notifier_2\nmsg-alpha_5_bar_0_1\n", out2W.String())
-        assert.Equal(t, "", err2W.String())
+	// Use a second outputer should print all available session datas without global notifications
+	out2W.Reset()
+	err2W.Reset()
+	alphaOutputer2 := zgo.sessionOutputer("alpha")
+	require.NotNil(t, alphaOutputer2)
+	assert.True(t, alphaOutputer2.hasNext())
+	assert.True(t, alphaOutputer2.hasNext())
+	err = alphaOutputer2.outputs(outs2)
+	assert.NoError(t, err)
+	assert.True(t, alphaOutputer2.hasNext())
+	assert.Equal(t, "msg-alpha_5_notifier_1\nmsg-alpha_5_notifier_2\nmsg-alpha_5_bar_0_1\n", out2W.String())
+	assert.Equal(t, "", err2W.String())
 
 	// bravo session outputs
-        outW.Reset()
-        errW.Reset()
-        bravoOutputer := zgo.SessionOutputer("bravo")
-        require.NotNil(t, bravoOutputer)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.True(t, bravoOutputer.HasNext())
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "msg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	bravoOutputer := zgo.sessionOutputer("bravo")
+	require.NotNil(t, bravoOutputer)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.True(t, bravoOutputer.hasNext())
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "msg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        // Re outputing should not print more data
-        outW.Reset()
-        errW.Reset()
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	// Re outputing should not print more data
+	outW.Reset()
+	errW.Reset()
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        outW.Reset()
-        errW.Reset()
-        err = bravoOutputer.Update()
-        assert.NoError(t, err)
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = bravoOutputer.update()
+	assert.NoError(t, err)
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        // Closing printer should print more data
-        outW.Reset()
-        errW.Reset()
-        err = alphaBarPrinter1.Close("close1")
-        assert.NoError(t, err)
-        err = alphaOutputer.Update()
-        assert.NoError(t, err)
-        alphaOutputer.Outputs(outs)
-        assert.True(t, alphaOutputer.HasNext())
-        assert.Equal(t, "msg-alpha_5_bar_0_2\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	// Closing printer should print more data
+	outW.Reset()
+	errW.Reset()
+	err = alphaBarPrinter1.Close("close1")
+	assert.NoError(t, err)
+	err = alphaOutputer.update()
+	assert.NoError(t, err)
+	err = alphaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, alphaOutputer.hasNext())
+	assert.Equal(t, "msg-alpha_5_bar_0_2\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// Closing last printer part should print it first
-        outW.Reset()
-        errW.Reset()
-        err = alphaBarPrinter4.Close("close2")
-        assert.NoError(t, err)
-        err = alphaBazPrinter1.Close("close3")
-        assert.NoError(t, err)
-        err = alphaOutputer.Update()
-        assert.NoError(t, err)
-        alphaOutputer.Outputs(outs)
-        assert.True(t, alphaOutputer.HasNext())
-        assert.Equal(t, "msg-alpha_5_bar_0_4\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = alphaBarPrinter4.Close("close2")
+	assert.NoError(t, err)
+	err = alphaBazPrinter1.Close("close3")
+	assert.NoError(t, err)
+	err = alphaOutputer.update()
+	assert.NoError(t, err)
+	err = alphaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, alphaOutputer.hasNext())
+	assert.Equal(t, "msg-alpha_5_bar_0_4\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        // Closing all printer parts should print next printer
-        // The printer should be considered closed since all parts are closed
-        outW.Reset()
-        errW.Reset()
-        err = alphaBarPrinter5.Close("close4")
-        assert.NoError(t, err)
-        err = alphaBarPrinter3.Close("close5")
-        assert.NoError(t, err)
-        err = alphaBarPrinter2.Close("close6")
-        assert.NoError(t, err)
-        err = alphaOutputer.Update()
-        assert.NoError(t, err)
-        alphaOutputer.Outputs(outs)
-        assert.True(t, alphaOutputer.HasNext())
-        assert.Equal(t, "msg-alpha_5_bar_0_3\nmsg-alpha_5_bar_0_5\nmsg-alpha_5_foo_0_1\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	// Closing all printer parts should print next printer
+	// The printer should be considered closed since all parts are closed
+	outW.Reset()
+	errW.Reset()
+	err = alphaBarPrinter5.Close("close4")
+	assert.NoError(t, err)
+	err = alphaBarPrinter3.Close("close5")
+	assert.NoError(t, err)
+	err = alphaBarPrinter2.Close("close6")
+	assert.NoError(t, err)
+	err = alphaOutputer.update()
+	assert.NoError(t, err)
+	err = alphaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, alphaOutputer.hasNext())
+	assert.Equal(t, "msg-alpha_5_bar_0_3\nmsg-alpha_5_bar_0_5\nmsg-alpha_5_foo_0_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
 }
 
 func TestFsLayer_OutputsNotifying(t *testing.T) {
@@ -355,36 +364,38 @@ func TestFsLayer_OutputsNotifying(t *testing.T) {
 	assert.True(t, updated)
 	require.NoError(t, err)
 
-	zgo := zg.Outputer()
+	zgo := zg.outputer()
 	require.NotNil(t, zgo)
 
-        outW := &strings.Builder{}
-        errW := &strings.Builder{}
-        outs := printz.NewOutputs(outW, errW)
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
 
 	// bravo session outputs
-        outW.Reset()
-        errW.Reset()
-        bravoOutputer := zgo.SessionOutputer("bravo")
-        require.NotNil(t, bravoOutputer)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.True(t, bravoOutputer.HasNext())
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	bravoOutputer := zgo.sessionOutputer("bravo")
+	require.NotNil(t, bravoOutputer)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.True(t, bravoOutputer.hasNext())
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// gamma session outputs
-        outW.Reset()
-        errW.Reset()
-        gammaOutputer := zgo.SessionOutputer("gamma")
-        require.NotNil(t, gammaOutputer)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.True(t, gammaOutputer.HasNext())
-        gammaOutputer.Outputs(outs)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.Equal(t, "msg-gamma_0_baz_10_1\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	gammaOutputer := zgo.sessionOutputer("gamma")
+	require.NotNil(t, gammaOutputer)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.True(t, gammaOutputer.hasNext())
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.Equal(t, "msg-gamma_0_baz_10_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// Add a first global notif
 	globalNotifier1.Out("notif1_more\n")
@@ -392,19 +403,21 @@ func TestFsLayer_OutputsNotifying(t *testing.T) {
 	assert.NoError(t, err)
 
 	// First session output display global notif
-        outW.Reset()
-        errW.Reset()
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "notif1_more\n", outW.String())
-        assert.Equal(t, "", errW.String())
-	
-        outW.Reset()
-        errW.Reset()
-        gammaOutputer.Outputs(outs)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "notif1_more\n", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// Add a second global notif
 	globalNotifier2.Out("notif2_more\n")
@@ -412,40 +425,44 @@ func TestFsLayer_OutputsNotifying(t *testing.T) {
 	assert.NoError(t, err)
 
 	// First session output display global notif
-        outW.Reset()
-        errW.Reset()
-        gammaOutputer.Outputs(outs)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.Equal(t, "notif2_more\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.Equal(t, "notif2_more\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        outW.Reset()
-        errW.Reset()
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// Add a session notif
-        outW.Reset()
-        errW.Reset()
+	outW.Reset()
+	errW.Reset()
 	bravoNotifier2.Out("bravo_notif2_more\n")
 	err = bravoNotifier2.Flush()
 	assert.NoError(t, err)
 
 	// Only bravo session display the notif
-        outW.Reset()
-        errW.Reset()
-        gammaOutputer.Outputs(outs)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        outW.Reset()
-        errW.Reset()
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "bravo_notif2_more\n", outW.String())
+	outW.Reset()
+	errW.Reset()
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "bravo_notif2_more\n", outW.String())
 }
 
 func TestFsLayer_OutputsPrinting(t *testing.T) {
@@ -465,56 +482,60 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	assert.True(t, updated)
 	require.NoError(t, err)
 
-	zgo := zg.Outputer()
+	zgo := zg.outputer()
 	require.NotNil(t, zgo)
 
-        outW := &strings.Builder{}
-        errW := &strings.Builder{}
-        outs := printz.NewOutputs(outW, errW)
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
 
 	// Todo add prints like add notifications
 	// bravo session outputs
-        outW.Reset()
-        errW.Reset()
-        bravoOutputer := zgo.SessionOutputer("bravo")
-        require.NotNil(t, bravoOutputer)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.True(t, bravoOutputer.HasNext())
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	bravoOutputer := zgo.sessionOutputer("bravo")
+	require.NotNil(t, bravoOutputer)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.True(t, bravoOutputer.hasNext())
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// gamma session outputs
-        outW.Reset()
-        errW.Reset()
-        gammaOutputer := zgo.SessionOutputer("gamma")
-        require.NotNil(t, gammaOutputer)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.True(t, gammaOutputer.HasNext())
-        gammaOutputer.Outputs(outs)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.Equal(t, "msg-gamma_0_baz_10_1\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	gammaOutputer := zgo.sessionOutputer("gamma")
+	require.NotNil(t, gammaOutputer)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.True(t, gammaOutputer.hasNext())
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.Equal(t, "msg-gamma_0_baz_10_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// Add a first print in first bravo printer => MUST output because it's current outputing printer
 	bravoPifPrinter1.Out("bravo_pif_1_more\n")
 	err = bravoPifPrinter1.Flush()
 	assert.NoError(t, err)
 
-        outW.Reset()
-        errW.Reset()
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "bravo_pif_1_more\n", outW.String())
-        assert.Equal(t, "", errW.String())
-	
-        outW.Reset()
-        errW.Reset()
-        gammaOutputer.Outputs(outs)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "bravo_pif_1_more\n", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// Add a second print in last bravo printer => MUST NOT output because not current outputing printer
 	bravoPifPrinter3.Out("bravo_pif_3_more\n")
@@ -525,40 +546,44 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	assert.NoError(t, err)
 
 	outW.Reset()
-        errW.Reset()
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	errW.Reset()
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        outW.Reset()
-        errW.Reset()
-        gammaOutputer.Outputs(outs)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 
 	// Close first & last printers => MUST output last printer data then middle printer not closed data
 	err = bravoPifPrinter3.Close("msg3")
 	assert.NoError(t, err)
 	err = bravoPifPrinter1.Close("msg1")
 	assert.NoError(t, err)
-	err = bravoOutputer.Update()
+	err = bravoOutputer.update()
 	assert.NoError(t, err)
 
 	outW.Reset()
-        errW.Reset()
-        bravoOutputer.Outputs(outs)
-        assert.True(t, bravoOutputer.HasNext())
-        assert.Equal(t, "msg-bravo_0_pif_0_3\nbravo_pif_3_more\nmsg-bravo_0_pif_0_2\n", outW.String())
-        assert.Equal(t, "", errW.String())
+	errW.Reset()
+	err = bravoOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, bravoOutputer.hasNext())
+	assert.Equal(t, "msg-bravo_0_pif_0_3\nbravo_pif_3_more\nmsg-bravo_0_pif_0_2\n", outW.String())
+	assert.Equal(t, "", errW.String())
 
-        outW.Reset()
-        errW.Reset()
-        gammaOutputer.Outputs(outs)
-        assert.True(t, gammaOutputer.HasNext())
-        assert.Equal(t, "", outW.String())
-        assert.Equal(t, "", errW.String())
+	outW.Reset()
+	errW.Reset()
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.True(t, gammaOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
 }
 
 func TestFsLayer_AddingPrinters(t *testing.T) {
@@ -577,18 +602,18 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	assert.True(t, updated)
 	require.NoError(t, err)
 
-	zgo := zg.Outputer()
+	zgo := zg.outputer()
 	require.NotNil(t, zgo)
 
-        outW := &strings.Builder{}
-        errW := &strings.Builder{}
-        outs := printz.NewOutputs(outW, errW)
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
 
-	gammaOutputer := zgo.SessionOutputer("gamma")
+	gammaOutputer := zgo.sessionOutputer("gamma")
 	require.NotNil(t, gammaOutputer)
-	err = gammaOutputer.Outputs(outs)
+	err = gammaOutputer.outputs(outs)
 	assert.NoError(t, err)
-        assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-gamma_0_baz_10_1\n", outW.String())
+	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-gamma_0_baz_10_1\n", outW.String())
 	assert.Empty(t, errW.String())
 
 	// add new printers with higher same & lower priority
@@ -607,13 +632,13 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	//gammaNewLowPrioPrinter.Out("low_prio_1\n")
 	//err = gammaNewLowPrioPrinter.Flush()
 	//assert.NoError(t, err)
-	err = gammaOutputer.Update()
+	err = gammaOutputer.update()
 	assert.NoError(t, err)
 
 	// First nothing MUST be displayed while current printer not closed
 	outW.Reset()
 	errW.Reset()
-	err = gammaOutputer.Outputs(outs)
+	err = gammaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
@@ -621,11 +646,11 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	// Second only printer with same priority MUST be outputed
 	err = gammaBazPrinter1.Close("msg1")
 	assert.NoError(t, err)
-	err = gammaOutputer.Update()
+	err = gammaOutputer.update()
 	assert.NoError(t, err)
 	outW.Reset()
 	errW.Reset()
-	err = gammaOutputer.Outputs(outs)
+	err = gammaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.Equal(t, "msg-gamma_0_same_10_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
@@ -633,11 +658,11 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	// Third only printer with higher priority MUST be outputed
 	err = gammaNewSamePrioPrinter.Close("msg2")
 	assert.NoError(t, err)
-	err = gammaOutputer.Update()
+	err = gammaOutputer.update()
 	assert.NoError(t, err)
 	outW.Reset()
 	errW.Reset()
-	err = gammaOutputer.Outputs(outs)
+	err = gammaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.Equal(t, "msg-gamma_0_high_5_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
@@ -645,11 +670,11 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	// Eventually lower priority printer MUST be displayed
 	err = gammaNewHighPrioPrinter.Close("msg3")
 	assert.NoError(t, err)
-	err = gammaOutputer.Update()
+	err = gammaOutputer.update()
 	assert.NoError(t, err)
 	outW.Reset()
 	errW.Reset()
-	err = gammaOutputer.Outputs(outs)
+	err = gammaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.Equal(t, "msg-gamma_0_low_15_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
@@ -657,42 +682,42 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	// Initial lowest priority printer MUST be displayed
 	err = gammaNewLowPrioPrinter.Close("msg4")
 	assert.NoError(t, err)
-	err = gammaOutputer.Update()
+	err = gammaOutputer.update()
 	assert.NoError(t, err)
 	outW.Reset()
 	errW.Reset()
-	err = gammaOutputer.Outputs(outs)
+	err = gammaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.Equal(t, "msg-gamma_0_bar_20_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// After everything is closed nothing left to output. all printer groups SHOULD be closed, session group SHOULD not be ended.
-	assert.True(t, gammaOutputer.HasNext()) // has next because one printer still opened
+	assert.True(t, gammaOutputer.hasNext()) // has next because one printer still opened
 	err = gammaBarPrinter1.Close("msg5")
 	assert.NoError(t, err)
-	err = gammaOutputer.Update()
+	err = gammaOutputer.update()
 	assert.NoError(t, err)
-	assert.True(t, gammaOutputer.HasNext()) // has next because last printer need to be outputed
+	assert.True(t, gammaOutputer.hasNext()) // has next because last printer need to be outputed
 	outW.Reset()
 	errW.Reset()
-	err = gammaOutputer.Outputs(outs)
+	err = gammaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
-	assert.False(t, gammaOutputer.HasNext()) // session fully outputted
+	assert.False(t, gammaOutputer.hasNext()) // session fully outputted
 
 	gammaSg := *zg.sessionsByPrioName[forgePrioNameKey(0, "gamma")]
-        require.NotNil(t, gammaSg)
+	require.NotNil(t, gammaSg)
 	gamma_bar_pg := gammaSg.printersByPrioName[forgePrioNameKey(20, "bar")]
-        require.NotNil(t, gamma_bar_pg)
+	require.NotNil(t, gamma_bar_pg)
 	gamma_baz_pg := gammaSg.printersByPrioName[forgePrioNameKey(10, "baz")]
-        require.NotNil(t, gamma_baz_pg)
+	require.NotNil(t, gamma_baz_pg)
 	gamma_high_pg := gammaSg.printersByPrioName[forgePrioNameKey(5, "high")]
-        require.NotNil(t, gamma_high_pg)
+	require.NotNil(t, gamma_high_pg)
 	gamma_same_pg := gammaSg.printersByPrioName[forgePrioNameKey(10, "same")]
-        require.NotNil(t, gamma_same_pg)
+	require.NotNil(t, gamma_same_pg)
 	gamma_low_pg := gammaSg.printersByPrioName[forgePrioNameKey(15, "low")]
-        require.NotNil(t, gamma_low_pg)
+	require.NotNil(t, gamma_low_pg)
 
 	assert.False(t, gammaSg.ended)
 	assert.True(t, gamma_bar_pg.closed)
@@ -703,12 +728,12 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 
 	// Adding a new printer in an opened session with all printer closed
 	buildTestFsPrinter(t, &scenario1, tmpDir, "gamma", 0, "extra", 0, 1)
-	err = gammaOutputer.Update()
-        assert.NoError(t, err)
+	err = gammaOutputer.update()
+	assert.NoError(t, err)
 	outW.Reset()
-        errW.Reset()
-        err = gammaOutputer.Outputs(outs)
-        assert.NoError(t, err)
+	errW.Reset()
+	err = gammaOutputer.outputs(outs)
+	assert.NoError(t, err)
 	assert.Equal(t, "msg-gamma_0_extra_0_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
 

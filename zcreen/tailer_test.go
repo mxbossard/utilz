@@ -2,7 +2,6 @@ package zcreen
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -64,36 +63,36 @@ func TestTailer_BasicOut(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
-	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
-	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
-	printersDirTmpFilepath := printersDirPath(sessionDirTmpFilepath)
+	sessionDirFilepath := forgeSessionDirPath(tmpDir, expectedSession, 42)
+	sessionSerFilepath := sessionSerializedPath(sessionDirFilepath)
+	printersDirFilepath := printersDirPath(sessionDirFilepath)
 
-	sessionTmpOutFilepath := func() string {
-		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
-	sessionTmpErrFilepath := func() string {
-		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
+	// sessionTmpOutFilepath := func() string {
+	// 	matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileQualifier)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
+	// sessionTmpErrFilepath := func() string {
+	// 	matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileQualifier)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
 	printerTmpOutFilepath := func() string {
-		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, outFileNameSuffix)
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, errFileNameSuffix)
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 
 	require.DirExists(t, tmpDir)
-	require.DirExists(t, sessionDirTmpFilepath)
-	assert.FileExists(t, sessionSerFilepath)
-	assert.FileExists(t, sessionTmpOutFilepath)
-	assert.FileExists(t, sessionTmpErrFilepath)
+	require.DirExists(t, sessionDirFilepath)
+	require.FileExists(t, sessionSerFilepath)
+	// assert.FileExists(t, sessionTmpOutFilepath)
+	// assert.FileExists(t, sessionTmpErrFilepath)
 	assert.FileExists(t, printerTmpOutFilepath)
 	assert.FileExists(t, printerTmpErrFilepath)
 
@@ -103,22 +102,22 @@ func TestTailer_BasicOut(t *testing.T) {
 	assert.NotNil(t, ser)
 
 	prtr10.Out(expectedMessage)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = prtr10.Flush()
 	assert.NoError(t, err)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
@@ -133,8 +132,8 @@ func TestTailer_BasicOut(t *testing.T) {
 	assert.NotEmpty(t, outW.String())
 	assert.Equal(t, expectedMessage, outW.String())
 	assert.Empty(t, errW.String())
-	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
@@ -255,35 +254,35 @@ func TestTailer_BasicOutAndErr(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
-	sessionSerFilepath := filepath.Join(tmpDir, expectedSession+serializedExtension)
-	sessionDirTmpFilepath := filepath.Join(tmpDir, sessionDirPrefix+expectedSession)
-	printersDirTmpFilepath := printersDirPath(sessionDirTmpFilepath)
-	sessionTmpOutFilepath := func() string {
-		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
-	sessionTmpErrFilepath := func() string {
-		matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
+	sessionDirFilepath := forgeSessionDirPath(tmpDir, expectedSession, 42)
+	sessionSerFilepath := sessionSerializedPath(sessionDirFilepath)
+	printersDirFilepath := printersDirPath(sessionDirFilepath)
+	// sessionTmpOutFilepath := func() string {
+	// 	matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileQualifier)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
+	// sessionTmpErrFilepath := func() string {
+	// 	matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileQualifier)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
 	printerTmpOutFilepath := func() string {
-		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, outFileNameSuffix)
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 	printerTmpErrFilepath := func() string {
-		matches := priorizedTmpFilenameMatches(printersDirTmpFilepath, expectedPrinter, errFileNameSuffix)
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
 		require.NotEmpty(t, matches)
 		return matches[0]
 	}()
 
 	require.DirExists(t, tmpDir)
-	require.DirExists(t, sessionDirTmpFilepath)
+	require.DirExists(t, sessionDirFilepath)
 	assert.FileExists(t, sessionSerFilepath)
-	assert.FileExists(t, sessionTmpOutFilepath)
-	assert.FileExists(t, sessionTmpErrFilepath)
+	// assert.FileExists(t, sessionTmpOutFilepath)
+	// assert.FileExists(t, sessionTmpErrFilepath)
 	assert.FileExists(t, printerTmpOutFilepath)
 	assert.FileExists(t, printerTmpErrFilepath)
 
@@ -294,22 +293,22 @@ func TestTailer_BasicOutAndErr(t *testing.T) {
 
 	prtr10.Out(expectedOutMessage)
 	prtr10.Err(expectedErrMessage)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = prtr10.Flush()
 	assert.NoError(t, err)
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
@@ -324,8 +323,8 @@ func TestTailer_BasicOutAndErr(t *testing.T) {
 	assert.NotEmpty(t, errW.String())
 	assert.Equal(t, expectedOutMessage, outW.String())
 	assert.Equal(t, expectedErrMessage, errW.String())
-	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+	// assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
@@ -351,13 +350,14 @@ func TestTailer_MultiplePrinters(t *testing.T) {
 	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
 
-	sessionTmpOutFilepath := func() string {
-		// matches, _ := filepath.Glob(sessionDirPath(tmpDir, expectedSession) + "/" + expectedSession + outFileNameSuffix + "*")
-		matches := tmpFilenameMatches(sessionDirPath(tmpDir, expectedSession), expectedSession, outFileNameSuffix)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
-	assert.FileExists(t, sessionTmpOutFilepath)
+	// sessionTmpOutFilepath := func() string {
+	// 	// matches, _ := filepath.Glob(sessionDirPath(tmpDir, expectedSession) + "/" + expectedSession + outFileNameSuffix + "*")
+	// 	expectedSessionDir := forgeSessionDirPath(tmpDir, expectedSession, 42)
+	// 	matches := tmpFilenameMatches(expectedSessionDir, expectedSession, outFileNameSuffix)
+	// 	require.NotEmpty(t, matches)
+	// 	return matches[0]
+	// }()
+	// assert.FileExists(t, sessionTmpOutFilepath)
 
 	prtr10a, err := session.Printer(expectedPrinter10a, 10)
 	require.NoError(t, err)
@@ -381,10 +381,10 @@ func TestTailer_MultiplePrinters(t *testing.T) {
 	prtr20a.Out("20a-3,")
 
 	// First flush, nothing is Closed => first printers should be written only
-	assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Equal(t, "10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	assert.Empty(t, outW.String())
 	assert.Empty(t, errW.String())
@@ -401,7 +401,7 @@ func TestTailer_MultiplePrinters(t *testing.T) {
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Equal(t, "10a-1,10a-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -418,7 +418,7 @@ func TestTailer_MultiplePrinters(t *testing.T) {
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -432,7 +432,7 @@ func TestTailer_MultiplePrinters(t *testing.T) {
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -446,7 +446,7 @@ func TestTailer_MultiplePrinters(t *testing.T) {
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,"+"30a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
+	// assert.Equal(t, "10a-1,10a-2,10a-3,"+"20a-1,20a-2,20a-3,20b-1,20b-2,"+"30a-1,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -515,8 +515,8 @@ func TestTailer_MultipleSessions(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtrC40a)
 
-	assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 	prtrB10a.Out("B10a1,")
 	prtrB30a.Out("B30a1,")
@@ -533,11 +533,6 @@ func TestTailer_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	prtrA20a.Out("A20a1,")
 	prtrA20a.Out("A20a2,")
-	err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
-	assert.NoError(t, err)
-	prtrA10a.Out("A10a2,")
-	err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
-	assert.NoError(t, err)
 
 	prtrC10a.Out("C10a1,")
 	prtrC30a.Out("C30a1,")
@@ -548,17 +543,24 @@ func TestTailer_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
 
-	assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
-	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	// assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
 
-	err = screenTailer.tailAll()
-	assert.NoError(t, err)
-	assert.Equal(t, "", outW.String())
-
+	// All session printers are flushed
 	err = sessionA.Flush()
 	assert.NoError(t, err)
 
-	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	err = screenTailer.tailAll()
+	assert.NoError(t, err)
+	assert.Equal(t, "A10a1,", outW.String()) // no printer of higher priority is closed
+
+	err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
+	assert.NoError(t, err)
+	prtrA10a.Out("A10a2,")
+	err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
+	assert.NoError(t, err)
+
+	// assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
@@ -575,10 +577,10 @@ func TestTailer_MultipleSessions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.tmpOutName))
+	// assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.tmpOutName))
 	err = sessionC.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+	// assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 	assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
 	err = screenTailer.tailAll()
@@ -661,8 +663,8 @@ func TestTailer_Notifications(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtrC40a)
 
-	assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
-	assert.Empty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 	screen.NotifyPrinter().Out("notif1,")
 
@@ -679,8 +681,6 @@ func TestTailer_Notifications(t *testing.T) {
 	assert.NoError(t, err)
 	prtrA20a.Out("A20a1,")
 	prtrA20a.Out("A20a2,")
-	err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
-	assert.NoError(t, err)
 	prtrA10a.Out("A10a2,")
 	err = sessionA.ClosePrinter(expectedPrinterA10a, "msg")
 	assert.NoError(t, err)
@@ -697,35 +697,42 @@ func TestTailer_Notifications(t *testing.T) {
 	// Nothing should be flush yet
 	assert.Empty(t, outW.String())
 
-	err = screenTailer.tailNotifications() // should tail flushed notifs
-	assert.NoError(t, err)
+	// err = screenTailer.tailNotifications() // should tail flushed notifs
+	// assert.NoError(t, err)
 
 	_, err = screenTailer.tailNext() // should tail flushed notifs if no session opened
 	assert.NoError(t, err)
 
 	screen.NotifyPrinter().Out("notif4,")
-	err = screen.NotifyPrinter().Flush()
-	assert.NoError(t, err)
 
 	// Only first 2 notifications are tailed. SessionB is flushed, SessionA is elected but not ended.
-	assert.Equal(t, "notif1,notif2,", outW.String())
+	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,", outW.String())
 
-	assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
-	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
+	err = sessionA.ClosePrinter(expectedPrinterA20a, "msg")
+	assert.NoError(t, err)
+
+	_, err = screenTailer.tailNext() // should tail flushed notifs if no session opened
+	assert.NoError(t, err)
+
+	// assert.Empty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	// assert.NotEmpty(t, filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 	// First 4 notifications are flushed. SessionB is flushed, SessionA is elected but not ended.
-	assert.Equal(t, "notif1,notif2,", outW.String())
+	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
 
 	err = sessionA.Flush()
 	assert.NoError(t, err)
 
-	assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
+	// assert.NotEmpty(t, filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
 
 	// First 4 notifications are flushed. SessionA is flushed but not ended, SessionB is ended.
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,", outW.String())
+
+	err = screen.NotifyPrinter().Flush()
+	assert.NoError(t, err)
 
 	err = sessionA.End("msg")
 	assert.NoError(t, err)
@@ -742,10 +749,10 @@ func TestTailer_Notifications(t *testing.T) {
 	// SessionC still not flushed.
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
 
-	assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.tmpOutName))
+	// assert.Equal(t, "", filez.ReadStringOrPanic(sessionC.tmpOutName))
 	err = sessionC.Flush()
 	assert.NoError(t, err)
-	assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+	// assert.Equal(t, "C10a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 	// SessionC is flushed, but tailer not flushed
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,", outW.String())
@@ -755,8 +762,6 @@ func TestTailer_Notifications(t *testing.T) {
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,", outW.String())
 
 	screen.NotifyPrinter().Out("notif5,")
-	err = screen.NotifyPrinter().Flush()
-	assert.NoError(t, err)
 
 	err = sessionC.ClosePrinter(expectedPrinterC10a, "msg")
 	assert.NoError(t, err)
@@ -767,11 +772,14 @@ func TestTailer_Notifications(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,", outW.String())
 
+	err = screen.NotifyPrinter().Flush()
+	assert.NoError(t, err)
+
 	err = sessionC.End("msg")
 	assert.NoError(t, err)
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
-	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,C40a1,"+"notif5,", outW.String())
+	assert.Equal(t, "notif1,notif2,"+"A10a1,A10a2,A20a1,A20a2,"+"notif3,notif4,"+"B10a1,B10a2,B30a1,B30a2,"+"C10a1,C30a1,"+"notif5,"+"C40a1,", outW.String())
 }
 
 func TestTailer_TailOnlyBlocking(t *testing.T) {
@@ -828,7 +836,7 @@ func TestTailer_TailOnlyBlocking(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
+		// assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		screen.NotifyPrinter().Out("notif2,")
 		err = screen.NotifyPrinter().Flush()
@@ -855,8 +863,8 @@ func TestTailer_TailOnlyBlocking(t *testing.T) {
 		assert.NoError(t, err)
 
 		screen.NotifyPrinter().Out("notif3,")
-		err = screen.NotifyPrinter().Flush()
-		assert.NoError(t, err)
+		// err = screen.NotifyPrinter().Flush()
+		// assert.NoError(t, err)
 
 		prtrB30a.Out("B30a1,")
 		prtrB30a.Out("B30a2,")
@@ -864,7 +872,7 @@ func TestTailer_TailOnlyBlocking(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
+		// assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChan <- "endAB"
 
@@ -897,7 +905,7 @@ func TestTailer_TailOnlyBlocking(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+		// assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 	}()
 
 	err := screenTailer.tailAll()
@@ -911,7 +919,7 @@ func TestTailer_TailOnlyBlocking(t *testing.T) {
 	// Should Flush A before B because A is the first session available.
 	err = screenTailer.TailOnlyBlocking(expectedSessionB, 3*continuousFlushPeriod+10*time.Millisecond)
 	assert.NoError(t, err)
-	assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", outW.String())
+	assert.Equal(t, "notif1,notif2,B10a1,B10a2,B30a1,B30a2,", outW.String())
 }
 
 func TestTailer_TailOnlyBlocking_ClearedSession(t *testing.T) {
@@ -1021,7 +1029,7 @@ func TestTailer_TailBlocking_InOrder(t *testing.T) {
 
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
+		// assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		// Wait before printing
 		syncChan <- "startB"
@@ -1057,7 +1065,7 @@ func TestTailer_TailBlocking_InOrder(t *testing.T) {
 		syncChan <- "finishB"
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
+		// assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		// Wait before printing
 		syncChan <- "startC"
@@ -1094,7 +1102,7 @@ func TestTailer_TailBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+		// assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChan <- "endedC"
 	}()
@@ -1229,7 +1237,7 @@ func TestTailer_TailBlocking_InParallel(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
+		// assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		syncChanA <- "endA"
 	}()
@@ -1261,7 +1269,7 @@ func TestTailer_TailBlocking_InParallel(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
+		// assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChanB <- "endB"
 	}()
@@ -1298,7 +1306,7 @@ func TestTailer_TailBlocking_InParallel(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+		// assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChanC <- "endC"
 	}()
@@ -1412,7 +1420,7 @@ func TestTailer_TailBlocking_ContinuousFlow(t *testing.T) {
 		syncChan <- "A7"
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
+		// assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 		expectedMsgChan <- ""
 
 		syncChan <- "END"
@@ -1495,7 +1503,7 @@ func TestTailer_TailBlocking_OutOfOrder(t *testing.T) {
 
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
+		// assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		syncChanA <- "endA"
 	}()
@@ -1528,7 +1536,7 @@ func TestTailer_TailBlocking_OutOfOrder(t *testing.T) {
 
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
+		// assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChanB <- "endB"
 	}()
@@ -1565,7 +1573,7 @@ func TestTailer_TailBlocking_OutOfOrder(t *testing.T) {
 
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+		// assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChanC <- "endC"
 	}()
@@ -1652,7 +1660,7 @@ func TestTailer_TailAllBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
+		// assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		syncChan <- "endA+notif1"
 
@@ -1686,7 +1694,7 @@ func TestTailer_TailAllBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
+		// assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChan <- "endB+notif2"
 
@@ -1723,7 +1731,7 @@ func TestTailer_TailAllBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+		// assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChan <- "endC"
 	}()
@@ -1860,7 +1868,7 @@ func TestTailer_TailSuppliedBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionA.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
+		// assert.Equal(t, "A10a1,A10a2,A20a1,A20a2,", filez.ReadStringOrPanic(sessionA.tmpOutName))
 
 		syncChan <- "endA+notif1"
 
@@ -1894,7 +1902,7 @@ func TestTailer_TailSuppliedBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionB.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
+		// assert.Equal(t, "B10a1,B10a2,B30a1,B30a2,", filez.ReadStringOrPanic(sessionB.tmpOutName))
 
 		syncChan <- "endB+notif2"
 
@@ -1931,7 +1939,7 @@ func TestTailer_TailSuppliedBlocking_InOrder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sessionC.End("msg")
 		assert.NoError(t, err)
-		assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
+		// assert.Equal(t, "C10a1,C30a1,C40a1,", filez.ReadStringOrPanic(sessionC.tmpOutName))
 
 		syncChan <- "endC"
 	}()

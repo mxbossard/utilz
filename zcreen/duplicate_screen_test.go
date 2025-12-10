@@ -64,18 +64,18 @@ func TestDuplicateScreen_RunningTwoScreensSequentially(t *testing.T) {
 		s0_prtr_10.Out("s0_prtr_10\n")
 	})
 
-	s0_prtr_30a, err := s1s.Printer("s0", 30)
-	assert.NoError(t, err)
-	require.NotNil(t, s0_prtr_30a)
-	assert.NotPanics(t, func() {
-		s0_prtr_30a.Out("s0_prtr_30a\n")
-	})
-
 	s0_prtr_50a, err := s1s.Printer("s0", 50)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_50a)
 	assert.NotPanics(t, func() {
 		s0_prtr_50a.Out("s0_prtr_50\n")
+	})
+
+	s0_prtr_30a, err := s1s.Printer("s0", 30)
+	assert.NoError(t, err)
+	require.NotNil(t, s0_prtr_30a)
+	assert.NotPanics(t, func() {
+		s0_prtr_30a.Out("s0_prtr_30a\n")
 	})
 
 	err = screen1.Close()

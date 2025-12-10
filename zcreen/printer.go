@@ -7,12 +7,12 @@ import (
 	"github.com/mxbossard/utilz/printz"
 )
 
-type printer struct {
+type printer0 struct {
 	printz.ClosingPrinter
 
-	name          string
-	open          bool // FIXME: open is not used in printer => should be removed
-	closeMessage  string
+	name string
+	// open          bool // FIXME: open is not used in printer => should be removed
+	// closeMessage  string
 	consolidated  bool
 	priorityOrder int
 
@@ -20,7 +20,7 @@ type printer struct {
 	cursorOut, cursorErr int64
 }
 
-func (p *printer) Close(message string) error {
+func (p *printer0) Close(message string) error {
 	err := p.ClosingPrinter.Close(message)
 	if err != nil {
 		return err
@@ -52,7 +52,7 @@ func (p *printer) Close(message string) error {
 }
 
 type fsPrinter struct {
-	printer
+	printer0
 
 	closeFilepath string
 }
@@ -62,7 +62,7 @@ func (p *fsPrinter) Close(message string) error {
 	if err != nil {
 		return err
 	}
-	err = p.printer.Close(message)
+	err = p.printer0.Close(message)
 	return err
 }
 
@@ -79,15 +79,15 @@ func buildFsPrinter(name string, priority int, outFilepath, errFilepath, closeFi
 	outputs, outFile, errFile := buildFsOutputs(outFilepath, errFilepath)
 	prtr := printz.New(outputs)
 	closingPrtr := printz.Closing(prtr)
-	p := printer{
+	p := printer0{
 		ClosingPrinter: closingPrtr,
 		name:           name,
 		tmpOut:         outFile,
 		tmpErr:         errFile,
-		open:           opened,
-		priorityOrder:  priority,
+		// open:           opened,
+		priorityOrder: priority,
 	}
-	return &fsPrinter{printer: p, closeFilepath: closeFilepath}
+	return &fsPrinter{printer0: p, closeFilepath: closeFilepath}
 }
 
 func buildNotifierPrinter(zcreenPath, sessionName string, sessionPriority int, opened bool) *fsPrinter {

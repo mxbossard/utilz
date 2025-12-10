@@ -270,7 +270,7 @@ type zcreenGroup struct {
 	pointer            string
 }
 
-func (g *zcreenGroup) Outputer() *zcreenGroupOutputer {
+func (g *zcreenGroup) outputer() *zcreenGroupOutputer {
 	cursors := make(map[*os.File]int64)
 	outputedSessions := make(map[*sessionGroup]bool)
 	outputedParts := make(map[*printerPart]bool)
@@ -463,12 +463,12 @@ func (o *zcreenGroupOutputer) outputsGlobalPrinter(outs printz.Outputs, pg *prin
 	return outputsPrinterGroup(o.cursors, o.outputedParts, outs, pg, buf, waitForClosed)
 }
 
-func (o *zcreenGroupOutputer) Update() (err error) {
+func (o *zcreenGroupOutputer) update() (err error) {
 	_, err = o.zg.scanFiles()
 	return
 }
 
-func (o *zcreenGroupOutputer) Sessions() (names []string) {
+func (o *zcreenGroupOutputer) sessions() (names []string) {
 	sessionGroupsKeys := collectionz.Keys(o.zg.sessionsByPrioName)
 	sort.Strings(sessionGroupsKeys)
 	for _, vk := range sessionGroupsKeys {
@@ -478,7 +478,16 @@ func (o *zcreenGroupOutputer) Sessions() (names []string) {
 	return
 }
 
-func (o *zcreenGroupOutputer) SessionOutputer(sessionName string) *sessionGroupOutputer {
+func (o *zcreenGroupOutputer) outputs(outs printz.Outputs) (err error) {
+	// TODO: implem session timeout
+	buf := make([]byte, 1024)
+
+	// Attempt to output global notifier before outputing session
+	err = o.outputsGlobalPrinter(outs, o.zg.notifierParts, buf, false)
+	return err
+}
+
+func (o *zcreenGroupOutputer) sessionOutputer(sessionName string) *sessionGroupOutputer {
 	var sg *sessionGroup
 	for _, v := range o.zg.sessionsByPrioName {
 		if v.name == sessionName {
@@ -512,7 +521,7 @@ type sessionGroupOutputer struct {
 	fullyOutputed      bool
 }
 
-func (o *sessionGroupOutputer) Update() (err error) {
+func (o *sessionGroupOutputer) update() (err error) {
 	// FIXME: remove Update() to be included into HasNext() ?
 	updated, err := o.sg.scanFiles()
 	// reset fullyOutputed flag if scanFiles updated something.
@@ -520,7 +529,7 @@ func (o *sessionGroupOutputer) Update() (err error) {
 	return err
 }
 
-func (o *sessionGroupOutputer) HasNext() bool {
+func (o *sessionGroupOutputer) hasNext() bool {
 	// return true until fullyOutputed
 	// FIXME: SHOULD we return false if Update() is needed ?
 	// FIXME: SHOULD we call Update() on HasNext() ?
@@ -532,7 +541,7 @@ func (o *sessionGroupOutputer) outputsSessionPrinter(outs printz.Outputs, pg *pr
 	return outputsPrinterGroup(o.cursors, o.outputedParts, outs, pg, buf, waitForClosed)
 }
 
-func (o *sessionGroupOutputer) Outputs(outs printz.Outputs) (err error) {
+func (o *sessionGroupOutputer) outputs(outs printz.Outputs) (err error) {
 	// TODO: implem session timeout
 	buf := make([]byte, 1024)
 	// err = o.sg.scanFiles()
@@ -634,8 +643,8 @@ func (o *sessionGroupOutputer) Outputs(outs printz.Outputs) (err error) {
 		}
 	}
 
-	//fmt.Printf("currentPriority: %d, blockingPrinterKey: %s,closedPgks: %s \n", currentPriority, o.blockingPrinterKey, collectionz.Values(closedPgks))
-	//fmt.Printf("outputing session: %s, orderedPgks: %s ...\n", o.sg.name, orderedPgks)
+	fmt.Printf("currentPriority: %d, blockingPrinterKey: %s,closedPgks: %s \n", currentPriority, o.blockingPrinterKey, collectionz.Values(closedPgks))
+	fmt.Printf("outputing session: %s, orderedPgks: %s ...\n", o.sg.name, orderedPgks)
 
 	fullyOutputted := true
 	for _, pgk := range orderedPgks {
