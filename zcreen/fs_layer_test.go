@@ -340,9 +340,10 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	assert.NoError(t, err)
 	err = alphaOutputer.update()
 	assert.NoError(t, err)
+	assert.True(t, alphaOutputer.hasNext())
 	err = alphaOutputer.outputs(outs)
 	assert.NoError(t, err)
-	assert.True(t, alphaOutputer.hasNext())
+	assert.False(t, alphaOutputer.hasNext())
 	assert.Equal(t, "msg-alpha_5_bar_0_3\nmsg-alpha_5_bar_0_5\nmsg-alpha_5_foo_0_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
 }
@@ -740,4 +741,220 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	// Adding a printer in an ended session must not be outputed
 	// TODO: From FS side do we need to block printers on ended session ?
 	// TODO: ?
+}
+
+func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
+	tmpDir := "/tmp/utilz.zcreen.TestFsLayer_SharingAndOrderingPrinters"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	filez.MkdirAll(tmpDir, filez.DefaultDirPerms)
+	//defer os.RemoveAll(tmpDir)
+	var err error
+
+	uniqSession1 := "paf47001-uniq1"
+	uniqSession2 := "paf47001-uniq2"
+	sharedSession := "paf47001-shared"
+
+	// ----- First zcreenGroup
+	zg1 := buildZcreenGroup(tmpDir)
+	require.NotNil(t, zg1)
+	updated, err := zg1.scanFiles()
+	assert.NoError(t, err)
+	assert.False(t, updated)
+	zg1o := zg1.outputer()
+	require.NotNil(t, zg1o)
+	u1so := zg1o.sessionOutputer(uniqSession1)
+	require.NotNil(t, u1so)
+	s0so1 := zg1o.sessionOutputer(sharedSession)
+	require.NotNil(t, s0so1)
+
+	outW := &strings.Builder{}
+	errW := &strings.Builder{}
+	outs := printz.NewOutputs(outW, errW)
+
+	m := make(map[string]*fsPrinter)
+
+	// ----- zcreen 1 write tests
+	// Write on uniq printer
+	_, _, u1_prtr_10 := buildTestFsPrinter(t, &m, tmpDir, uniqSession1, 0, "u1", 10, 1)
+	require.NotNil(t, u1_prtr_10)
+	// assert.NotPanics(t, func() {
+	// 	u1_prtr_10.Out("u1_prtr_10\n")
+	// })
+
+	// Write on shared printer
+	_, _, s0_prtr_10 := buildTestFsPrinter(t, &m, tmpDir, sharedSession, 0, "s0", 10, 1)
+	require.NotNil(t, s0_prtr_10)
+	// assert.NotPanics(t, func() {
+	// 	s0_prtr_10.Out("s0_prtr_10\n")
+	// })
+
+	_, _, s0_prtr_50 := buildTestFsPrinter(t, &m, tmpDir, sharedSession, 0, "s0", 50, 1)
+	require.NotNil(t, s0_prtr_50)
+	// assert.NotPanics(t, func() {
+	// 	s0_prtr_50.Out("s0_prtr_50\n")
+	// })
+
+	_, _, s0_prtr_30a := buildTestFsPrinter(t, &m, tmpDir, sharedSession, 0, "s0", 30, 1)
+	require.NotNil(t, s0_prtr_30a)
+	// assert.NotPanics(t, func() {
+	// 	s0_prtr_30a.Out("s0_prtr_30a\n")
+	// })
+
+	err = s0_prtr_10.Close("foo")
+	assert.NoError(t, err)
+	err = u1_prtr_10.Close("foo")
+	assert.NoError(t, err)
+	err = s0_prtr_50.Close("foo")
+	assert.NoError(t, err)
+	err = s0_prtr_30a.Close("foo")
+	assert.NoError(t, err)
+
+	// ----- Second screen
+	zg2 := buildZcreenGroup(tmpDir)
+	require.NotNil(t, zg2)
+	// updated, err = zg2.scanFiles()
+	// assert.NoError(t, err)
+	// assert.True(t, updated)
+	zg2o := zg2.outputer()
+	require.NotNil(t, zg2o)
+	u2so := zg2o.sessionOutputer(uniqSession2)
+	require.NotNil(t, u2so)
+	s0so2 := zg2o.sessionOutputer(sharedSession)
+	require.NotNil(t, s0so2)
+
+	// ----- zcreen 2 write tests
+	// Write on uniq printer
+	_, _, u2_prtr_10 := buildTestFsPrinter(t, &m, tmpDir, uniqSession2, 0, "u2", 10, 1)
+	require.NotNil(t, u2_prtr_10)
+	// assert.NotPanics(t, func() {
+	// 	u2_prtr_10.Out("u2_prtr_10\n")
+	// })
+
+	// Write on shared printer
+	_, _, s0_prtr_30b := buildTestFsPrinter(t, &m, tmpDir, sharedSession, 0, "s0", 30, 2)
+	require.NotNil(t, s0_prtr_30b)
+	// assert.NotPanics(t, func() {
+	// 	s0_prtr_30b.Out("s0_prtr_30b\n")
+	// })
+
+	_, _, s0_prtr_20 := buildTestFsPrinter(t, &m, tmpDir, sharedSession, 0, "s0", 20, 1)
+	require.NotNil(t, s0_prtr_20)
+	// assert.NotPanics(t, func() {
+	// 	s0_prtr_20.Out("s0_prtr_20\n")
+	// })
+
+	_, _, s0_prtr_40 := buildTestFsPrinter(t, &m, tmpDir, sharedSession, 0, "s0", 40, 1)
+	require.NotNil(t, s0_prtr_40)
+	// assert.NotPanics(t, func() {
+	// 	s0_prtr_40.Out("s0_prtr_40\n")
+	// })
+
+	err = s0_prtr_30b.Close("foo")
+	assert.NoError(t, err)
+	err = s0_prtr_40.Close("foo")
+	assert.NoError(t, err)
+	err = u2_prtr_10.Close("foo")
+	assert.NoError(t, err)
+	err = s0_prtr_20.Close("foo")
+	assert.NoError(t, err)
+
+	// ----- Outputing session by session
+
+	// Check zcreen group content: FS not scanned => nothing to output.
+	outW.Reset()
+	errW.Reset()
+	err = u1so.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = s0so1.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = u2so.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = s0so2.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	// Scan one zcreen group: Only one should output
+	err = u1so.update()
+	assert.NoError(t, err)
+	err = s0so1.update()
+	assert.NoError(t, err)
+
+	outW.Reset()
+	errW.Reset()
+	err = u1so.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "msg-paf47001-uniq1_0_u1_10_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = s0so1.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "msg-paf47001-shared_0_s0_10_1\nmsg-paf47001-shared_0_s0_20_1\nmsg-paf47001-shared_0_s0_30a_1\nmsg-paf47001-shared_0_s0_30b_2\nmsg-paf47001-shared_0_s0_40_1\nmsg-paf47001-shared_0_s0_50_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = u2so.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = s0so2.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	// Scan second zcreen group
+	err = u2so.update()
+	assert.NoError(t, err)
+	err = s0so2.update()
+	assert.NoError(t, err)
+
+	outW.Reset()
+	errW.Reset()
+	err = u1so.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = s0so1.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = u2so.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "msg-paf47001-uniq2_0_u2_10_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = s0so2.outputs(outs)
+	assert.NoError(t, err)
+	assert.Equal(t, "msg-paf47001-shared_0_s0_10_1\nmsg-paf47001-shared_0_s0_20_1\nmsg-paf47001-shared_0_s0_30a_1\nmsg-paf47001-shared_0_s0_30b_2\nmsg-paf47001-shared_0_s0_40_1\nmsg-paf47001-shared_0_s0_50_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
+
 }

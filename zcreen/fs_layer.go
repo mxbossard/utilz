@@ -210,7 +210,7 @@ func (g *sessionGroup) scanFiles() (updated bool, err error) {
 
 	// fmt.Printf("will scan sessionGroup FS: %s ...\n", g.path)
 	zcreenFs := os.DirFS(g.path)
-	fs.WalkDir(zcreenFs, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(zcreenFs, ".", func(path string, d fs.DirEntry, err error) error {
 		path = filepath.Join(g.path, path)
 		// fmt.Printf("scanning sessionGroup %s %d file: %s\n", g.name, g.priority, path)
 		// if g.notifierParts == nil {
@@ -230,7 +230,7 @@ func (g *sessionGroup) scanFiles() (updated bool, err error) {
 			submatches := printerDirFilepathMatcher.FindStringSubmatch(path)
 			priority, err := strconv.Atoi(submatches[1])
 			if err != nil {
-				panic(err)
+				return err
 			}
 			name := submatches[2]
 			key := forgePrioNameKey(priority, name)
@@ -247,6 +247,7 @@ func (g *sessionGroup) scanFiles() (updated bool, err error) {
 		}
 		return err
 	})
+	agg.Add(err)
 
 	if g.notifierParts != nil {
 		ok, err := g.notifierParts.scanFiles()
@@ -313,8 +314,15 @@ func (g *zcreenGroup) scanFiles() (updated bool, err error) {
 				panic(err)
 			}
 			name := submatches[2]
-			group := buildSessionGroup(path, name, priority)
+			var ok bool
+			var group *sessionGroup
+
 			key := forgePrioNameKey(priority, name)
+			if group, ok = g.sessionsByPrioName[key]; !ok {
+				group = buildSessionGroup(path, name, priority)
+			}
+			group.name = name
+			group.priority = priority
 			g.sessionsByPrioName[key] = group
 
 			// Do not walk session dir
@@ -329,10 +337,15 @@ func (g *zcreenGroup) scanFiles() (updated bool, err error) {
 		agg.Add(err)
 	}
 
+	sessionUniqness := make(map[string]bool)
 	for _, v := range g.sessionsByPrioName {
+		if sessionUniqness[v.name] {
+			agg.Add(fmt.Errorf("session: %s is not uniq", v.name))
+		}
 		ok, err := v.scanFiles()
 		updated = updated || ok
 		agg.Add(err)
+		sessionUniqness[v.name] = true
 	}
 
 	return updated, agg.Return()
@@ -390,6 +403,7 @@ func buildZcreenGroup(zcreenDir string) *zcreenGroup {
 // If waitForClosed => wait for each printer to be closed before continuing outputing.
 func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printerPart]bool, outs printz.Outputs, pg *printerGroup, buf []byte, waitForClosed bool) (err error) {
 	printedSomeStuff := false
+	allPartsClosed := true
 	// fmt.Printf("outputing printer group: %s ...\n", pg.name)
 	partsKeys := collectionz.Keys(pg.partsByKey)
 	sort.Strings(partsKeys)
@@ -432,6 +446,7 @@ func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printe
 			// fmt.Printf("advanced cursor to out: %d err: %d\n", (*cursors)[pp.outFile], (*cursors)[pp.errFile])
 		}
 
+		allPartsClosed = allPartsClosed && pp.closed
 		if pp.closed {
 			// Flag printer part as outputed
 			(*outputedParts)[pp] = true
@@ -448,6 +463,8 @@ func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printe
 			return
 		}
 	}
+	pg.closed = allPartsClosed
+
 	return
 }
 
@@ -496,7 +513,10 @@ func (o *zcreenGroupOutputer) sessionOutputer(sessionName string) *sessionGroupO
 		}
 	}
 	if sg == nil {
-		panic(fmt.Sprintf("no session: %s to output", sessionName))
+		// panic(fmt.Sprintf("no session: %s to output", sessionName))
+		// Init an empty session group with 0 priority (which must be updated later if printers are used)
+		sDir := forgeSessionDirPath(o.zg.path, sessionName, 0)
+		sg = buildSessionGroup(sDir, sessionName, 0)
 	}
 	cursors := make(map[*os.File]int64)
 	outputedPrinters := make(map[*printerGroup]bool)
@@ -643,8 +663,8 @@ func (o *sessionGroupOutputer) outputs(outs printz.Outputs) (err error) {
 		}
 	}
 
-	fmt.Printf("currentPriority: %d, blockingPrinterKey: %s,closedPgks: %s \n", currentPriority, o.blockingPrinterKey, collectionz.Values(closedPgks))
-	fmt.Printf("outputing session: %s, orderedPgks: %s ...\n", o.sg.name, orderedPgks)
+	// fmt.Printf("currentPriority: %d, blockingPrinterKey: %s,closedPgks: %s \n", currentPriority, o.blockingPrinterKey, collectionz.Values(closedPgks))
+	// fmt.Printf("outputing session: %s, orderedPgks: %s ...\n", o.sg.name, orderedPgks)
 
 	fullyOutputted := true
 	for _, pgk := range orderedPgks {
