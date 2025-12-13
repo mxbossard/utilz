@@ -52,42 +52,51 @@ func (p *printer0) Close(message string) error {
 }
 
 type fsPrinter struct {
-	printer0
+	printz.ClosingPrinter
 
+	name          string
+	priorityOrder int
+
+	outFilepath   string
+	errFilepath   string
 	closeFilepath string
 }
 
-func (p *fsPrinter) Close(message string) error {
-	err := filez.WriteString(p.closeFilepath, message, filez.DefaultFilePerms)
-	if err != nil {
-		return err
+func (p *fsPrinter) Close(message string) (err error) {
+	nOut, nErr := p.ClosingPrinter.Counts()
+	if nOut > 0 || nErr > 0 {
+		// Close printer only if flushed
+		err := filez.WriteString(p.closeFilepath, message, filez.DefaultFilePerms)
+		if err != nil {
+			return err
+		}
+		err = p.ClosingPrinter.Close(message)
 	}
-	err = p.printer0.Close(message)
-	return err
+	return
 }
 
 func buildFsOutputs(outFilepath, errFilepath string) (printz.Outputs, *os.File, *os.File) {
-	filez.TouchMkdirAllOrPanic(outFilepath)
-	filez.TouchMkdirAllOrPanic(errFilepath)
-	outFile := filez.OpenOrPanic(outFilepath, os.O_WRONLY+os.O_APPEND, filez.DefaultFilePerms)
-	errFile := filez.OpenOrPanic(errFilepath, os.O_WRONLY+os.O_APPEND, filez.DefaultFilePerms)
-	outputs := printz.NewOutputs(outFile, errFile)
-	return outputs, outFile, errFile
+	// filez.TouchMkdirAllOrPanic(outFilepath)
+	// filez.TouchMkdirAllOrPanic(errFilepath)
+	// outFile := filez.OpenOrPanic(outFilepath, os.O_WRONLY+os.O_APPEND, filez.DefaultFilePerms)
+	// errFile := filez.OpenOrPanic(errFilepath, os.O_WRONLY+os.O_APPEND, filez.DefaultFilePerms)
+	// outputs := printz.NewOutputs(outFile, errFile)
+	outputs := printz.NewLazyFileOutputs(outFilepath, errFilepath, os.O_CREATE+os.O_WRONLY+os.O_APPEND, filez.DefaultFilePerms)
+	return outputs, nil, nil
 }
 
 func buildFsPrinter(name string, priority int, outFilepath, errFilepath, closeFilepath string, opened bool) *fsPrinter {
-	outputs, outFile, errFile := buildFsOutputs(outFilepath, errFilepath)
+	outputs, _, _ := buildFsOutputs(outFilepath, errFilepath)
 	prtr := printz.New(outputs)
 	closingPrtr := printz.Closing(prtr)
-	p := printer0{
+	return &fsPrinter{
 		ClosingPrinter: closingPrtr,
 		name:           name,
-		tmpOut:         outFile,
-		tmpErr:         errFile,
-		// open:           opened,
-		priorityOrder: priority,
+		priorityOrder:  priority,
+		outFilepath:    outFilepath,
+		errFilepath:    errFilepath,
+		closeFilepath:  closeFilepath,
 	}
-	return &fsPrinter{printer0: p, closeFilepath: closeFilepath}
 }
 
 func buildNotifierPrinter(zcreenPath, sessionName string, sessionPriority int, opened bool) *fsPrinter {

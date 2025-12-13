@@ -37,6 +37,7 @@ type Printer interface {
 	Errf(string, ...interface{})
 	ColoredErrf(anzi.Color, string, ...interface{})
 	LastPrint() time.Time
+	Counts() (int64, int64)
 	Outputs() Outputs
 }
 
@@ -52,15 +53,21 @@ type basicPrinter struct {
 	lastPrint time.Time
 }
 
+func (p *basicPrinter) Counts() (int64, int64) {
+	return p.outputs.Counts()
+}
+
 func (p *basicPrinter) Outputs() Outputs {
 	return p.outputs
 }
 
-func (o basicPrinter) Flush() error {
+func (o basicPrinter) Flush() (err error) {
 	o.Lock()
 	defer o.Unlock()
-	err := o.outputs.Flush()
-	return err
+	if o.outputs != nil {
+		err = o.outputs.Flush()
+	}
+	return
 }
 
 func (o basicPrinter) Flushed() bool {

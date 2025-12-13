@@ -114,7 +114,7 @@ func (s *session) closePrinter(name, message string) error {
 			return nil
 		}
 		// set consolidated to false to enforce a final consolidation
-		prtr.consolidated = false
+		// prtr.consolidated = false
 		// prtr.open = false
 		// prtr.closeMessage = message
 		err := prtr.Flush()
@@ -186,11 +186,14 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 func (s *session) close(message string) (err error) {
 	// close all opened printers
 	for _, prtr := range s.printers {
+		err = prtr.Flush()
+		if err != nil {
+			return err
+		}
 		err = s.closePrinter(prtr.name, message)
 		if err != nil {
 			return err
 		}
-		prtr.Flush()
 	}
 
 	// FIXME: we shoud wait for session tail to flush sessions ?
@@ -278,7 +281,7 @@ func (s *session) clear() (err error) {
 	// }
 
 	// Attempt to close & remove notifier temp files
-	if s.notifier != nil {
+	if s.notifier != nil { //&& !s.notifier.IsClosed() {
 		err = s.notifier.Close(fmt.Sprintf("cleared session: %s", s.Name))
 		if err != nil {
 			return err
@@ -390,7 +393,8 @@ func (s *session) nextPriority() {
 				nothingPrintedYet := true
 				for _, printer := range printers {
 					// fmt.Printf("selecting printer: [%s] ? prio: [%d]\n", printer.name, priorityOrder)
-					if !printer.consolidated && !printer.LastPrint().IsZero() {
+					// if !printer.consolidated && !printer.LastPrint().IsZero() {
+					if !printer.LastPrint().IsZero() {
 						// set current priority of first opened printer
 						s.printed = true // mark session print began
 						s.currentPriority = &priorityOrder
@@ -695,7 +699,7 @@ func deserializeSession(path string) (s *session, err error) {
 		panic("empty session TmpPath")
 	}
 	// s.notifier = buildPrinter(s.TmpPath, notifierPrinterName, 0)
-	s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder, true)
+	// s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder, true)
 
 	logger.Debug("deserialized session", "name", s.Name, "filepath", path)
 	return s, err

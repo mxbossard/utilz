@@ -261,10 +261,10 @@ type Tailer interface {
 	ReclaimAll() error
 
 	// Clear session workspace.
-	ClearSession(session string) error
+	ClearSession0(session string) error
 
 	// Clear each sessions workspaces.
-	Clear() error
+	Clear0() error
 }
 
 func buildTmpFilename(name, qualifier string, timestamp int64) string {

@@ -59,12 +59,6 @@ func TestScreen_GetSession(t *testing.T) {
 	err = session.Start(100 * time.Millisecond)
 	require.NoError(t, err)
 	assert.DirExists(t, expectedSessionDir)
-	// matches, err := filepath.Glob(expectedSessionDir + "/bar1001" + outFileNameSuffix + "*")
-	// require.NoError(t, err)
-	// require.Len(t, matches, 1)
-	// matches, err = filepath.Glob(expectedSessionDir + "/bar1001" + errFileNameSuffix + "*")
-	// require.NoError(t, err)
-	// require.Len(t, matches, 1)
 }
 
 func TestScreen_GetPrinter(t *testing.T) {
@@ -104,34 +98,14 @@ func TestScreen_BasicOut(t *testing.T) {
 	sessionSerFilepath := sessionSerializedPath(sessionDirFilepath)
 	printersDirFilepath := printersDirPath(sessionDirFilepath)
 
-	// sessionTmpOutFilepath := func() string {
-	// 	matches := tmpFilenameMatches(sessionDirFilepath, expectedSession, outFileQualifier)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
-	// sessionTmpErrFilepath := func() string {
-	// 	matches := tmpFilenameMatches(sessionDirFilepath, expectedSession, errFileQualifier)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
-	printerTmpOutFilepath := func() string {
-		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
-	printerTmpErrFilepath := func() string {
-		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
+	matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
+	assert.Empty(t, matches)
+	matches = priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
+	assert.Empty(t, matches)
 
 	require.DirExists(t, tmpDir)
 	require.DirExists(t, sessionDirFilepath)
 	assert.FileExists(t, sessionSerFilepath)
-	// assert.FileExists(t, sessionTmpOutFilepath)
-	// assert.FileExists(t, sessionTmpErrFilepath)
-	assert.FileExists(t, printerTmpOutFilepath)
-	assert.FileExists(t, printerTmpErrFilepath)
 
 	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s }())
 	ser, err := deserializeSession(sessionSerFilepath)
@@ -139,24 +113,23 @@ func TestScreen_BasicOut(t *testing.T) {
 	assert.NotNil(t, ser)
 
 	prtr10.Out(expectedMessage)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = prtr10.Flush()
 	assert.NoError(t, err)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+
+	printerTmpOutFilepath := func() string {
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
+		require.NotEmpty(t, matches)
+		return matches[0]
+	}()
+	matches = priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
+	require.Empty(t, matches)
+
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
 
 func TestScreen_ClearSession(t *testing.T) {
@@ -212,16 +185,26 @@ func TestScreen_BasicOutAndErr(t *testing.T) {
 	sessionDirFilepath := forgeSessionDirPath(tmpDir, expectedSession, 42)
 	sessionSerFilepath := sessionSerializedPath(sessionDirFilepath)
 	printersDirFilepath := printersDirPath(sessionDirFilepath)
-	// sessionTmpOutFilepath := func() string {
-	// 	matches := tmpFilenameMatches(sessionDirFilepath, expectedSession, outFileQualifier)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
-	// sessionTmpErrFilepath := func() string {
-	// 	matches := tmpFilenameMatches(sessionDirFilepath, expectedSession, errFileQualifier)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
+	matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
+	assert.Empty(t, matches)
+	matches = priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
+	assert.Empty(t, matches)
+
+	require.DirExists(t, tmpDir)
+	require.DirExists(t, sessionDirFilepath)
+	assert.FileExists(t, sessionSerFilepath)
+
+	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s }())
+	ser, err := deserializeSession(sessionSerFilepath)
+	require.NoError(t, err)
+	assert.NotNil(t, ser)
+
+	prtr10.Out(expectedOutMessage)
+	prtr10.Err(expectedErrMessage)
+
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+
 	printerTmpOutFilepath := func() string {
 		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
 		require.NotEmpty(t, matches)
@@ -233,37 +216,11 @@ func TestScreen_BasicOutAndErr(t *testing.T) {
 		return matches[0]
 	}()
 
-	require.DirExists(t, tmpDir)
-	require.DirExists(t, sessionDirFilepath)
-	assert.FileExists(t, sessionSerFilepath)
-	// assert.FileExists(t, sessionTmpOutFilepath)
-	// assert.FileExists(t, sessionTmpErrFilepath)
-	assert.FileExists(t, printerTmpOutFilepath)
-	assert.FileExists(t, printerTmpErrFilepath)
-
-	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s }())
-	ser, err := deserializeSession(sessionSerFilepath)
-	require.NoError(t, err)
-	assert.NotNil(t, ser)
-
-	prtr10.Out(expectedOutMessage)
-	prtr10.Err(expectedErrMessage)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
-
-	err = prtr10.Flush()
-	assert.NoError(t, err)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }

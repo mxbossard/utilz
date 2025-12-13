@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewStringOutputs(t *testing.T) {
-	outW, errW, outs := NewStringOutputs()
+	outW, errW, outs := NewStringBuilderOutputs()
 
 	assert.Empty(t, outW.String())
 	assert.Empty(t, errW.String())
@@ -48,7 +48,7 @@ func TestNewStringOutputs(t *testing.T) {
 
 func TestNewBufferedOutputs_1(t *testing.T) {
 
-	outW, errW, outs := NewStringOutputs()
+	outW, errW, outs := NewStringBuilderOutputs()
 
 	bouts := NewBufferedOutputs(outs)
 
@@ -91,7 +91,7 @@ func TestNewBufferedOutputs_1(t *testing.T) {
 
 func TestNewBufferedOutputs_2(t *testing.T) {
 
-	outW, errW, outs := NewStringOutputs()
+	outW, errW, outs := NewStringBuilderOutputs()
 
 	bouts1 := NewBufferedOutputs(outs)
 	bouts2 := NewBufferedOutputs(bouts1)

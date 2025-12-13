@@ -116,67 +116,67 @@ func TestFsLayer_ScanFiles(t *testing.T) {
 	require.NotNil(t, zg.notifierParts)
 
 	// Test global notifiers
-	assert.Len(t, zg.notifierParts.partsByKey, 3)
+	assert.Len(t, *zg.notifierParts.partsByKey, 3)
 	require.NotNil(t, zg.sessionsByPrioName)
-	assert.Len(t, zg.sessionsByPrioName, 3)
+	assert.Len(t, *zg.sessionsByPrioName, 3)
 
 	// Test alpha session
-	alphaSg := *zg.sessionsByPrioName[forgePrioNameKey(5, "alpha")]
+	alphaSg := (*zg.sessionsByPrioName)[forgePrioNameKey(5, "alpha")]
 	require.NotNil(t, alphaSg)
 
 	require.NotNil(t, alphaSg.notifierParts)
-	assert.Len(t, alphaSg.notifierParts.partsByKey, 2)
+	assert.Len(t, *alphaSg.notifierParts.partsByKey, 2)
 
 	require.NotNil(t, alphaSg.printersByPrioName)
-	assert.Len(t, alphaSg.printersByPrioName, 3)
+	assert.Len(t, *alphaSg.printersByPrioName, 3)
 
-	alpha_foo_pg := alphaSg.printersByPrioName[forgePrioNameKey(0, "foo")]
+	alpha_foo_pg := (*alphaSg.printersByPrioName)[forgePrioNameKey(0, "foo")]
 	require.NotNil(t, alpha_foo_pg)
-	assert.Len(t, alpha_foo_pg.partsByKey, 1)
+	assert.Len(t, *alpha_foo_pg.partsByKey, 1)
 
-	alpha_bar_pg := alphaSg.printersByPrioName[forgePrioNameKey(0, "bar")]
+	alpha_bar_pg := (*alphaSg.printersByPrioName)[forgePrioNameKey(0, "bar")]
 	require.NotNil(t, alpha_bar_pg)
-	assert.Len(t, alpha_bar_pg.partsByKey, 5)
+	assert.Len(t, *alpha_bar_pg.partsByKey, 5)
 
-	alpha_baz_pg := alphaSg.printersByPrioName[forgePrioNameKey(2, "baz")]
+	alpha_baz_pg := (*alphaSg.printersByPrioName)[forgePrioNameKey(2, "baz")]
 	require.NotNil(t, alpha_baz_pg)
-	assert.Len(t, alpha_baz_pg.partsByKey, 3)
+	assert.Len(t, *alpha_baz_pg.partsByKey, 3)
 
 	// Test bravo session
-	bravoSg := zg.sessionsByPrioName[forgePrioNameKey(0, "bravo")]
+	bravoSg := (*zg.sessionsByPrioName)[forgePrioNameKey(0, "bravo")]
 	require.NotNil(t, bravoSg)
 
 	require.NotNil(t, bravoSg.notifierParts)
-	assert.Len(t, bravoSg.notifierParts.partsByKey, 3)
+	assert.Len(t, *bravoSg.notifierParts.partsByKey, 3)
 
 	require.NotNil(t, bravoSg.printersByPrioName)
-	assert.Len(t, bravoSg.printersByPrioName, 2)
+	assert.Len(t, *bravoSg.printersByPrioName, 2)
 
-	bravo_pif_pg := bravoSg.printersByPrioName[forgePrioNameKey(0, "pif")]
+	bravo_pif_pg := (*bravoSg.printersByPrioName)[forgePrioNameKey(0, "pif")]
 	require.NotNil(t, bravo_pif_pg)
-	assert.Len(t, bravo_pif_pg.partsByKey, 3)
+	assert.Len(t, *bravo_pif_pg.partsByKey, 3)
 
-	bravo_paf_pg := bravoSg.printersByPrioName[forgePrioNameKey(1, "paf")]
+	bravo_paf_pg := (*bravoSg.printersByPrioName)[forgePrioNameKey(1, "paf")]
 	require.NotNil(t, bravo_paf_pg)
-	assert.Len(t, bravo_paf_pg.partsByKey, 1)
+	assert.Len(t, *bravo_paf_pg.partsByKey, 1)
 
 	// Test gamma session
-	gammaSg := zg.sessionsByPrioName[forgePrioNameKey(0, "gamma")]
+	gammaSg := (*zg.sessionsByPrioName)[forgePrioNameKey(0, "gamma")]
 	require.NotNil(t, gammaSg)
 
 	require.NotNil(t, gammaSg.notifierParts)
-	assert.Len(t, gammaSg.notifierParts.partsByKey, 0)
+	assert.Len(t, *gammaSg.notifierParts.partsByKey, 0)
 
 	require.NotNil(t, gammaSg.printersByPrioName)
-	assert.Len(t, gammaSg.printersByPrioName, 2)
+	assert.Len(t, *gammaSg.printersByPrioName, 2)
 
-	gamma_bar_pg := gammaSg.printersByPrioName[forgePrioNameKey(20, "bar")]
+	gamma_bar_pg := (*gammaSg.printersByPrioName)[forgePrioNameKey(20, "bar")]
 	require.NotNil(t, gamma_bar_pg)
-	assert.Len(t, gamma_bar_pg.partsByKey, 1)
+	assert.Len(t, *gamma_bar_pg.partsByKey, 1)
 
-	gamma_baz_pg := gammaSg.printersByPrioName[forgePrioNameKey(10, "baz")]
+	gamma_baz_pg := (*gammaSg.printersByPrioName)[forgePrioNameKey(10, "baz")]
 	require.NotNil(t, gamma_baz_pg)
-	assert.Len(t, gamma_baz_pg.partsByKey, 1)
+	assert.Len(t, *gamma_baz_pg.partsByKey, 1)
 
 }
 
@@ -216,6 +216,9 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	alphaBarPrinter4 := scenario1["alpha_5_bar_0_4"]
 	alphaBarPrinter5 := scenario1["alpha_5_bar_0_5"]
 	alphaBazPrinter1 := scenario1["alpha_5_baz_2_1"]
+	alphaBazPrinter2 := scenario1["alpha_5_baz_2_2"]
+	alphaBazPrinter3 := scenario1["alpha_5_baz_2_3"]
+	alphaFooPrinter1 := scenario1["alpha_5_foo_0_1"]
 
 	zg := buildZcreenGroup(tmpDir)
 	updated, err := zg.scanFiles()
@@ -328,7 +331,7 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	assert.Equal(t, "msg-alpha_5_bar_0_4\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
-	// Closing all printer parts should print next printer
+	// Closing all bar printer parts should print next printer
 	// The printer should be considered closed since all parts are closed
 	outW.Reset()
 	errW.Reset()
@@ -343,8 +346,33 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	assert.True(t, alphaOutputer.hasNext())
 	err = alphaOutputer.outputs(outs)
 	assert.NoError(t, err)
-	assert.False(t, alphaOutputer.hasNext())
+	assert.True(t, alphaOutputer.hasNext())
 	assert.Equal(t, "msg-alpha_5_bar_0_3\nmsg-alpha_5_bar_0_5\nmsg-alpha_5_foo_0_1\n", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	// Closing all foo & baz printer parts should reach end of alphaOutputer
+	outW.Reset()
+	errW.Reset()
+	err = alphaFooPrinter1.Close("close7")
+	assert.NoError(t, err)
+	err = alphaBazPrinter2.Close("close8")
+	assert.NoError(t, err)
+	err = alphaBazPrinter3.Close("close9")
+	assert.NoError(t, err)
+	err = alphaOutputer.update()
+	assert.NoError(t, err)
+	err = alphaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.False(t, alphaOutputer.hasNext())
+	assert.Equal(t, "msg-alpha_5_baz_2_1\nmsg-alpha_5_baz_2_2\nmsg-alpha_5_baz_2_3\n", outW.String())
+	assert.Equal(t, "", errW.String())
+
+	outW.Reset()
+	errW.Reset()
+	err = alphaOutputer.outputs(outs)
+	assert.NoError(t, err)
+	assert.False(t, alphaOutputer.hasNext())
+	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
 }
 
@@ -707,17 +735,17 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	assert.Equal(t, "", errW.String())
 	assert.False(t, gammaOutputer.hasNext()) // session fully outputted
 
-	gammaSg := *zg.sessionsByPrioName[forgePrioNameKey(0, "gamma")]
+	gammaSg := (*zg.sessionsByPrioName)[forgePrioNameKey(0, "gamma")]
 	require.NotNil(t, gammaSg)
-	gamma_bar_pg := gammaSg.printersByPrioName[forgePrioNameKey(20, "bar")]
+	gamma_bar_pg := (*gammaSg.printersByPrioName)[forgePrioNameKey(20, "bar")]
 	require.NotNil(t, gamma_bar_pg)
-	gamma_baz_pg := gammaSg.printersByPrioName[forgePrioNameKey(10, "baz")]
+	gamma_baz_pg := (*gammaSg.printersByPrioName)[forgePrioNameKey(10, "baz")]
 	require.NotNil(t, gamma_baz_pg)
-	gamma_high_pg := gammaSg.printersByPrioName[forgePrioNameKey(5, "high")]
+	gamma_high_pg := (*gammaSg.printersByPrioName)[forgePrioNameKey(5, "high")]
 	require.NotNil(t, gamma_high_pg)
-	gamma_same_pg := gammaSg.printersByPrioName[forgePrioNameKey(10, "same")]
+	gamma_same_pg := (*gammaSg.printersByPrioName)[forgePrioNameKey(10, "same")]
 	require.NotNil(t, gamma_same_pg)
-	gamma_low_pg := gammaSg.printersByPrioName[forgePrioNameKey(15, "low")]
+	gamma_low_pg := (*gammaSg.printersByPrioName)[forgePrioNameKey(15, "low")]
 	require.NotNil(t, gamma_low_pg)
 
 	assert.False(t, gammaSg.ended)
@@ -762,8 +790,6 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	assert.False(t, updated)
 	zg1o := zg1.outputer()
 	require.NotNil(t, zg1o)
-	u1so := zg1o.sessionOutputer(uniqSession1)
-	require.NotNil(t, u1so)
 	s0so1 := zg1o.sessionOutputer(sharedSession)
 	require.NotNil(t, s0so1)
 
@@ -859,6 +885,10 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	assert.NoError(t, err)
 
 	// ----- Outputing session by session
+	// err = zg1o.update()
+	// assert.NoError(t, err)
+	u1so := zg1o.sessionOutputer(uniqSession1)
+	require.NotNil(t, u1so)
 
 	// Check zcreen group content: FS not scanned => nothing to output.
 	outW.Reset()
@@ -906,7 +936,7 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	errW.Reset()
 	err = s0so1.outputs(outs)
 	assert.NoError(t, err)
-	assert.Equal(t, "msg-paf47001-shared_0_s0_10_1\nmsg-paf47001-shared_0_s0_20_1\nmsg-paf47001-shared_0_s0_30a_1\nmsg-paf47001-shared_0_s0_30b_2\nmsg-paf47001-shared_0_s0_40_1\nmsg-paf47001-shared_0_s0_50_1\n", outW.String())
+	assert.Equal(t, "msg-paf47001-shared_0_s0_10_1\nmsg-paf47001-shared_0_s0_20_1\nmsg-paf47001-shared_0_s0_30_1\nmsg-paf47001-shared_0_s0_30_2\nmsg-paf47001-shared_0_s0_40_1\nmsg-paf47001-shared_0_s0_50_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	outW.Reset()
@@ -954,7 +984,7 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	errW.Reset()
 	err = s0so2.outputs(outs)
 	assert.NoError(t, err)
-	assert.Equal(t, "msg-paf47001-shared_0_s0_10_1\nmsg-paf47001-shared_0_s0_20_1\nmsg-paf47001-shared_0_s0_30a_1\nmsg-paf47001-shared_0_s0_30b_2\nmsg-paf47001-shared_0_s0_40_1\nmsg-paf47001-shared_0_s0_50_1\n", outW.String())
+	assert.Equal(t, "msg-paf47001-shared_0_s0_10_1\nmsg-paf47001-shared_0_s0_20_1\nmsg-paf47001-shared_0_s0_30_1\nmsg-paf47001-shared_0_s0_30_2\nmsg-paf47001-shared_0_s0_40_1\nmsg-paf47001-shared_0_s0_50_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 }

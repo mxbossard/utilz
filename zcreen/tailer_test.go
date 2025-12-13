@@ -67,34 +67,9 @@ func TestTailer_BasicOut(t *testing.T) {
 	sessionSerFilepath := sessionSerializedPath(sessionDirFilepath)
 	printersDirFilepath := printersDirPath(sessionDirFilepath)
 
-	// sessionTmpOutFilepath := func() string {
-	// 	matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileQualifier)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
-	// sessionTmpErrFilepath := func() string {
-	// 	matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileQualifier)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
-	printerTmpOutFilepath := func() string {
-		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
-	printerTmpErrFilepath := func() string {
-		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
-		require.NotEmpty(t, matches)
-		return matches[0]
-	}()
-
 	require.DirExists(t, tmpDir)
 	require.DirExists(t, sessionDirFilepath)
 	require.FileExists(t, sessionSerFilepath)
-	// assert.FileExists(t, sessionTmpOutFilepath)
-	// assert.FileExists(t, sessionTmpErrFilepath)
-	assert.FileExists(t, printerTmpOutFilepath)
-	assert.FileExists(t, printerTmpErrFilepath)
 
 	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s }())
 	ser, err := deserializeSession(sessionSerFilepath)
@@ -102,24 +77,28 @@ func TestTailer_BasicOut(t *testing.T) {
 	assert.NotNil(t, ser)
 
 	prtr10.Out(expectedMessage)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
+
+	matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
+	assert.Empty(t, matches)
+	matches = priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
+	assert.Empty(t, matches)
 
 	err = prtr10.Flush()
 	assert.NoError(t, err)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
+
+	printerTmpOutFilepath := func() string {
+		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
+		require.NotEmpty(t, matches)
+		return matches[0]
+	}()
+	matches = priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
+	assert.Empty(t, matches)
+
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	// assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -132,10 +111,7 @@ func TestTailer_BasicOut(t *testing.T) {
 	assert.NotEmpty(t, outW.String())
 	assert.Equal(t, expectedMessage, outW.String())
 	assert.Empty(t, errW.String())
-	// assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
 
 func TestTailer_ClearSession(t *testing.T) {
@@ -146,8 +122,8 @@ func TestTailer_ClearSession(t *testing.T) {
 
 	expectedSession := "foo3002"
 	expectedPrinter := "bar"
-	expectedMessage := "baz"
-	expectedMessage2 := "pif"
+	expectedMessage := "pif"
+	expectedMessage2 := "paf"
 
 	session, err := screen.Session(expectedSession, 42)
 	require.NoError(t, err)
@@ -169,9 +145,7 @@ func TestTailer_ClearSession(t *testing.T) {
 	assert.NoError(t, err)
 
 	// First tailing should tail printed message
-	outW := &strings.Builder{}
-	errW := &strings.Builder{}
-	outs := printz.NewOutputs(outW, errW)
+	outW, errW, outs := printz.NewStringBuilderOutputs()
 	screenTailer := NewAsyncScreenTailer(outs, tmpDir)
 
 	err = screenTailer.tailAll()
@@ -192,6 +166,7 @@ func TestTailer_ClearSession(t *testing.T) {
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
 	assert.Equal(t, expectedMessage, outW.String())
+	assert.Empty(t, errW.String())
 
 	// After cleared session new tailer should not tail printed message
 	outW.Reset()
@@ -199,12 +174,15 @@ func TestTailer_ClearSession(t *testing.T) {
 	// err = screen.ClearSession(expectedSession)
 	// assert.NoError(t, err)
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
-	err = screenTailer.ClearSession(expectedSession)
+	// err = screenTailer.ClearSession(expectedSession)
+	// assert.NoError(t, err)
+	err = ClearSession(tmpDir, expectedSession)
 	assert.NoError(t, err)
 
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
 	assert.Empty(t, outW.String())
+	assert.Empty(t, errW.String())
 
 	// After cleared session a session reopening should be possible
 	err = screen.Resync()
@@ -219,19 +197,31 @@ func TestTailer_ClearSession(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, prtr10)
 
+	assert.Empty(t, outW.String())
+	assert.Empty(t, errW.String())
+
 	prtr10.Out(expectedMessage2)
+
+	assert.Empty(t, outW.String())
+	assert.Empty(t, errW.String())
+
 	err = prtr10.Flush()
 	assert.NoError(t, err)
 
-	err = session.Flush()
-	assert.NoError(t, err)
+	assert.Empty(t, outW.String())
+	assert.Empty(t, errW.String())
 
 	err = session.End("msg")
 	assert.NoError(t, err)
 
+	assert.Empty(t, outW.String())
+	assert.Empty(t, errW.String())
+
 	err = screenTailer.tailAll()
 	assert.NoError(t, err)
+
 	assert.Equal(t, expectedMessage2, outW.String())
+	assert.Empty(t, errW.String())
 }
 
 func TestTailer_BasicOutAndErr(t *testing.T) {
@@ -257,16 +247,26 @@ func TestTailer_BasicOutAndErr(t *testing.T) {
 	sessionDirFilepath := forgeSessionDirPath(tmpDir, expectedSession, 42)
 	sessionSerFilepath := sessionSerializedPath(sessionDirFilepath)
 	printersDirFilepath := printersDirPath(sessionDirFilepath)
-	// sessionTmpOutFilepath := func() string {
-	// 	matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, outFileQualifier)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
-	// sessionTmpErrFilepath := func() string {
-	// 	matches := tmpFilenameMatches(sessionDirTmpFilepath, expectedSession, errFileQualifier)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
+	matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
+	assert.Empty(t, matches)
+	matches = priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, errFileQualifier)
+	assert.Empty(t, matches)
+
+	require.DirExists(t, tmpDir)
+	require.DirExists(t, sessionDirFilepath)
+	assert.FileExists(t, sessionSerFilepath)
+
+	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s }())
+	ser, err := deserializeSession(sessionSerFilepath)
+	require.NoError(t, err)
+	assert.NotNil(t, ser)
+
+	prtr10.Out(expectedOutMessage)
+	prtr10.Err(expectedErrMessage)
+
+	err = prtr10.Flush()
+	assert.NoError(t, err)
+
 	printerTmpOutFilepath := func() string {
 		matches := priorizedPrinterFilenameMatches(printersDirFilepath, expectedPrinter, outFileQualifier)
 		require.NotEmpty(t, matches)
@@ -278,37 +278,11 @@ func TestTailer_BasicOutAndErr(t *testing.T) {
 		return matches[0]
 	}()
 
-	require.DirExists(t, tmpDir)
-	require.DirExists(t, sessionDirFilepath)
-	assert.FileExists(t, sessionSerFilepath)
-	// assert.FileExists(t, sessionTmpOutFilepath)
-	// assert.FileExists(t, sessionTmpErrFilepath)
-	assert.FileExists(t, printerTmpOutFilepath)
-	assert.FileExists(t, printerTmpErrFilepath)
-
-	assert.NotEmpty(t, func() string { s, _ := filez.ReadString(sessionSerFilepath); return s }())
-	ser, err := deserializeSession(sessionSerFilepath)
-	require.NoError(t, err)
-	assert.NotNil(t, ser)
-
-	prtr10.Out(expectedOutMessage)
-	prtr10.Err(expectedErrMessage)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpOutFilepath))
-	assert.Empty(t, filez.ReadStringOrPanic(printerTmpErrFilepath))
-
-	err = prtr10.Flush()
-	assert.NoError(t, err)
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
 	err = session.Flush()
 	assert.NoError(t, err)
-	// assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 
@@ -323,8 +297,6 @@ func TestTailer_BasicOutAndErr(t *testing.T) {
 	assert.NotEmpty(t, errW.String())
 	assert.Equal(t, expectedOutMessage, outW.String())
 	assert.Equal(t, expectedErrMessage, errW.String())
-	// assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	// assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(sessionTmpErrFilepath))
 	assert.Equal(t, expectedOutMessage, filez.ReadStringOrPanic(printerTmpOutFilepath))
 	assert.Equal(t, expectedErrMessage, filez.ReadStringOrPanic(printerTmpErrFilepath))
 }
@@ -349,15 +321,6 @@ func TestTailer_MultiplePrinters(t *testing.T) {
 	require.NoError(t, err)
 	err = session.Start(100 * time.Millisecond)
 	assert.NoError(t, err)
-
-	// sessionTmpOutFilepath := func() string {
-	// 	// matches, _ := filepath.Glob(sessionDirPath(tmpDir, expectedSession) + "/" + expectedSession + outFileNameSuffix + "*")
-	// 	expectedSessionDir := forgeSessionDirPath(tmpDir, expectedSession, 42)
-	// 	matches := tmpFilenameMatches(expectedSessionDir, expectedSession, outFileNameSuffix)
-	// 	require.NotEmpty(t, matches)
-	// 	return matches[0]
-	// }()
-	// assert.FileExists(t, sessionTmpOutFilepath)
 
 	prtr10a, err := session.Printer(expectedPrinter10a, 10)
 	require.NoError(t, err)

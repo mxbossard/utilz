@@ -7,7 +7,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	outW, errW, outs := NewStringOutputs()
+	outW, errW, outs := NewStringBuilderOutputs()
 
 	p := New(outs)
 
@@ -36,7 +36,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewUnbuffured(t *testing.T) {
-	outW, errW, outs := NewStringOutputs()
+	outW, errW, outs := NewStringBuilderOutputs()
 
 	p := NewUnbuffured(outs)
 
@@ -65,7 +65,7 @@ func TestNewUnbuffured(t *testing.T) {
 }
 
 func TestBuffured_1(t *testing.T) {
-	outW, errW, outs := NewStringOutputs()
+	outW, errW, outs := NewStringBuilderOutputs()
 
 	p := Buffered(NewUnbuffured(outs))
 
@@ -94,7 +94,7 @@ func TestBuffured_1(t *testing.T) {
 }
 
 func TestBuffured_2(t *testing.T) {
-	outW, errW, outs := NewStringOutputs()
+	outW, errW, outs := NewStringBuilderOutputs()
 
 	p1 := New(outs)
 	p2 := Buffered(p1)

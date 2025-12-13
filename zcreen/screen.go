@@ -113,13 +113,13 @@ func (s *screen) Close() (err error) {
 	s.Lock()
 	defer s.Unlock()
 	defer s.screenLock.Unlock()
-	err = s.notifier.tmpOut.Close()
-	if err != nil {
-		return err
-	}
-	err = s.notifier.tmpErr.Close()
-
 	var agg errorz.Aggregated
+
+	if s.notifier != nil {
+		err = s.notifier.Close("screen closed")
+		agg.Add(err)
+	}
+
 	for _, s := range s.sessions {
 		// Closing screen SHOULD not end sessions but close it : In case of zcreen failure, a restart must take back the session not ended.
 		agg.Add(s.close("screen closed"))
@@ -330,6 +330,7 @@ func Clear(zcreenPath string) error {
 	return err
 }
 
+// Does SHOULD be cleared by a tailer ?
 func ClearSession(zcreenPath, name string) error {
 	err := clearSessionFiles(zcreenPath, name)
 	return err

@@ -17,13 +17,13 @@ import (
 
 type screenTailer struct {
 	sync.Mutex
-	fileLock              *flock.Flock
-	tmpPath               string
-	outputs               printz.Outputs
-	electedSession        *session
-	sessions              map[string]*session
-	sessionsByPriority    map[int][]*session
-	notifier              *fsPrinter
+	fileLock           *flock.Flock
+	tmpPath            string
+	outputs            printz.Outputs
+	electedSession     *session
+	sessions           map[string]*session
+	sessionsByPriority map[int][]*session
+	// notifier              *fsPrinter
 	blockingSessionsQueue *collectionz.Queue[string]
 
 	zg               *zcreenGroup
@@ -402,16 +402,16 @@ func (s *screenTailer) tailOnce(sessionName string) (tailed, ended bool, err err
 
 	if blocking.cleared {
 		// FIXME: probably not used anymore
-		err = s.ClearSession(sessionName)
-		return
+		// err = s.ClearSession(sessionName)
+		// return
 	}
 
 	logger.Debug("tailing ...", "session", sessionName)
 
-	err = blocking.Flush()
-	if err != nil {
-		return
-	}
+	// err = blocking.Flush()
+	// if err != nil {
+	// 	return
+	// }
 
 	err = s.tailSession(blocking)
 	if err != nil {
@@ -738,7 +738,7 @@ func (s *screenTailer) ReclaimAll() error {
 	panic("not implemented yet")
 }
 
-func (s *screenTailer) clearSession(name string) error {
+func (s *screenTailer) clearSession0(name string) error {
 	//fmt.Printf("Clearing tailer session dir: [%s] ...\n", name)
 	for p, sessions := range s.sessionsByPriority {
 		for _, session := range sessions {
@@ -770,7 +770,7 @@ func (s *screenTailer) clearSession(name string) error {
 	return err
 }
 
-func (s *screenTailer) ClearSession(name string) error {
+func (s *screenTailer) ClearSession0(name string) error {
 	logger.Debug("Tailer: clearing session ...", "name", name)
 	s.Lock()
 	defer s.Unlock()
@@ -780,10 +780,10 @@ func (s *screenTailer) ClearSession(name string) error {
 	}
 	defer utilz.FileUnlock(s.fileLock)
 
-	return s.clearSession(name)
+	return s.clearSession0(name)
 }
 
-func (s *screenTailer) Clear() (err error) {
+func (s *screenTailer) Clear0() (err error) {
 	s.Lock()
 	defer s.Unlock()
 	err = utilz.FileLock(s.fileLock, fileLockingTimeout)
@@ -794,7 +794,7 @@ func (s *screenTailer) Clear() (err error) {
 
 	sessions := collectionz.Keys(s.sessions)
 	for _, session := range sessions {
-		err := s.clearSession(session)
+		err := s.clearSession0(session)
 		if err != nil {
 			return err
 		}
@@ -808,7 +808,7 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 	}
 
 	// notifier := buildReadOnlyPrinter(tmpPath, notifierPrinterName, 0)
-	notifier := buildNotifierPrinter(tmpPath, "", 0, false)
+	// notifier := buildNotifierPrinter(tmpPath, "", 0, false)
 	lockFilepath := filepath.Join(tmpPath, lockFilename)
 	zg := buildZcreenGroup(tmpPath)
 	_, err := zg.scanFiles()
@@ -816,12 +816,12 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 		panic(fmt.Errorf("unable to update zcreen group from path: %s with error: %w", tmpPath, err))
 	}
 	s := &screenTailer{
-		outputs:               outputs,
-		tmpPath:               tmpPath,
-		fileLock:              flock.New(lockFilepath),
-		sessions:              make(map[string]*session),
-		sessionsByPriority:    make(map[int][]*session),
-		notifier:              notifier,
+		outputs:            outputs,
+		tmpPath:            tmpPath,
+		fileLock:           flock.New(lockFilepath),
+		sessions:           make(map[string]*session),
+		sessionsByPriority: make(map[int][]*session),
+		// notifier:              notifier,
 		blockingSessionsQueue: collectionz.NewQueue[string](),
 		zg:                    zg,
 		zgo:                   zg.outputer(),

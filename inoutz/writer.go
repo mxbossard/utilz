@@ -33,7 +33,7 @@ func (w *CallbackFlusher) Flush() (err error) {
 type CallbackWriter struct {
 	Nested        io.Writer
 	Callback      func(p []byte) // Called before Write()
-	CallbackAfter func()         // Called after Write()
+	CallbackAfter func(n int)    // Called after Write()
 }
 
 func (w *CallbackWriter) Write(p []byte) (n int, err error) {
@@ -42,7 +42,7 @@ func (w *CallbackWriter) Write(p []byte) (n int, err error) {
 	}
 	n, err = w.Nested.Write(p)
 	if w.CallbackAfter != nil {
-		w.CallbackAfter()
+		w.CallbackAfter(n)
 	}
 	return
 }
