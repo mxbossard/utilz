@@ -57,25 +57,25 @@ func TestDuplicateScreen_RunningTwoScreensSequentially(t *testing.T) {
 	})
 
 	// Write on shared screen only printer
-	s0_prtr_10, err := s1s.Printer("s0", 10)
+	s0_prtr_10, err := s1s.Printer("s0a10", 10)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_10)
 	assert.NotPanics(t, func() {
-		s0_prtr_10.Out("s0_prtr_10\n")
+		s0_prtr_10.Out("s0_prtr_a10\n")
 	})
 
-	s0_prtr_50a, err := s1s.Printer("s0", 50)
+	s0_prtr_50a, err := s1s.Printer("s0a50", 50)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_50a)
 	assert.NotPanics(t, func() {
-		s0_prtr_50a.Out("s0_prtr_50\n")
+		s0_prtr_50a.Out("s0_prtr_a50\n")
 	})
 
-	s0_prtr_30a, err := s1s.Printer("s0", 30)
+	s0_prtr_30a, err := s1s.Printer("s0a30", 30)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_30a)
 	assert.NotPanics(t, func() {
-		s0_prtr_30a.Out("s0_prtr_30a\n")
+		s0_prtr_30a.Out("s0_prtr_a30\n")
 	})
 
 	err = screen1.Close()
@@ -109,25 +109,25 @@ func TestDuplicateScreen_RunningTwoScreensSequentially(t *testing.T) {
 	})
 
 	// Write on shared screen only printer
-	s0_prtr_30b, err := s2s.Printer("s0", 30)
+	s0_prtr_30b, err := s2s.Printer("s0b30", 30)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_30b)
 	assert.NotPanics(t, func() {
-		s0_prtr_30b.Out("s0_prtr_30b\n")
+		s0_prtr_30b.Out("s0_prtr_b30\n")
 	})
 
-	s0_prtr_20, err := s2s.Printer("s0", 20)
+	s0_prtr_20, err := s2s.Printer("s0b20", 20)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_20)
 	assert.NotPanics(t, func() {
-		s0_prtr_20.Out("s0_prtr_20\n")
+		s0_prtr_20.Out("s0_prtr_b20\n")
 	})
 
-	s0_prtr_40, err := s2s.Printer("s0", 40)
+	s0_prtr_40, err := s2s.Printer("s0b40", 40)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_40)
 	assert.NotPanics(t, func() {
-		s0_prtr_40.Out("s0_prtr_40\n")
+		s0_prtr_40.Out("s0_prtr_b40\n")
 	})
 
 	err = screen2.Close()
@@ -156,7 +156,7 @@ func TestDuplicateScreen_RunningTwoScreensSequentially(t *testing.T) {
 	errW.Reset()
 	err = screenTailer.TailOnlyBlocking(sharedSession, 2*time.Second)
 	require.NoError(t, err)
-	assert.Equal(t, "s0_prtr_10\ns0_prtr_20\ns0_prtr_30a\ns0_prtr_30b\ns0_prtr_40\ns0_prtr_50\n", outW.String())
+	assert.Equal(t, "s0_prtr_a10\ns0_prtr_b20\ns0_prtr_a30\ns0_prtr_b30\ns0_prtr_b40\ns0_prtr_a50\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 }
@@ -219,25 +219,25 @@ func TestDuplicateScreen_RunningTwoScreensConcurrently(t *testing.T) {
 	})
 
 	// Write on shared screen only printer
-	s0_prtr_10, err := s1s.Printer("s0", 10)
+	s0_prtr_10, err := s1s.Printer("s0a10", 10)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_10)
 	assert.NotPanics(t, func() {
-		s0_prtr_10.Out("s0_prtr_10\n")
+		s0_prtr_10.Out("s0_prtr_a10\n")
 	})
 
-	s0_prtr_30a, err := s1s.Printer("s0", 30)
+	s0_prtr_30a, err := s1s.Printer("s0a30", 30)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_30a)
 	assert.NotPanics(t, func() {
-		s0_prtr_30a.Out("s0_prtr_30a\n")
+		s0_prtr_30a.Out("s0_prtr_a30\n")
 	})
 
-	s0_prtr_50a, err := s1s.Printer("s0", 50)
+	s0_prtr_50a, err := s1s.Printer("s0a50", 50)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_50a)
 	assert.NotPanics(t, func() {
-		s0_prtr_50a.Out("s0_prtr_50\n")
+		s0_prtr_50a.Out("s0_prtr_a50\n")
 	})
 
 	// err = screen1.Close()
@@ -254,25 +254,25 @@ func TestDuplicateScreen_RunningTwoScreensConcurrently(t *testing.T) {
 	})
 
 	// Write on shared screen only printer
-	s0_prtr_30b, err := s2s.Printer("s0", 30)
+	s0_prtr_30b, err := s2s.Printer("s0b30", 30)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_30b)
 	assert.NotPanics(t, func() {
-		s0_prtr_30b.Out("s0_prtr_30b\n")
+		s0_prtr_30b.Out("s0_prtr_b30\n")
 	})
 
-	s0_prtr_20, err := s2s.Printer("s0", 20)
+	s0_prtr_20, err := s2s.Printer("s0b20", 20)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_20)
 	assert.NotPanics(t, func() {
-		s0_prtr_20.Out("s0_prtr_20\n")
+		s0_prtr_20.Out("s0_prtr_b20\n")
 	})
 
-	s0_prtr_40, err := s2s.Printer("s0", 40)
+	s0_prtr_40, err := s2s.Printer("s0b40", 40)
 	assert.NoError(t, err)
 	require.NotNil(t, s0_prtr_40)
 	assert.NotPanics(t, func() {
-		s0_prtr_40.Out("s0_prtr_40\n")
+		s0_prtr_40.Out("s0_prtr_b40\n")
 	})
 
 	// err = screen2.Close()
@@ -312,6 +312,6 @@ func TestDuplicateScreen_RunningTwoScreensConcurrently(t *testing.T) {
 	errW.Reset()
 	err = screenTailer.TailOnlyBlocking(sharedSession, 2*time.Second)
 	require.NoError(t, err)
-	assert.Equal(t, "s0_prtr_10\ns0_prtr_20\ns0_prtr_30a\ns0_prtr_30b\ns0_prtr_40\ns0_prtr_50\n", outW.String())
+	assert.Equal(t, "s0_prtr_a10\ns0_prtr_b20\ns0_prtr_a30\ns0_prtr_b30\ns0_prtr_b40\ns0_prtr_a50\n", outW.String())
 	assert.Equal(t, "", errW.String())
 }
