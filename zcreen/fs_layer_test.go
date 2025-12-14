@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/printz"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestFsLayer_ScanNotExistingDir(t *testing.T) {
-	zg := buildZcreenGroup("doNotExistsDir")
+	zg := buildZcreenGroup("doNotExistsDir", time.Second)
 	updated, err := zg.scanFiles()
 	assert.False(t, updated)
 	assert.NoError(t, err)
@@ -25,7 +26,7 @@ func TestFsLayer_EmptyDir(t *testing.T) {
 	filez.MkdirAll(tmpDir, filez.DefaultDirPerms)
 	defer os.RemoveAll(tmpDir)
 
-	zg := buildZcreenGroup(tmpDir)
+	zg := buildZcreenGroup(tmpDir, time.Second)
 	updated, err := zg.scanFiles()
 	assert.False(t, updated)
 	assert.NoError(t, err)
@@ -109,7 +110,7 @@ func TestFsLayer_ScanFiles(t *testing.T) {
 	scenario1 := buildTestFsPrinters_scenario1(t, tmpDir)
 	_ = scenario1
 
-	zg := buildZcreenGroup(tmpDir)
+	zg := buildZcreenGroup(tmpDir, time.Second)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -190,7 +191,7 @@ func TestFsLayer_Sessions(t *testing.T) {
 	scenario1 := buildTestFsPrinters_scenario1(t, tmpDir)
 	_ = scenario1
 
-	zg := buildZcreenGroup(tmpDir)
+	zg := buildZcreenGroup(tmpDir, time.Second)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -220,7 +221,7 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	alphaBazPrinter3 := scenario1["alpha_5_baz_2_3"]
 	alphaFooPrinter1 := scenario1["alpha_5_foo_0_1"]
 
-	zg := buildZcreenGroup(tmpDir)
+	zg := buildZcreenGroup(tmpDir, time.Second)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -388,7 +389,7 @@ func TestFsLayer_OutputsNotifying(t *testing.T) {
 	globalNotifier2 := scenario1["global_notifier_2"]
 	bravoNotifier2 := scenario1["bravo_0_notifier_2"]
 
-	zg := buildZcreenGroup(tmpDir)
+	zg := buildZcreenGroup(tmpDir, time.Second)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -509,7 +510,7 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	bravoPifPrinter3 := scenario1["bravo_0_pif_0_3"]
 	bravoPafPrinter1 := scenario1["bravo_0_paf_1_1"]
 
-	zg := buildZcreenGroup(tmpDir)
+	zg := buildZcreenGroup(tmpDir, time.Second)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -629,7 +630,7 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	gammaBazPrinter1 := scenario1["gamma_0_baz_10_1"]
 	gammaBarPrinter1 := scenario1["gamma_0_bar_20_1"]
 
-	zg := buildZcreenGroup(tmpDir)
+	zg := buildZcreenGroup(tmpDir, time.Second)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -786,7 +787,7 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	sharedSession := "paf47001-shared"
 
 	// ----- First zcreenGroup
-	zg1 := buildZcreenGroup(tmpDir)
+	zg1 := buildZcreenGroup(tmpDir, time.Second)
 	require.NotNil(t, zg1)
 	updated, err := zg1.scanFiles()
 	assert.NoError(t, err)
@@ -839,7 +840,7 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	assert.NoError(t, err)
 
 	// ----- Second screen
-	zg2 := buildZcreenGroup(tmpDir)
+	zg2 := buildZcreenGroup(tmpDir, time.Second)
 	require.NotNil(t, zg2)
 	// updated, err = zg2.scanFiles()
 	// assert.NoError(t, err)

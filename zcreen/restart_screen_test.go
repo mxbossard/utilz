@@ -1,7 +1,6 @@
 package zcreen
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -224,6 +223,8 @@ func TestRestartScreen_BasicOut_DirtyRestart(t *testing.T) {
 	// }()
 	// assert.Equal(t, expectedMessage2, func() string { s, _ := filez.ReadString(session2TmpOutFilepath); return s }())
 
+	time.Sleep(noPrintTimeout + extraNoPrintTimeout)
+
 	// Test tailing zcreen outputs both  messages concatenated
 	outW := &strings.Builder{}
 	errW := &strings.Builder{}
@@ -259,10 +260,10 @@ func TestRestartScreen_BasicOut_TailingBeforeCleanRestart(t *testing.T) {
 		syncChan <- true
 	}()
 
-	fmt.Printf("building async screen ...\n")
+	// fmt.Printf("building async screen ...\n")
 	screen1 := NewAsyncScreen(tmpDir, true)
 	require.NotNil(t, screen1)
-	fmt.Printf("async screen built.\n")
+	// fmt.Printf("async screen built.\n")
 
 	// Usage of first screen
 	session, err := screen1.Session(expectedSession, 42)
@@ -294,7 +295,7 @@ func TestRestartScreen_BasicOut_TailingBeforeCleanRestart(t *testing.T) {
 	err = screen1.Close()
 	assert.NoError(t, err)
 
-	fmt.Print("screen 1 closed\n")
+	// fmt.Print("screen 1 closed\n")
 
 	// Restart screen (build a new screen)
 	time.Sleep(1 * time.Second)
@@ -319,10 +320,10 @@ func TestRestartScreen_BasicOut_TailingBeforeCleanRestart(t *testing.T) {
 
 	prtr2.Out(expectedMessage2)
 
-	fmt.Print("will end session\n")
+	// fmt.Print("will end session\n")
 	err = session2.End("session2 end message")
 	assert.NoError(t, err)
-	fmt.Print("session ended\n")
+	// fmt.Print("session ended\n")
 
 	// err = screen2.Close()
 	// assert.NoError(t, err)
@@ -366,9 +367,9 @@ func TestRestartScreen_BasicOut_TailingBeforeDirtyRestart(t *testing.T) {
 	syncChan := make(chan bool)
 	go func() {
 		// time.Sleep(100 * time.Millisecond)
-		fmt.Printf("building async tailer ...\n")
+		// fmt.Printf("building async tailer ...\n")
 		screenTailer := NewAsyncScreenTailerWaiting(outs, tmpDir, 1*time.Second)
-		fmt.Printf("async tailer built.\n")
+		// fmt.Printf("async tailer built.\n")
 		<-syncChan
 		err := screenTailer.TailSuppliedBlocking([]string{expectedSession}, 5000*time.Millisecond)
 		assert.NoError(t, err)
@@ -376,11 +377,11 @@ func TestRestartScreen_BasicOut_TailingBeforeDirtyRestart(t *testing.T) {
 	}()
 
 	time.Sleep(100 * time.Millisecond)
-	fmt.Printf("building async screen ...\n")
+	// fmt.Printf("building async screen ...\n")
 	screen1 := NewAsyncScreen(tmpDir, true)
 	require.NotNil(t, screen1)
 	require.DirExists(t, tmpDir)
-	fmt.Printf("async screen built.\n")
+	// fmt.Printf("async screen built.\n")
 	syncChan <- true
 
 	// Usage of first screen
@@ -411,6 +412,8 @@ func TestRestartScreen_BasicOut_TailingBeforeDirtyRestart(t *testing.T) {
 	// assert.Equal(t, expectedMessage1, func() string { s, _ := filez.ReadString(sessionTmpOutFilepath); return s }())
 
 	// Restart screen (build a new screen)
+
+	time.Sleep(noPrintTimeout + extraNoPrintTimeout)
 
 	var screen2 *screen
 	assert.NotPanics(t, func() {

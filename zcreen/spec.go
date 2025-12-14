@@ -204,7 +204,7 @@ const (
 	sessionSerialedFilename = "__session.ser"
 	extraTimeout            = 20 * time.Millisecond
 	noPrintTimeout          = 10 * time.Millisecond
-	extraNoPrintTimeout     = 2 * time.Millisecond
+	extraNoPrintTimeout     = 20 * time.Millisecond
 )
 
 type Sink interface {
