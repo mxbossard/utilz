@@ -179,13 +179,14 @@ Tailer v2 will consolidate each files in a coherent display.
 */
 
 const (
-	sessionDirPrefix0  = "___session__"
-	printersDirPrefix0 = "___printers__"
-	outFileQualifier   = "out"
-	errFileQualifier   = "err"
-	outFileNameSuffix0 = "-out"
-	errFileNameSuffix0 = "-err"
-	bufLen             = 1024
+	sessionDirPrefix0   = "___session__"
+	printersDirPrefix0  = "___printers__"
+	outFileQualifier    = "out"
+	errFileQualifier    = "err"
+	closedFileQualifier = "closed"
+	outFileNameSuffix0  = "-out"
+	errFileNameSuffix0  = "-err"
+	bufLen              = 1024
 )
 
 const (
@@ -202,6 +203,8 @@ const (
 	serializedExtension0    = ".ser"
 	sessionSerialedFilename = "__session.ser"
 	extraTimeout            = 20 * time.Millisecond
+	noPrintTimeout          = 10 * time.Millisecond
+	extraNoPrintTimeout     = 2 * time.Millisecond
 )
 
 type Sink interface {

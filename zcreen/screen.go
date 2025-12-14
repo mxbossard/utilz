@@ -27,7 +27,7 @@ type screen struct {
 	fileLock   *flock.Flock
 	tmpPath    string
 	sessions   map[string]*session
-	notifier   *fsPrinter
+	notifier   *autoFsPrinter
 	closed     bool
 }
 
@@ -54,7 +54,7 @@ func (s *screen) Session(name string, priorityOrder int) (*session, error) {
 }
 
 func (s *screen) NotifyPrinter() printz.Printer {
-	return s.notifier.ClosingPrinter
+	return s.notifier
 }
 
 func (s *screen) FlushBlocking(sessionName string, timeout time.Duration) (err error) {
@@ -321,7 +321,7 @@ func NewAsyncScreen(tmpPath string, force bool) *screen {
 		screenLock: screenLock,
 		fileLock:   flock.New(lockFilepath), // FIXME: rename syncLock
 		sessions:   make(map[string]*session),
-		notifier:   buildNotifierPrinter(tmpPath, "", 0, true),
+		notifier:   buildNotifierPrinter(tmpPath, "", 0),
 	}
 }
 

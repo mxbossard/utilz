@@ -55,9 +55,9 @@ type session struct {
 	// tmpOut, tmpErr         *os.File
 	// cursorOut, cursorErr   int64
 
-	printersByPriority map[int][]*fsPrinter
-	printers           map[string]*fsPrinter
-	notifier           *fsPrinter
+	printersByPriority map[int][]*autoFsPrinter
+	printers           map[string]*autoFsPrinter
+	notifier           *autoFsPrinter
 
 	currentPriority *int
 }
@@ -94,11 +94,11 @@ func (s *session) Printer(name string, priorityOrder int) (printz.Printer, error
 
 	// printerDirPath := printersDirPath(s.TmpPath)
 	// p := buildTmpPrinter(printerDirPath, name, priorityOrder, true)
-	p := buildSessionPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder, name, priorityOrder, true)
+	p := buildSessionPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder, name, priorityOrder)
 	s.printers[name] = p
 	s.printersByPriority[priorityOrder] = append(s.printersByPriority[priorityOrder], p)
 
-	return p.ClosingPrinter, nil
+	return p, nil
 }
 
 func (s *session) closePrinter(name, message string) error {
@@ -108,28 +108,17 @@ func (s *session) closePrinter(name, message string) error {
 
 	// Mark a printer closed, but do not close backing tmp files.
 	if prtr, ok := s.printers[name]; ok {
-		// if !prtr.open {
 		if prtr.IsClosed() {
 			// Printer already closed
 			return nil
 		}
-		// set consolidated to false to enforce a final consolidation
-		// prtr.consolidated = false
-		// prtr.open = false
-		// prtr.closeMessage = message
-		err := prtr.Flush()
-		if err != nil {
-			return err
-		}
-		err = prtr.Close(message)
+		err := prtr.Close(message)
 		if err != nil {
 			return err
 		}
 	} else {
 		return fmt.Errorf("no printer opened with name: [%s] closing message: %s", name, message)
 	}
-	// err := serializeSession(s)
-	// return err
 	return nil
 }
 
@@ -186,11 +175,7 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 func (s *session) close(message string) (err error) {
 	// close all opened printers
 	for _, prtr := range s.printers {
-		err = prtr.Flush()
-		if err != nil {
-			return err
-		}
-		err = s.closePrinter(prtr.name, message)
+		err = prtr.Close(message)
 		if err != nil {
 			return err
 		}
@@ -311,9 +296,9 @@ func (s *session) clear() (err error) {
 	s.serializationFilepath = ""
 	s.ScreenDirPath = ""
 	s.currentPriority = nil
-	s.printersByPriority = make(map[int][]*fsPrinter)
-	s.printers = make(map[string]*fsPrinter)
-	s.notifier = nil
+	s.printersByPriority = make(map[int][]*autoFsPrinter)
+	s.printers = make(map[string]*autoFsPrinter)
+	s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder)
 	s.cleared = true
 
 	printersDirPath := printersDirPath(s.TmpPath)
@@ -469,14 +454,17 @@ func (s *session) Flush() error {
 	defer s.mutex.Unlock()
 
 	agg := errorz.NewAggregated()
+	// Flush notifier
+	if s.notifier != nil {
+		err := s.notifier.Flush()
+		agg.Add(err)
+	}
+
 	// Flush all printers
 	for _, prtr := range s.printers {
 		err := prtr.Flush()
 		agg.Add(err)
 	}
-	// Flush notifier
-	err := s.notifier.Flush()
-	agg.Add(err)
 
 	// err := s.consolidateAll()
 	// if err != nil {
@@ -497,16 +485,16 @@ func (s *session) Reclaim() error {
 func (s *session) refresh() error {
 	//TODO
 	if s.printers == nil {
-		s.printers = make(map[string]*fsPrinter)
+		s.printers = make(map[string]*autoFsPrinter)
 	}
 	if s.printersByPriority == nil {
-		s.printersByPriority = make(map[int][]*fsPrinter)
+		s.printersByPriority = make(map[int][]*autoFsPrinter)
 	}
 	for _, printer := range s.printers {
 		s.printersByPriority[printer.priorityOrder] = append(s.printersByPriority[printer.priorityOrder], printer)
 	}
 	for _, printers := range s.printersByPriority {
-		slices.SortStableFunc(printers, func(a, b *fsPrinter) int {
+		slices.SortStableFunc(printers, func(a, b *autoFsPrinter) int {
 			return strings.Compare(a.name, b.name)
 		})
 	}
@@ -537,14 +525,14 @@ func (s *session) refresh0() error {
 			}
 			// fmt.Printf("<< scanning session %s printerFile: %s => name: %s #%d\n", printerDirPath, printerFile, printerName, printerPriority)
 			if s.printers == nil {
-				s.printers = make(map[string]*fsPrinter)
+				s.printers = make(map[string]*autoFsPrinter)
 			}
 			if _, ok := s.printers[printerName]; !ok {
 				// printer file does not exists in tmpPrintersMap
 				// tmpOutputs, tmpOut, tmpErr := buildTmpOutputs(printerDirPath, printerName)
 				// prtr := printz.New(tmpOutputs)
 				// prtr := buildTmpPrinter(printerDirPath, printerName, printerPriority, false)
-				prtr := buildSessionPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder, printerName, printerPriority, false)
+				prtr := buildSessionPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder, printerName, printerPriority)
 				// closingPrtr := printz.Closing(prtr)
 				// p := &printer{
 				// 	ClosingPrinter: closingPrtr,
@@ -561,12 +549,12 @@ func (s *session) refresh0() error {
 	}
 
 	// Clear and rebuild priority map
-	s.printersByPriority = make(map[int][]*fsPrinter)
+	s.printersByPriority = make(map[int][]*autoFsPrinter)
 	for _, printer := range s.printers {
 		s.printersByPriority[printer.priorityOrder] = append(s.printersByPriority[printer.priorityOrder], printer)
 	}
 	for _, printers := range s.printersByPriority {
-		slices.SortStableFunc(printers, func(a, b *fsPrinter) int {
+		slices.SortStableFunc(printers, func(a, b *autoFsPrinter) int {
 			return strings.Compare(a.name, b.name)
 		})
 	}
@@ -588,8 +576,8 @@ func buildSession(name string, priorityOrder int, screenDirPath string) (s *sess
 		s.Started = false
 		//session.Ended = false
 		s.readOnly = false
-		s.printersByPriority = make(map[int][]*fsPrinter)
-		s.printers = make(map[string]*fsPrinter)
+		s.printersByPriority = make(map[int][]*autoFsPrinter)
+		s.printers = make(map[string]*autoFsPrinter)
 	} else {
 		s = &session{
 			mutex:              &sync.Mutex{},
@@ -597,8 +585,8 @@ func buildSession(name string, priorityOrder int, screenDirPath string) (s *sess
 			PriorityOrder:      priorityOrder,
 			TmpPath:            sessionDirPath,
 			readOnly:           false,
-			printersByPriority: make(map[int][]*fsPrinter),
-			printers:           make(map[string]*fsPrinter),
+			printersByPriority: make(map[int][]*autoFsPrinter),
+			printers:           make(map[string]*autoFsPrinter),
 			ScreenDirPath:      screenDirPath,
 		}
 	}
@@ -617,7 +605,7 @@ func buildSession(name string, priorityOrder int, screenDirPath string) (s *sess
 	// s.tmpOut = tmpOut
 	// s.tmpErr = tmpErr
 	// s.notifier = buildPrinter(sessionDirPath, notifierPrinterName, 0)
-	s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder, true)
+	s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder)
 
 	return s, nil
 }
@@ -692,8 +680,8 @@ func deserializeSession(path string) (s *session, err error) {
 	defer func() { f.Close() }()
 	dec := gob.NewDecoder(f)
 	s = &session{mutex: &sync.Mutex{}}
-	s.printersByPriority = make(map[int][]*fsPrinter)
-	s.printers = make(map[string]*fsPrinter)
+	s.printersByPriority = make(map[int][]*autoFsPrinter)
+	s.printers = make(map[string]*autoFsPrinter)
 	err = dec.Decode(s)
 	if s.TmpPath == "" {
 		panic("empty session TmpPath")

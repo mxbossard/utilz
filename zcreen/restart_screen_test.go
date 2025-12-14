@@ -149,7 +149,7 @@ func TestRestartScreen_BasicOut_DirtyRestart(t *testing.T) {
 	expectedSession := "foo23001"
 	expectedPrinter := "bar"
 	expectedMessage1 := "pif"
-	expectedMessage2 := "paf"
+	expectedMessage2 := "paf2"
 
 	syncChan := make(chan bool)
 	go func() {
@@ -160,7 +160,7 @@ func TestRestartScreen_BasicOut_DirtyRestart(t *testing.T) {
 		session, err := screen1.Session(expectedSession, 42)
 		assert.NoError(t, err)
 		require.NotNil(t, session)
-		err = session.Start(time.Second)
+		err = session.Start(1 * time.Second)
 		assert.NoError(t, err)
 		prtr1, err := session.Printer(expectedPrinter, 10)
 		assert.NoError(t, err)

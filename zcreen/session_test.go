@@ -77,7 +77,7 @@ func TestSession_GetPrinter(t *testing.T) {
 	require.NotNil(t, session)
 	prtr, err := session.Printer(expectedPrinter, 10)
 	require.NoError(t, err)
-	assert.NotNil(t, prtr)
+	require.NotNil(t, prtr)
 
 	expectedPrintersDirPAth := printersDirPath(session.TmpPath)
 
@@ -86,10 +86,10 @@ func TestSession_GetPrinter(t *testing.T) {
 
 	// Until first print no printer file should exists
 	matches := priorizedPrinterFilenameMatches(expectedPrintersDirPAth, expectedPrinter, outFileQualifier)
-	require.Empty(t, matches)
+	assert.Empty(t, matches)
 
 	matches = priorizedPrinterFilenameMatches(expectedPrintersDirPAth, expectedPrinter, errFileQualifier)
-	require.Empty(t, matches)
+	assert.Empty(t, matches)
 
 	prtr.Flush()
 
@@ -455,7 +455,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 		filez.ReadStringOrPanic(sessionNotifierErrFilepath)
 	})
 
-	assert.Panics(t, func() {
+	assert.NotPanics(t, func() {
 		prtr20a.Out("20a-3,")
 	})
 

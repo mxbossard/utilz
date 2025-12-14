@@ -91,11 +91,12 @@ func forgePrioNameKey(priority int, name string) string {
 type printerPart struct {
 	outPath string
 	// outCursor int64
-	outFile *os.File
-	errPath string
+	outFile   *os.File
+	closedOut bool
+	errPath   string
 	// errCursor int64
-	errFile *os.File
-	closed  bool
+	errFile   *os.File
+	closedErr bool
 }
 
 func (p *printerPart) outputAt(outs printz.Outputs, outStart, errStart int64, buf []byte) (i, j int, err error) {
@@ -150,7 +151,7 @@ func (g *printerGroup) scanFiles() (updated bool, err error) {
 	var scannedPrinterPartsKeys []string
 	fs.WalkDir(zcreenFs, ".", func(path string, d fs.DirEntry, err error) error {
 		path = filepath.Join(g.path, path)
-		// fmt.Printf("scanning printerGroup %s %d file: %s\n", g.name, g.priority, path)
+
 		var qualifier, timestamp, pid string
 		if printerFilepathMatcher.MatchString(path) {
 			submatches := printerFilepathMatcher.FindStringSubmatch(path)
@@ -167,22 +168,39 @@ func (g *printerGroup) scanFiles() (updated bool, err error) {
 		} else {
 			// fmt.Printf("path: %s do not match notifierFilepathMatcher nor printerFilepathMatcher\n", path)
 		}
-		if qualifier != "" {
+		if d != nil && !d.IsDir() && qualifier != "" {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			// fmt.Printf("scanning printerGroup %s %d file: %s ; modTime: %s\n", g.name, g.priority, path, info.ModTime())
+
 			partKey := fmt.Sprintf("%s-%s", timestamp, pid)
 			// fmt.Printf("Adding printerPart #%s ...\n", partKey)
 			part, ok := (*g.partsByKey)[partKey]
 			if ok {
 				scannedPrinterPartsKeys = append(scannedPrinterPartsKeys, partKey)
-			} else if !ok && qualifier == "out" {
+			} else if qualifier == outFileQualifier {
 				outFilePath := path
 				errFilePath := ztring.ReplaceLast(path, "out", "err")
 				part = buildPrinterPart(outFilePath, errFilePath)
 				(*g.partsByKey)[partKey] = part
 				updated = true
 				scannedPrinterPartsKeys = append(scannedPrinterPartsKeys, partKey)
+				if time.Since(info.ModTime()) > noPrintTimeout+extraNoPrintTimeout {
+					// Consider file closed if not already
+					part.closedOut = true
+				}
+			} else if qualifier == errFileQualifier {
+				if time.Since(info.ModTime()) > noPrintTimeout+extraNoPrintTimeout {
+					// Consider file closed if not already
+					part.closedErr = true
+				}
 			}
-			if part != nil && qualifier == "closed" {
-				part.closed = true
+
+			if part != nil && qualifier == closedFileQualifier {
+				part.closedOut = true
+				part.closedErr = true
 				updated = true
 				// fmt.Printf("pp: %s/%s marked closed\n", g.name, partKey)
 			}
@@ -197,7 +215,7 @@ func (g *printerGroup) scanFiles() (updated bool, err error) {
 			delete(*g.partsByKey, k)
 			continue
 		}
-		allPartsClosed = allPartsClosed && v.closed
+		allPartsClosed = allPartsClosed && v.closedOut && v.closedErr
 	}
 	g.closed = allPartsClosed
 
@@ -212,8 +230,8 @@ type sessionGroup struct {
 	notifierParts      *printerGroup
 	printersByPrioName *map[string]*printerGroup
 	pointer            string
-	started, ended     bool
-	deadline           *time.Time
+	//started, ended     bool
+	deadline *time.Time
 	// endMsg             string
 }
 
@@ -367,7 +385,6 @@ func buildPrinterPart(outFilepath, errFilepath string) *printerPart {
 	pp := &printerPart{
 		outPath: outFilepath,
 		errPath: errFilepath,
-		closed:  false,
 	}
 	if filez.ExistsOrPanic(outFilepath) {
 		pp.outFile = filez.OpenReadOnlyOrPanic(outFilepath)
@@ -400,9 +417,9 @@ func buildSessionGroup(sessionDir, sessionName string, sessionPriority int) *ses
 		notifierParts:      buildPrinterGroup(filepath.Join(sessionDir, notifiersDir), "__notifier", 0),
 		printersByPrioName: &printersByPrioName,
 		pointer:            "",
-		started:            false,
-		ended:              false,
-		deadline:           nil,
+		// started:            false,
+		// ended:              false,
+		deadline: nil,
 	}
 }
 
@@ -421,6 +438,13 @@ func buildZcreenGroup(zcreenDir string) *zcreenGroup {
 func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printerPart]bool, outs printz.Outputs, pg *printerGroup, buf []byte, waitForClosed bool) (err error) {
 	printedSomeStuff := false
 	allPartsClosed := true
+
+	// scan printer group files before outputing to find more printer parts or update their closed state.
+	_, err = pg.scanFiles()
+	if err != nil {
+		return err
+	}
+
 	// fmt.Printf("outputing printer group: %s ...\n", pg.name)
 	partsKeys := collectionz.Keys(*pg.partsByKey)
 	sort.Strings(partsKeys)
@@ -429,22 +453,23 @@ func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printe
 	var closedPpks, openedPpks []string
 	for _, ppk := range partsKeys {
 		pp := (*pg.partsByKey)[ppk]
-		if pp.closed {
+		if pp.closedOut && pp.closedErr {
 			closedPpks = append(closedPpks, ppk)
 		} else {
 			openedPpks = append(openedPpks, ppk)
 		}
 	}
 	orderedPpks := append(closedPpks, openedPpks...)
+	// fmt.Printf("outputing printers in order: %s (closedPpks: %s) ...\n", orderedPpks, closedPpks)
 
 	for _, ppk := range orderedPpks {
 		pp := (*pg.partsByKey)[ppk]
-		if (*outputedParts)[pp] {
-			// Do not output already outputed printer parts.
-			continue
-		} else {
-			// fmt.Printf("printer part: %v not already outputed\n", pp)
-		}
+		// if (*outputedParts)[pp] {
+		// 	// Do not output already outputed printer parts.
+		// 	continue
+		// } else {
+		// 	// fmt.Printf("printer part: %v not already outputed\n", pp)
+		// }
 
 		// fmt.Printf("outputing printer out part: %s at %d/%d ...\n", pp.outPath, (*cursors)[pp.outFile], (*cursors)[pp.errFile])
 		i, j, err := pp.outputAt(outs, (*cursors)[pp.outFile], (*cursors)[pp.errFile], buf)
@@ -463,8 +488,8 @@ func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printe
 			// fmt.Printf("advanced cursor to out: %d err: %d\n", (*cursors)[pp.outFile], (*cursors)[pp.errFile])
 		}
 
-		allPartsClosed = allPartsClosed && pp.closed
-		if pp.closed {
+		allPartsClosed = allPartsClosed && pp.closedOut && pp.closedErr
+		if pp.closedOut && pp.closedErr {
 			// Flag printer part as outputed
 			(*outputedParts)[pp] = true
 			// fmt.Printf("marked printer outputed\n")
@@ -490,7 +515,7 @@ type zcreenGroupOutputer struct {
 	zg               *zcreenGroup
 	cursors          *map[*os.File]int64
 	outputedSessions *map[*sessionGroup]bool
-	outputedParts    *map[*printerPart]bool
+	outputedParts    *map[*printerPart]bool // Not used ?
 }
 
 // Output all parts of a printer keeping read context at global outputer level.
@@ -681,8 +706,8 @@ func (o *sessionGroupOutputer) outputs(outs printz.Outputs) (err error) {
 		}
 	}
 
-	//fmt.Printf("currentPriority: %d, blockingPrinterKey: %s,closedPgks: %s \n", currentPriority, o.blockingPrinterKey, collectionz.Values(closedPgks))
-	//fmt.Printf("outputing session: %s, orderedPgks: %s ...\n", o.sg.name, orderedPgks)
+	// fmt.Printf("currentPriority: %d, blockingPrinterKey: %s,closedPgks: %s \n", currentPriority, o.blockingPrinterKey, collectionz.Values(closedPgks))
+	// fmt.Printf("outputing session: %s, orderedPgks: %s ...\n", o.sg.name, orderedPgks)
 	// fmt.Printf("printerGroups: %v\n", o.sg.printersByPrioName)
 
 	fullyOutputted := true
@@ -698,12 +723,6 @@ func (o *sessionGroupOutputer) outputs(outs printz.Outputs) (err error) {
 			continue
 		} else {
 			// fmt.Printf(">> printer group not already outputed: %v\n", pg)
-		}
-
-		// scan printer group files before outputing to find more printer parts or update their closed state.
-		_, err = pg.scanFiles()
-		if err != nil {
-			return err
 		}
 
 		// fmt.Printf("<<>> outputting pg: %s (pg.closed: %v)\n", forgePrioNameKey(pg.priority, pg.name), pg.closed)
@@ -733,7 +752,7 @@ func (o *sessionGroupOutputer) outputs(outs printz.Outputs) (err error) {
 		return fmt.Errorf("error outputing session notifs: %w", err)
 	}
 
-	if o.sg.ended {
+	if fullyOutputted {
 		(*o.zgo.outputedSessions)[o.sg] = true
 		// attempt to output global notifier after session was ended.
 		err = o.zgo.outputsGlobalPrinter(outs, o.zgo.zg.notifierParts, buf, false)

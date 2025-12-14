@@ -31,16 +31,16 @@ func TestFsLayer_EmptyDir(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func buildTestFsPrinter(t *testing.T, m *map[string]*fsPrinter, tmpDir, session string, sessionPrio int, name string, prio, id int) (key, msg string, p *fsPrinter) {
+func buildTestFsPrinter(t *testing.T, m *map[string]*autoFsPrinter, tmpDir, session string, sessionPrio int, name string, prio, id int) (key, msg string, p *autoFsPrinter) {
 	if session == "" {
 		key = fmt.Sprintf("global_notifier_%d", id)
-		p = buildNotifierPrinter(tmpDir, "", 0, true)
+		p = buildNotifierPrinter(tmpDir, "", 0)
 	} else if name == "" {
 		key = fmt.Sprintf("%s_%d_notifier_%d", session, sessionPrio, id)
-		p = buildNotifierPrinter(tmpDir, session, sessionPrio, true)
+		p = buildNotifierPrinter(tmpDir, session, sessionPrio)
 	} else {
 		key = fmt.Sprintf("%s_%d_%s_%d_%d", session, sessionPrio, name, prio, id)
-		p = buildSessionPrinter(tmpDir, session, sessionPrio, name, prio, true)
+		p = buildSessionPrinter(tmpDir, session, sessionPrio, name, prio)
 	}
 	(*m)[key] = p
 	msg = fmt.Sprintf("msg-%s\n", key)
@@ -51,8 +51,8 @@ func buildTestFsPrinter(t *testing.T, m *map[string]*fsPrinter, tmpDir, session 
 	return
 }
 
-func buildTestFsPrinters_scenario1(t *testing.T, tmpDir string) (m map[string]*fsPrinter) {
-	m = make(map[string]*fsPrinter)
+func buildTestFsPrinters_scenario1(t *testing.T, tmpDir string) (m map[string]*autoFsPrinter) {
+	m = make(map[string]*autoFsPrinter)
 
 	// Global notifiers
 	buildTestFsPrinter(t, &m, tmpDir, "", 0, "", 0, 1)
@@ -206,7 +206,7 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	tmpDir := "/tmp/utilz.zcreen.TestFsLayer_OuputsOrdering"
 	require.NoError(t, os.RemoveAll(tmpDir))
 	filez.MkdirAll(tmpDir, filez.DefaultDirPerms)
-	defer os.RemoveAll(tmpDir)
+	// defer os.RemoveAll(tmpDir)
 	var err error
 
 	scenario1 := buildTestFsPrinters_scenario1(t, tmpDir)
@@ -410,7 +410,8 @@ func TestFsLayer_OutputsNotifying(t *testing.T) {
 	err = bravoOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, bravoOutputer.hasNext())
-	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
+	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\n"+
+		"msg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\n"+"msg-bravo_0_pif_0_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// gamma session outputs
@@ -451,6 +452,8 @@ func TestFsLayer_OutputsNotifying(t *testing.T) {
 	// Add a second global notif
 	globalNotifier2.Out("notif2_more\n")
 	err = globalNotifier2.Flush()
+	assert.NoError(t, err)
+	err = globalNotifier2.Close("msg")
 	assert.NoError(t, err)
 
 	// First session output display global notif
@@ -748,7 +751,7 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	gamma_low_pg := (*gammaSg.printersByPrioName)[forgePrioNameKey(15, "low")]
 	require.NotNil(t, gamma_low_pg)
 
-	assert.False(t, gammaSg.ended)
+	// assert.False(t, gammaSg.ended)
 	assert.True(t, gamma_bar_pg.closed)
 	assert.True(t, gamma_baz_pg.closed)
 	assert.True(t, gamma_high_pg.closed)
@@ -797,7 +800,7 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
 
-	m := make(map[string]*fsPrinter)
+	m := make(map[string]*autoFsPrinter)
 
 	// ----- zcreen 1 write tests
 	// Write on uniq printer

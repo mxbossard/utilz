@@ -22,7 +22,9 @@ type Outputs interface {
 	Err() io.Writer
 	Flushed() bool
 	LastPrint() time.Time
-	Counts() (int64, int64)
+	LastFlush() time.Time
+	OutputedCounts() (int64, int64)
+	FlushedCounts() (int64, int64)
 }
 
 type BasicOutputs struct {
@@ -30,12 +32,18 @@ type BasicOutputs struct {
 	out, err   *inoutz.CallbackWriter
 	flushed    bool
 	lastPrint  time.Time
+	lastFlush  time.Time
 	nOut, nErr *int64
+	fOut, fErr *int64
 }
 
 func (o *BasicOutputs) Flush() error {
 	o.Lock()
 	defer o.Unlock()
+
+	if o.flushed {
+		return nil
+	}
 
 	outs := []*inoutz.CallbackWriter{o.out, o.err}
 	for _, out := range outs {
@@ -49,7 +57,10 @@ func (o *BasicOutputs) Flush() error {
 			}
 		}
 	}
+	o.fOut = o.nOut
+	o.fErr = o.nErr
 	o.flushed = true
+	o.lastFlush = time.Now()
 	return nil
 }
 
@@ -73,25 +84,39 @@ func (o *BasicOutputs) LastPrint() time.Time {
 	return o.lastPrint
 }
 
-func (o *BasicOutputs) Counts() (int64, int64) {
+func (o *BasicOutputs) LastFlush() time.Time {
+	o.Lock()
+	defer o.Unlock()
+	return o.lastFlush
+}
+
+func (o *BasicOutputs) OutputedCounts() (int64, int64) {
 	return *o.nOut, *o.nErr
+}
+
+func (o *BasicOutputs) FlushedCounts() (int64, int64) {
+	return *o.fOut, *o.fErr
 }
 
 func callbackWriter(o *BasicOutputs, w io.Writer, written *int64) (cbw *inoutz.CallbackWriter) {
 	cbw = &inoutz.CallbackWriter{}
 	cbw.Nested = w
 	cbw.Callback = func(p []byte) {
-		o.Lock()
-		defer o.Unlock()
-		o.flushed = false
-		o.lastPrint = time.Now()
+		// o.Lock()
+		// defer o.Unlock()
+		// if len(p) > 0 {
+		// 	o.flushed = false
+		// 	o.lastPrint = time.Now()
+		// }
 	}
 	cbw.CallbackAfter = func(n int) {
 		o.Lock()
 		defer o.Unlock()
-		o.flushed = false
-		o.lastPrint = time.Now()
-		*written += int64(n)
+		if n > 0 {
+			o.flushed = false
+			o.lastPrint = time.Now()
+			*written += int64(n)
+		}
 	}
 	return
 }
@@ -100,6 +125,8 @@ func NewOutputs(out, err io.Writer) Outputs {
 	bo := &BasicOutputs{Mutex: &sync.Mutex{}, flushed: true}
 	bo.nOut = new(int64)
 	bo.nErr = new(int64)
+	bo.fOut = new(int64)
+	bo.fErr = new(int64)
 	bo.out = callbackWriter(bo, out, bo.nOut)
 	bo.err = callbackWriter(bo, err, bo.nErr)
 	return bo
@@ -143,6 +170,8 @@ func NewLazyFileOutputs(outFilepath, errFilepath string, flag int, perm fs.FileM
 	bo := &BasicOutputs{Mutex: &sync.Mutex{}, flushed: true}
 	bo.nOut = new(int64)
 	bo.nErr = new(int64)
+	bo.fOut = new(int64)
+	bo.fErr = new(int64)
 	bo.out = lazyCallbackFileWriter(bo, outFilepath, flag, perm, bo.nOut)
 	bo.err = lazyCallbackFileWriter(bo, errFilepath, flag, perm, bo.nErr)
 	return bo

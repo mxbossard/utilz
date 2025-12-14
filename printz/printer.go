@@ -37,6 +37,7 @@ type Printer interface {
 	Errf(string, ...interface{})
 	ColoredErrf(anzi.Color, string, ...interface{})
 	LastPrint() time.Time
+	LastFlush() time.Time
 	Counts() (int64, int64)
 	Outputs() Outputs
 }
@@ -45,16 +46,17 @@ type ClosingPrinter interface {
 	Printer
 	Closer
 	IsClosed() bool
+	Open()
 }
 
 type basicPrinter struct {
 	*sync.Mutex
-	outputs   Outputs
-	lastPrint time.Time
+	outputs Outputs
+	// lastPrint time.Time
 }
 
 func (p *basicPrinter) Counts() (int64, int64) {
-	return p.outputs.Counts()
+	return p.outputs.OutputedCounts()
 }
 
 func (p *basicPrinter) Outputs() Outputs {
@@ -77,7 +79,7 @@ func (o basicPrinter) Flushed() bool {
 func (p *basicPrinter) RecoverableOut(objects ...interface{}) (err error) {
 	p.Lock()
 	defer p.Unlock()
-	p.lastPrint = time.Now()
+	// p.lastPrint = time.Now()
 	//_, err = fmt.Fprint(p.outputs.Out(), objects...)
 	err = printTo(p.outputs.Out(), objects...)
 	return
@@ -103,7 +105,7 @@ func (p *basicPrinter) ColoredOutf(color anzi.Color, s string, params ...interfa
 func (p *basicPrinter) RecoverableErr(objects ...interface{}) (err error) {
 	p.Lock()
 	defer p.Unlock()
-	p.lastPrint = time.Now()
+	// p.lastPrint = time.Now()
 	//_, err = fmt.Fprint(p.outputs.Err(), objects...)
 	err = printTo(p.outputs.Err(), objects...)
 	return
@@ -127,10 +129,11 @@ func (p *basicPrinter) ColoredErrf(color anzi.Color, s string, params ...interfa
 }
 
 func (p basicPrinter) LastPrint() time.Time {
-	if p.outputs.LastPrint().After(p.lastPrint) {
-		return p.outputs.LastPrint()
-	}
-	return p.lastPrint
+	return p.outputs.LastPrint()
+}
+
+func (p basicPrinter) LastFlush() time.Time {
+	return p.outputs.LastFlush()
 }
 
 func stringify(obj interface{}) (str string, err error) {
@@ -239,6 +242,11 @@ func (p *closingPrinter) Close(message string) (err error) {
 	return
 }
 
+func (p *closingPrinter) Open() {
+	p.closed = false
+	p.message = ""
+}
+
 func (p *closingPrinter) IsClosed() bool {
 	return p.closed
 }
@@ -303,16 +311,14 @@ func (p *closingPrinter) ColoredErrf(color anzi.Color, s string, params ...inter
 func New(outputs Outputs) Printer {
 	buffered := NewBufferedOutputs(outputs)
 	var m sync.Mutex
-	var t time.Time
-	printer := basicPrinter{&m, buffered, t}
+	printer := basicPrinter{&m, buffered}
 
 	return &printer
 }
 
 func NewUnbuffured(outputs Outputs) Printer {
 	var m sync.Mutex
-	var t time.Time
-	printer := basicPrinter{&m, outputs, t}
+	printer := basicPrinter{&m, outputs}
 	return &printer
 }
 
@@ -331,8 +337,7 @@ func NewDiscarding() Printer {
 func Buffered(p Printer) Printer {
 	buffered := NewBufferedOutputs(p.Outputs())
 	var m sync.Mutex
-	var t time.Time
-	printer := basicPrinter{&m, buffered, t}
+	printer := basicPrinter{&m, buffered}
 	return &printer
 }
 
