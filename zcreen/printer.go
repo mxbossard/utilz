@@ -190,7 +190,7 @@ func (p *autoFsPrinter) Counts() (int64, int64) {
 }
 func (p *autoFsPrinter) Outputs() printz.Outputs {
 	updateFileOutputs(p)
-	return p.Outputs()
+	return p.fsPrinter.Outputs()
 }
 
 func (p *autoFsPrinter) RecoverableOut(obj ...interface{}) error {
