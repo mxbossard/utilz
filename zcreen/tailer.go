@@ -563,7 +563,7 @@ func (s *screenTailer) TailSuppliedBlocking0(sessionNames []string, timeout time
 	var notEnded []*session
 	for notEnded == nil || len(notEnded) > 0 {
 		notEndedNames := collectionz.Map(&notEnded, func(s *session) string { return s.Name })
-		if time.Since(startTime) > timeout {
+		if len(notEnded) > 0 && time.Since(startTime) > timeout {
 			err := errorz.Timeoutf(timeout, "TailSuppliedBlocking(), some sessions not ended after timeout: %s", notEndedNames)
 			return err
 		}
@@ -692,7 +692,7 @@ func (s *screenTailer) TailAllBlocking(timeout time.Duration) error {
 	var notEnded []*session
 	for notEnded == nil || len(notEnded) > 0 {
 		notEndedNames := collectionz.Map(&notEnded, func(s *session) string { return s.Name })
-		if time.Since(startTime) > timeout {
+		if len(notEnded) > 0 && time.Since(startTime) > timeout {
 			err := errorz.Timeoutf(timeout, "TailAllBlocking(), some sessions not ended after timeout: %s", notEndedNames)
 			return err
 		}

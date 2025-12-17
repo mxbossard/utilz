@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mxbossard/utilz/errorz"
@@ -25,10 +26,61 @@ func manageError(err error) bool {
 	return true
 }
 
+
+func RemoveTemp(pattern string) error {
+	if !strings.HasSuffix(pattern, "*") {
+		// Add * wildcard in pattern if missing
+		pattern += "*"
+	}
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return err
+	}
+	agg := errorz.NewAgg()
+	for _, match := range matches {
+		err := os.Remove(match)
+		agg.Add(err)
+	}
+	return agg.Return()
+}
+
+func RemoveTempOrPanic(pattern string) {
+	err :=  RemoveTemp(pattern)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func RemoveAllTemp(pattern string) error {
+	if !strings.HasSuffix(pattern, "*") {
+		// Add * wildcard in pattern if missing
+		pattern += "*"
+	}
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return err
+	}
+	agg := errorz.NewAgg()
+	for _, match := range matches {
+		err := os.RemoveAll(match)
+		agg.Add(err)
+	}
+	return agg.Return()
+}
+
+func RemoveAllTempOrPanic(pattern string) {
+	err :=  RemoveAllTemp(pattern)
+        if err != nil {
+                panic(err)
+        }
+}
+
 /** Return a temp file path. Do not touch the file. */
 func MkTemp(pattern string) (string, error) {
-	dir := os.TempDir()
-	return MkTemp2(dir, pattern)
+	tmpDir := os.TempDir()
+	patternDir := filepath.Dir(pattern)
+	pattern = filepath.Base(pattern)
+	return MkTemp2(filepath.Join(tmpDir, patternDir), pattern)
 }
 
 /** Return a temp file path. Do not touch the file. */
@@ -42,6 +94,10 @@ func MkTempOrPanic(pattern string) string {
 
 /** Return a temp file path. Do not touch the file. */
 func MkTemp2(dir, pattern string) (string, error) {
+	err := MkdirAll(dir, DefaultDirPerms)
+	if err != nil {
+		return "", err
+	}
 	f, err := os.CreateTemp(dir, pattern)
 	if err != nil {
 		return "", err
@@ -75,8 +131,10 @@ func OpenTempOrPanic(pattern string) *os.File {
 }
 
 func MkdirTemp(pattern string) (string, error) {
-	dir := os.TempDir()
-	p, err := MkdirTemp2(dir, pattern)
+	tmpDir := os.TempDir()
+	patternDir := filepath.Dir(pattern)
+	pattern = filepath.Base(pattern)
+	p, err := MkdirTemp2(filepath.Join(tmpDir, patternDir), pattern)
 	return p, err
 }
 
@@ -89,6 +147,10 @@ func MkdirTempOrPanic(pattern string) string {
 }
 
 func MkdirTemp2(dir, pattern string) (string, error) {
+	err := MkdirAll(dir, DefaultDirPerms)
+	if err != nil {
+		return "", err
+	}
 	p, err := os.MkdirTemp(dir, pattern)
 	return p, err
 }
