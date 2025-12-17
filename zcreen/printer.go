@@ -267,23 +267,23 @@ func buildAutoFsPrinter(name string, priority int, filepathForge func(qualifier 
 	}
 
 	return &autoFsPrinter{
-		fsPrinter:      fsPrinter,
-		noPrintTimeout: noPrintTimeout,
-		filepathForge:  filepathForge,
+		fsPrinter: fsPrinter,
+		// noPrintTimeout: noPrintTimeout,
+		filepathForge: filepathForge,
 	}
 }
 
-func buildNotifierPrinter0(zcreenPath, sessionName string, sessionPriority int) *fsPrinter {
+func buildNotifierPrinter(zcreenPath, sessionName string, sessionPriority int) *fsPrinter {
 	notifierOutFilepath, notifierErrFilepath, closeFilepath := forgeNotiferPrinterFilepathes(zcreenPath, sessionName, sessionPriority)
 	return buildFsPrinter("__notifier", 0, notifierOutFilepath, notifierErrFilepath, closeFilepath)
 }
 
-func buildSessionPrinter0(zcreenPath, sessionName string, sessionPriority int, printerName string, printerPriority int) *fsPrinter {
+func buildSessionPrinter(zcreenPath, sessionName string, sessionPriority int, printerName string, printerPriority int) *fsPrinter {
 	printerOutFilepath, printerErrFilepath, closeFilepath := forgeSessionPrinterFilepathes(zcreenPath, sessionName, sessionPriority, printerName, printerPriority)
 	return buildFsPrinter(printerName, printerPriority, printerOutFilepath, printerErrFilepath, closeFilepath)
 }
 
-func buildNotifierPrinter(zcreenPath, sessionName string, sessionPriority int) *autoFsPrinter {
+func buildNotifierPrinter0(zcreenPath, sessionName string, sessionPriority int) *autoFsPrinter {
 	notifierOutFilepath, notifierErrFilepath, notifierClosedFilepath := forgeNotiferPrinterFilepathes(zcreenPath, sessionName, sessionPriority)
 	filepathForge := func(qualifier string) string {
 		switch qualifier {
@@ -299,7 +299,7 @@ func buildNotifierPrinter(zcreenPath, sessionName string, sessionPriority int) *
 	return buildAutoFsPrinter("__notifier", 0, filepathForge)
 }
 
-func buildSessionPrinter(zcreenPath, sessionName string, sessionPriority int, printerName string, printerPriority int) *autoFsPrinter {
+func buildSessionPrinter0(zcreenPath, sessionName string, sessionPriority int, printerName string, printerPriority int) *autoFsPrinter {
 	notifierOutFilepath, notifierErrFilepath, notifierClosedFilepath := forgeSessionPrinterFilepathes(zcreenPath, sessionName, sessionPriority, printerName, printerPriority)
 	filepathForge := func(qualifier string) string {
 		switch qualifier {

@@ -455,7 +455,7 @@ func TestSession_MultiplePrinters(t *testing.T) {
 		filez.ReadStringOrPanic(sessionNotifierErrFilepath)
 	})
 
-	assert.NotPanics(t, func() {
+	assert.Panics(t, func() {
 		prtr20a.Out("20a-3,")
 	})
 

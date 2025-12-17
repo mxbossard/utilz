@@ -27,7 +27,7 @@ type screen struct {
 	fileLock   *flock.Flock
 	tmpPath    string
 	sessions   map[string]*session
-	notifier   *autoFsPrinter
+	notifier   *fsPrinter
 	closed     bool
 }
 

@@ -209,12 +209,12 @@ func (g *printerGroup) scanFiles() (updated bool, err error) {
 					updated = updated || part.outMtime != info.ModTime()
 					part.outMtime = info.ModTime()
 					// Consider printer part out file closed if timeout reached
-					part.outTimeouted = time.Since(info.ModTime()) > noPrintTimeout+g.extraNoPrintTimeout
+					// part.outTimeouted = time.Since(info.ModTime()) > noPrintTimeout+g.extraNoPrintTimeout
 				case errFileQualifier:
 					updated = updated || part.errMtime != info.ModTime()
 					part.errMtime = info.ModTime()
 					// Consider printer part err file closed if timeout reached
-					part.errTimeouted = time.Since(info.ModTime()) > noPrintTimeout+g.extraNoPrintTimeout
+					// part.errTimeouted = time.Since(info.ModTime()) > noPrintTimeout+g.extraNoPrintTimeout
 				case closedFileQualifier:
 					updated = updated || part.closedMtime != info.ModTime()
 					part.closedMtime = info.ModTime()
@@ -227,6 +227,7 @@ func (g *printerGroup) scanFiles() (updated bool, err error) {
 	})
 
 	allPartsClosed := true
+	onePartClosed := false
 	scannedPrinterPartsKeys := collectionz.Keys(scannedPrinterPartsKeysMap)
 	var partsToRemove []string
 	for k, v := range *g.partsByKey {
@@ -236,16 +237,19 @@ func (g *printerGroup) scanFiles() (updated bool, err error) {
 			updated = true
 			continue
 		}
-		v.closed = v.closed ||
-			v.outTimeouted && v.errMtime.IsZero() ||
-			v.errTimeouted && v.outMtime.IsZero() ||
-			v.outTimeouted && v.errTimeouted
+		// v.closed = v.closed ||
+		// 	v.outTimeouted && v.errMtime.IsZero() ||
+		// 	v.errTimeouted && v.outMtime.IsZero() ||
+		// 	v.outTimeouted && v.errTimeouted
 		allPartsClosed = allPartsClosed && v.closed
+		onePartClosed = onePartClosed || v.closed
 	}
 	for _, k := range partsToRemove {
 		delete(*g.partsByKey, k)
 	}
-	g.closed = allPartsClosed
+	// Printer group is closed after first closed part.
+	// g.closed = allPartsClosed
+	g.closed = onePartClosed
 
 	return updated, agg.Return()
 }
@@ -293,7 +297,7 @@ func (g *sessionGroup) scanFiles() (updated bool, err error) {
 			key := forgePrioNameKey(priority, name)
 			if _, ok := (*g.printersByPrioName)[key]; !ok {
 				// If new printer group add it
-				group := buildPrinterGroup(path, name, priority, g.extraNoPrintTimeout)
+				group := buildPrinterGroup(path, name, priority)
 				(*g.printersByPrioName)[key] = group
 			}
 
@@ -377,7 +381,7 @@ func (g *zcreenGroup) scanFiles() (updated bool, err error) {
 
 			key := forgePrioNameKey(priority, name)
 			if group, ok = (*g.sessionsByPrioName)[key]; !ok {
-				group = buildSessionGroup(path, name, priority, g.extraNoPrintTimeout)
+				group = buildSessionGroup(path, name, priority)
 			}
 			group.name = name
 			group.priority = priority
@@ -424,41 +428,41 @@ func buildPrinterPart(outFilepath, errFilepath string) *printerPart {
 	return pp
 }
 
-func buildPrinterGroup(printerDir, printerName string, printerPriority int, extraNoPrintTimeout time.Duration) *printerGroup {
+func buildPrinterGroup(printerDir, printerName string, printerPriority int) *printerGroup {
 	partsByKey := make(map[string]*printerPart)
 	return &printerGroup{
-		path:                printerDir,
-		name:                printerName,
-		priority:            printerPriority,
-		partsByKey:          &partsByKey,
-		pointer:             "",
-		closed:              false,
-		extraNoPrintTimeout: extraNoPrintTimeout,
+		path:       printerDir,
+		name:       printerName,
+		priority:   printerPriority,
+		partsByKey: &partsByKey,
+		pointer:    "",
+		closed:     false,
+		// extraNoPrintTimeout: extraNoPrintTimeout,
 	}
 }
 
-func buildSessionGroup(sessionDir, sessionName string, sessionPriority int, extraNoPrintTimeout time.Duration) *sessionGroup {
+func buildSessionGroup(sessionDir, sessionName string, sessionPriority int) *sessionGroup {
 	printersByPrioName := make(map[string]*printerGroup)
 	return &sessionGroup{
-		path:                sessionDir,
-		name:                sessionName,
-		priority:            sessionPriority,
-		notifierParts:       buildPrinterGroup(filepath.Join(sessionDir, notifiersDir), "__notifier", 0, extraNoPrintTimeout),
-		printersByPrioName:  &printersByPrioName,
-		pointer:             "",
-		extraNoPrintTimeout: extraNoPrintTimeout,
+		path:               sessionDir,
+		name:               sessionName,
+		priority:           sessionPriority,
+		notifierParts:      buildPrinterGroup(filepath.Join(sessionDir, notifiersDir), "__notifier", 0),
+		printersByPrioName: &printersByPrioName,
+		pointer:            "",
+		// extraNoPrintTimeout: extraNoPrintTimeout,
 		// deadline: nil,
 	}
 }
 
-func buildZcreenGroup(zcreenDir string, extraNoPrintTimeout time.Duration) *zcreenGroup {
+func buildZcreenGroup(zcreenDir string) *zcreenGroup {
 	sessionsByPrioName := make(map[string]*sessionGroup)
 	return &zcreenGroup{
-		path:                zcreenDir,
-		notifierParts:       buildPrinterGroup(filepath.Join(zcreenDir, notifiersDir), "__notifier", 0, extraNoPrintTimeout),
-		sessionsByPrioName:  &sessionsByPrioName,
-		pointer:             "",
-		extraNoPrintTimeout: extraNoPrintTimeout,
+		path:               zcreenDir,
+		notifierParts:      buildPrinterGroup(filepath.Join(zcreenDir, notifiersDir), "__notifier", 0),
+		sessionsByPrioName: &sessionsByPrioName,
+		pointer:            "",
+		// extraNoPrintTimeout: extraNoPrintTimeout,
 	}
 }
 
@@ -479,16 +483,17 @@ func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printe
 	sort.Strings(partsKeys)
 
 	// First Seek closed printers and promote them top priority
-	var closedPpks, openedPpks []string
-	for _, ppk := range partsKeys {
-		pp := (*pg.partsByKey)[ppk]
-		if pp.closed {
-			closedPpks = append(closedPpks, ppk)
-		} else {
-			openedPpks = append(openedPpks, ppk)
-		}
-	}
-	orderedPpks := append(closedPpks, openedPpks...)
+	// var closedPpks, openedPpks []string
+	// for _, ppk := range partsKeys {
+	// 	pp := (*pg.partsByKey)[ppk]
+	// 	if pp.closed {
+	// 		closedPpks = append(closedPpks, ppk)
+	// 	} else {
+	// 		openedPpks = append(openedPpks, ppk)
+	// 	}
+	// }
+	// orderedPpks := append(closedPpks, openedPpks...)
+	orderedPpks := partsKeys
 	if len(orderedPpks) > 0 {
 		// fmt.Printf("outputing printers in order: %s (closedPpks: %s) ...\n", orderedPpks, closedPpks)
 	}
@@ -520,15 +525,16 @@ func outputsPrinterGroup(cursors *map[*os.File]int64, outputedParts *map[*printe
 		}
 
 		// allPartsClosed = allPartsClosed && pp.closed
-		if pp.closed {
-			// Flag printer part as outputed
-			(*outputedParts)[pp] = true
-			// fmt.Printf("marked printer outputed\n")
-		} else if waitForClosed {
-			// fmt.Printf("waiting not closed pg: %s; %v\n", pg.name, pp)
-			// current part not closed => exit loop
-			break
-		}
+
+		// if pp.closed {
+		// 	// Flag printer part as outputed
+		// 	(*outputedParts)[pp] = true
+		// 	// fmt.Printf("marked printer outputed\n")
+		// } else if waitForClosed {
+		// 	// fmt.Printf("waiting not closed pg: %s; %v\n", pg.name, pp)
+		// 	// current part not closed => exit loop
+		// 	break
+		// }
 	}
 
 	if printedSomeStuff {
@@ -590,7 +596,7 @@ func (o *zcreenGroupOutputer) sessionOutputer(sessionName string) *sessionGroupO
 		// panic(fmt.Sprintf("no session: %s to output", sessionName))
 		// Init an empty session group with 0 priority (which must be updated later if printers are used)
 		sDir := forgeSessionDirPath(o.zg.path, sessionName, 0)
-		sg = buildSessionGroup(sDir, sessionName, 0, o.zg.extraNoPrintTimeout)
+		sg = buildSessionGroup(sDir, sessionName, 0)
 	}
 	cursors := make(map[*os.File]int64)
 	outputedPrinters := make(map[*printerGroup]bool)

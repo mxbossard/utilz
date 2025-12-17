@@ -810,7 +810,7 @@ func NewAsyncScreenTailer(outputs printz.Outputs, tmpPath string) *screenTailer 
 	// notifier := buildReadOnlyPrinter(tmpPath, notifierPrinterName, 0)
 	// notifier := buildNotifierPrinter(tmpPath, "", 0, false)
 	lockFilepath := filepath.Join(tmpPath, lockFilename)
-	zg := buildZcreenGroup(tmpPath, extraNoPrintTimeout)
+	zg := buildZcreenGroup(tmpPath)
 	_, err := zg.scanFiles()
 	if err != nil {
 		panic(fmt.Errorf("unable to update zcreen group from path: %s with error: %w", tmpPath, err))

@@ -223,7 +223,7 @@ func TestRestartScreen_BasicOut_DirtyRestart(t *testing.T) {
 	// }()
 	// assert.Equal(t, expectedMessage2, func() string { s, _ := filez.ReadString(session2TmpOutFilepath); return s }())
 
-	time.Sleep(noPrintTimeout + extraNoPrintTimeout)
+	// time.Sleep(noPrintTimeout + extraNoPrintTimeout)
 
 	// Test tailing zcreen outputs both  messages concatenated
 	outW := &strings.Builder{}
@@ -413,7 +413,7 @@ func TestRestartScreen_BasicOut_TailingBeforeDirtyRestart(t *testing.T) {
 
 	// Restart screen (build a new screen)
 
-	time.Sleep(noPrintTimeout + extraNoPrintTimeout)
+	// time.Sleep(noPrintTimeout + extraNoPrintTimeout)
 
 	var screen2 *screen
 	assert.NotPanics(t, func() {

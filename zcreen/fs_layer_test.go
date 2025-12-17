@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/mxbossard/utilz/filez"
 	"github.com/mxbossard/utilz/printz"
@@ -14,7 +13,7 @@ import (
 )
 
 func TestFsLayer_ScanNotExistingDir(t *testing.T) {
-	zg := buildZcreenGroup("doNotExistsDir", time.Second)
+	zg := buildZcreenGroup("doNotExistsDir")
 	updated, err := zg.scanFiles()
 	assert.False(t, updated)
 	assert.NoError(t, err)
@@ -26,13 +25,13 @@ func TestFsLayer_EmptyDir(t *testing.T) {
 	filez.MkdirAll(tmpDir, filez.DefaultDirPerms)
 	defer os.RemoveAll(tmpDir)
 
-	zg := buildZcreenGroup(tmpDir, time.Second)
+	zg := buildZcreenGroup(tmpDir)
 	updated, err := zg.scanFiles()
 	assert.False(t, updated)
 	assert.NoError(t, err)
 }
 
-func buildTestFsPrinter(t *testing.T, m *map[string]*autoFsPrinter, tmpDir, session string, sessionPrio int, name string, prio, id int) (key, msg string, p *autoFsPrinter) {
+func buildTestFsPrinter(t *testing.T, m *map[string]*fsPrinter, tmpDir, session string, sessionPrio int, name string, prio, id int) (key, msg string, p *fsPrinter) {
 	if session == "" {
 		key = fmt.Sprintf("global_notifier_%d", id)
 		p = buildNotifierPrinter(tmpDir, "", 0)
@@ -52,8 +51,8 @@ func buildTestFsPrinter(t *testing.T, m *map[string]*autoFsPrinter, tmpDir, sess
 	return
 }
 
-func buildTestFsPrinters_scenario1(t *testing.T, tmpDir string) (m map[string]*autoFsPrinter) {
-	m = make(map[string]*autoFsPrinter)
+func buildTestFsPrinters_scenario1(t *testing.T, tmpDir string) (m map[string]*fsPrinter) {
+	m = make(map[string]*fsPrinter)
 
 	// Global notifiers
 	buildTestFsPrinter(t, &m, tmpDir, "", 0, "", 0, 1)
@@ -110,7 +109,7 @@ func TestFsLayer_ScanFiles(t *testing.T) {
 	scenario1 := buildTestFsPrinters_scenario1(t, tmpDir)
 	_ = scenario1
 
-	zg := buildZcreenGroup(tmpDir, time.Second)
+	zg := buildZcreenGroup(tmpDir)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -191,7 +190,7 @@ func TestFsLayer_Sessions(t *testing.T) {
 	scenario1 := buildTestFsPrinters_scenario1(t, tmpDir)
 	_ = scenario1
 
-	zg := buildZcreenGroup(tmpDir, time.Second)
+	zg := buildZcreenGroup(tmpDir)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -221,7 +220,7 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	alphaBazPrinter3 := scenario1["alpha_5_baz_2_3"]
 	alphaFooPrinter1 := scenario1["alpha_5_foo_0_1"]
 
-	zg := buildZcreenGroup(tmpDir, time.Second)
+	zg := buildZcreenGroup(tmpDir)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -247,7 +246,9 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	err = alphaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, alphaOutputer.hasNext())
-	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-alpha_5_notifier_1\nmsg-alpha_5_notifier_2\nmsg-alpha_5_bar_0_1\n", outW.String())
+	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\n"+
+		"msg-alpha_5_notifier_1\nmsg-alpha_5_notifier_2\nmsg-alpha_5_bar_0_1\n"+
+		"msg-alpha_5_bar_0_2\nmsg-alpha_5_bar_0_3\nmsg-alpha_5_bar_0_4\nmsg-alpha_5_bar_0_5\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// Re outputing should not print more data
@@ -269,7 +270,8 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	err = alphaOutputer2.outputs(outs2)
 	assert.NoError(t, err)
 	assert.True(t, alphaOutputer2.hasNext())
-	assert.Equal(t, "msg-alpha_5_notifier_1\nmsg-alpha_5_notifier_2\nmsg-alpha_5_bar_0_1\n", out2W.String())
+	assert.Equal(t, "msg-alpha_5_notifier_1\nmsg-alpha_5_notifier_2\nmsg-alpha_5_bar_0_1\n"+
+		"msg-alpha_5_bar_0_2\nmsg-alpha_5_bar_0_3\nmsg-alpha_5_bar_0_4\nmsg-alpha_5_bar_0_5\n", out2W.String())
 	assert.Equal(t, "", err2W.String())
 
 	// bravo session outputs
@@ -282,7 +284,8 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	err = bravoOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, bravoOutputer.hasNext())
-	assert.Equal(t, "msg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
+	assert.Equal(t, "msg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\n"+
+		"msg-bravo_0_pif_0_1\nmsg-bravo_0_pif_0_2\nmsg-bravo_0_pif_0_3\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// Re outputing should not print more data
@@ -314,10 +317,10 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	err = alphaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, alphaOutputer.hasNext())
-	assert.Equal(t, "msg-alpha_5_bar_0_2\n", outW.String())
+	assert.Equal(t, "msg-alpha_5_foo_0_1\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
-	// Closing last printer part should print it first
+	// Closing last printer parts should not do anything since printer group already closed
 	outW.Reset()
 	errW.Reset()
 	err = alphaBarPrinter4.Close("close2")
@@ -329,11 +332,10 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	err = alphaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, alphaOutputer.hasNext())
-	assert.Equal(t, "msg-alpha_5_bar_0_4\n", outW.String())
+	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
 
-	// Closing all bar printer parts should print next printer
-	// The printer should be considered closed since all parts are closed
+	// Closing all bar printer parts should not do anything since printer group already closed
 	outW.Reset()
 	errW.Reset()
 	err = alphaBarPrinter5.Close("close4")
@@ -348,7 +350,7 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	err = alphaOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, alphaOutputer.hasNext())
-	assert.Equal(t, "msg-alpha_5_bar_0_3\nmsg-alpha_5_bar_0_5\nmsg-alpha_5_foo_0_1\n", outW.String())
+	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// Closing all foo & baz printer parts should reach end of alphaOutputer
@@ -358,8 +360,9 @@ func TestFsLayer_OuputsOrdering(t *testing.T) {
 	assert.NoError(t, err)
 	err = alphaBazPrinter2.Close("close8")
 	assert.NoError(t, err)
-	err = alphaBazPrinter3.Close("close9")
-	assert.NoError(t, err)
+	_ = alphaBazPrinter3
+	// err = alphaBazPrinter3.Close("close9")
+	// assert.NoError(t, err)
 	err = alphaOutputer.update()
 	assert.NoError(t, err)
 	err = alphaOutputer.outputs(outs)
@@ -389,7 +392,7 @@ func TestFsLayer_OutputsNotifying(t *testing.T) {
 	globalNotifier2 := scenario1["global_notifier_2"]
 	bravoNotifier2 := scenario1["bravo_0_notifier_2"]
 
-	zg := buildZcreenGroup(tmpDir, time.Second)
+	zg := buildZcreenGroup(tmpDir)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -412,7 +415,8 @@ func TestFsLayer_OutputsNotifying(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, bravoOutputer.hasNext())
 	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\n"+
-		"msg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\n"+"msg-bravo_0_pif_0_1\n", outW.String())
+		"msg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\n"+
+		"msg-bravo_0_pif_0_1\nmsg-bravo_0_pif_0_2\nmsg-bravo_0_pif_0_3\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// gamma session outputs
@@ -510,7 +514,7 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	bravoPifPrinter3 := scenario1["bravo_0_pif_0_3"]
 	bravoPafPrinter1 := scenario1["bravo_0_paf_1_1"]
 
-	zg := buildZcreenGroup(tmpDir, time.Second)
+	zg := buildZcreenGroup(tmpDir)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -522,7 +526,6 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
 
-	// Todo add prints like add notifications
 	// bravo session outputs
 	outW.Reset()
 	errW.Reset()
@@ -533,7 +536,9 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	err = bravoOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, bravoOutputer.hasNext())
-	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\nmsg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\nmsg-bravo_0_pif_0_1\n", outW.String())
+	assert.Equal(t, "msg-global_notifier_1\nmsg-global_notifier_2\nmsg-global_notifier_3\n"+
+		"msg-bravo_0_notifier_1\nmsg-bravo_0_notifier_2\nmsg-bravo_0_notifier_3\n"+
+		"msg-bravo_0_pif_0_1\nmsg-bravo_0_pif_0_2\nmsg-bravo_0_pif_0_3\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	// gamma session outputs
@@ -570,7 +575,7 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
 
-	// Add a second print in last bravo printer => MUST NOT output because not current outputing printer
+	// Add a second print in last bravo printer => MUST output because current outputing printer group
 	bravoPifPrinter3.Out("bravo_pif_3_more\n")
 	err = bravoPifPrinter3.Flush()
 	assert.NoError(t, err)
@@ -583,7 +588,7 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	err = bravoOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, bravoOutputer.hasNext())
-	assert.Equal(t, "", outW.String())
+	assert.Equal(t, "bravo_pif_3_more\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	outW.Reset()
@@ -594,11 +599,11 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	assert.Equal(t, "", outW.String())
 	assert.Equal(t, "", errW.String())
 
-	// Close first & last printers => MUST output last printer data then middle printer not closed data
+	// Close first printers => MUST output following printer group data
 	err = bravoPifPrinter3.Close("msg3")
 	assert.NoError(t, err)
-	err = bravoPifPrinter1.Close("msg1")
-	assert.NoError(t, err)
+	// err = bravoPifPrinter1.Close("msg1")
+	// assert.NoError(t, err)
 	err = bravoOutputer.update()
 	assert.NoError(t, err)
 
@@ -607,7 +612,7 @@ func TestFsLayer_OutputsPrinting(t *testing.T) {
 	err = bravoOutputer.outputs(outs)
 	assert.NoError(t, err)
 	assert.True(t, bravoOutputer.hasNext())
-	assert.Equal(t, "msg-bravo_0_pif_0_3\nbravo_pif_3_more\nmsg-bravo_0_pif_0_2\n", outW.String())
+	assert.Equal(t, "msg-bravo_0_paf_1_1\nbravo_paf_1_more\n", outW.String())
 	assert.Equal(t, "", errW.String())
 
 	outW.Reset()
@@ -630,7 +635,7 @@ func TestFsLayer_AddingPrinters(t *testing.T) {
 	gammaBazPrinter1 := scenario1["gamma_0_baz_10_1"]
 	gammaBarPrinter1 := scenario1["gamma_0_bar_20_1"]
 
-	zg := buildZcreenGroup(tmpDir, time.Second)
+	zg := buildZcreenGroup(tmpDir)
 	updated, err := zg.scanFiles()
 	assert.True(t, updated)
 	require.NoError(t, err)
@@ -787,7 +792,7 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	sharedSession := "paf47001-shared"
 
 	// ----- First zcreenGroup
-	zg1 := buildZcreenGroup(tmpDir, time.Second)
+	zg1 := buildZcreenGroup(tmpDir)
 	require.NotNil(t, zg1)
 	updated, err := zg1.scanFiles()
 	assert.NoError(t, err)
@@ -801,7 +806,7 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	errW := &strings.Builder{}
 	outs := printz.NewOutputs(outW, errW)
 
-	m := make(map[string]*autoFsPrinter)
+	m := make(map[string]*fsPrinter)
 
 	// ----- zcreen 1 write tests
 	// Write on uniq printer
@@ -840,7 +845,7 @@ func TestFsLayer_SharingAndOrderingPrinters(t *testing.T) {
 	assert.NoError(t, err)
 
 	// ----- Second screen
-	zg2 := buildZcreenGroup(tmpDir, time.Second)
+	zg2 := buildZcreenGroup(tmpDir)
 	require.NotNil(t, zg2)
 	// updated, err = zg2.scanFiles()
 	// assert.NoError(t, err)
