@@ -10,6 +10,7 @@ import (
 )
 
 type Aggregated struct {
+	msg    string
 	errors []error
 }
 
@@ -17,6 +18,9 @@ type Aggregated struct {
 func (a Aggregated) Return() error {
 	if !a.GotError() {
 		return nil
+	}
+	if a.msg != "" {
+		return fmt.Errorf(a.msg+": %w", a)
 	}
 	return a
 }
@@ -31,10 +35,25 @@ func (a *Aggregated) Add(e error) {
 	}
 }
 
+func (a *Aggregated) AddWithMsg(msg string, e error) {
+	if e != nil {
+		if msg != "" {
+			a.Add(fmt.Errorf(msg+": %w", e))
+		} else {
+			a.Add(e)
+		}
+	}
+}
+
 func (a *Aggregated) AddAll(errs ...error) {
-	//a.errors = append(errs, a.errors...)
 	for _, e := range errs {
 		a.Add(e)
+	}
+}
+
+func (a *Aggregated) AddAllWithMsg(msg string, errs ...error) {
+	for _, e := range errs {
+		a.AddWithMsg(msg, e)
 	}
 }
 
@@ -130,6 +149,12 @@ func NewAgg(errors ...error) Aggregated {
 
 func NewAggregated(errors ...error) Aggregated {
 	agg := Aggregated{}
+	agg.AddAll(errors...)
+	return agg
+}
+
+func NewAggWithMsg(msg string, errors ...error) Aggregated {
+	agg := Aggregated{msg: msg}
 	agg.AddAll(errors...)
 	return agg
 }

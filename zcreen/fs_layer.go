@@ -136,21 +136,26 @@ type printerGroup struct {
 	name     string
 	priority int
 
-	partsByKey          *map[string]*printerPart
-	pointer             string
-	closed              bool
-	outputedOut         int64
-	outputedErr         int64
-	extraNoPrintTimeout time.Duration
+	partsByKey  *map[string]*printerPart
+	pointer     string
+	closed      bool
+	outputedOut int64
+	outputedErr int64
+	// extraNoPrintTimeout time.Duration
 }
 
 func (g *printerGroup) scanFiles() (updated bool, err error) {
-	agg := errorz.NewAgg()
+	ok, err := filez.Exists(g.path)
+	if !ok || err != nil {
+		return
+	}
+
+	agg := errorz.NewAggWithMsg(fmt.Sprintf("error scanning printerGroup (%s) files", g.path))
 
 	// fmt.Printf("will scan printerGroup FS: %s ...\n", g.path)
 	zcreenFs := os.DirFS(g.path)
 	scannedPrinterPartsKeysMap := make(map[string]bool)
-	fs.WalkDir(zcreenFs, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(zcreenFs, ".", func(path string, d fs.DirEntry, err error) error {
 		path = filepath.Join(g.path, path)
 
 		var qualifier, timestamp, pid string
@@ -225,6 +230,7 @@ func (g *printerGroup) scanFiles() (updated bool, err error) {
 		}
 		return err
 	})
+	agg.AddWithMsg("walking printer dir", err)
 
 	allPartsClosed := true
 	onePartClosed := false
@@ -263,11 +269,16 @@ type sessionGroup struct {
 	printersByPrioName *map[string]*printerGroup
 	pointer            string
 	// deadline *time.Time
-	extraNoPrintTimeout time.Duration
+	// extraNoPrintTimeout time.Duration
 }
 
 func (g *sessionGroup) scanFiles() (updated bool, err error) {
-	agg := errorz.NewAgg()
+	ok, err := filez.Exists(g.path)
+	if !ok || err != nil {
+		return
+	}
+
+	agg := errorz.NewAggWithMsg(fmt.Sprintf("error scanning sessionGroup (%s) files", g.path))
 
 	// fmt.Printf("will scan sessionGroup FS: %s ...\n", g.path)
 	zcreenFs := os.DirFS(g.path)
@@ -308,7 +319,7 @@ func (g *sessionGroup) scanFiles() (updated bool, err error) {
 		}
 		return err
 	})
-	agg.Add(err)
+	agg.AddWithMsg("walking session dir", err)
 
 	if g.notifierParts != nil {
 		ok, err := g.notifierParts.scanFiles()
@@ -326,11 +337,11 @@ func (g *sessionGroup) scanFiles() (updated bool, err error) {
 }
 
 type zcreenGroup struct {
-	path                string
-	notifierParts       *printerGroup
-	sessionsByPrioName  *map[string]*sessionGroup
-	pointer             string
-	extraNoPrintTimeout time.Duration
+	path               string
+	notifierParts      *printerGroup
+	sessionsByPrioName *map[string]*sessionGroup
+	pointer            string
+	// extraNoPrintTimeout time.Duration
 }
 
 func (g *zcreenGroup) outputer() *zcreenGroupOutputer {
@@ -346,13 +357,18 @@ func (g *zcreenGroup) outputer() *zcreenGroupOutputer {
 }
 
 func (g *zcreenGroup) scanFiles() (updated bool, err error) {
+	ok, err := filez.Exists(g.path)
+	if !ok || err != nil {
+		return
+	}
+
 	// TODO: scan z.path and add missing sessionGroups, printerGroups and printerFiles.
 	// TODO: update printers and sessions states
-	agg := errorz.NewAgg()
+	agg := errorz.NewAggWithMsg(fmt.Sprintf("error scanning zcreenGroup (%s) files", g.path))
 
 	// fmt.Printf("will scan zcreenGroup FS: %s ...\n", g.path)
 	zcreenFs := os.DirFS(g.path)
-	fs.WalkDir(zcreenFs, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(zcreenFs, ".", func(path string, d fs.DirEntry, err error) error {
 		path = filepath.Join(g.path, path)
 		// fmt.Printf("scanning zcreenGroup path: %s\n", path)
 		//isNotifiersPrinterPart := notifierFilepathMatcher.MatchString(path)
@@ -392,6 +408,7 @@ func (g *zcreenGroup) scanFiles() (updated bool, err error) {
 		}
 		return err
 	})
+	agg.AddWithMsg("walking zcreen dir", err)
 
 	if g.notifierParts != nil {
 		ok, err := g.notifierParts.scanFiles()
