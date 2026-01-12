@@ -220,6 +220,8 @@ type Sink interface {
 
 	// Resync sink with tailer
 	Resync() error
+
+	ClearSession(name string) error
 }
 
 type Session interface {
@@ -238,6 +240,8 @@ type Session interface {
 
 	// End the session
 	End(message string) error
+
+	Clear() error
 }
 
 type Tailer interface {

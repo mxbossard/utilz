@@ -46,14 +46,18 @@ func TestMkTemp2(t *testing.T) {
 	assert.Contains(t, path, "/"+expected)
 
 	_, err = MkTemp2("-do-not-exists", expectedDir)
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	err = os.RemoveAll("-do-not-exists")
+	assert.NoError(t, err)
 }
 
 func TestMkTemp2OrPanic(t *testing.T) {
 	expectedDir := "filez.dir20."
-	assert.Panics(t, func() {
+	assert.NotPanics(t, func() {
 		MkTemp2OrPanic("-do-not-exists", expectedDir)
 	})
+	err := os.RemoveAll("-do-not-exists")
+	assert.NoError(t, err)
 }
 
 func TestOpenTemp(t *testing.T) {

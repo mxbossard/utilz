@@ -183,16 +183,22 @@ FirstLoop:
 	return nil
 }
 
-/*
 func (s *screen) ClearSession(name string) error {
 	s.Lock()
 	defer s.Unlock()
 	//fmt.Printf("Clearing sink session: [%s] (count before: %d)...\n", name, len(s.sessions))
-	err := clearSessionsMap(&s.sessions, name)
+	// err := clearSessionsMap(&s.sessions, name)
+	if session, ok := s.sessions[name]; ok {
+		err := session.clear()
+		if err != nil {
+			return err
+		}
+	}
 	//fmt.Printf("Cleared sink session: [%s] (count after: %d)...\n", name, len(s.sessions))
-	return err
+	return nil
 }
 
+/*
 func (s *screen) Clear() (err error) {
 	s.Lock()
 	defer s.Unlock()

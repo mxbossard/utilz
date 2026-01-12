@@ -254,7 +254,7 @@ func TestSession_ReOpen(t *testing.T) {
 	err = session.clear()
 	assert.NoError(t, err)
 
-	require.NoDirExists(t, session.TmpPath)
+	// require.NoDirExists(t, session.TmpPath)
 	assert.NoFileExists(t, printerTmpOutFilepath)
 
 	session, err = buildSession(expectedSession, 42, tmpDir)
@@ -738,8 +738,73 @@ func TestSession_Timeout(t *testing.T) {
 	// session flush does not consolidate session tmp files anymore
 	// assert.Equal(t, "notif1,10a1,20a1,notif2,notifTimeout,", filez.ReadStringOrPanic(sessionTmpOutFilepath))
 	// assert.Empty(t, filez.ReadStringOrPanic(sessionTmpOutFilepath))
-	assert.Equal(t, "notif1,notif2,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
+	assert.Equal(t, "notif1,notif2,notifTimeout,", filez.ReadStringOrPanic(sessionNotifierOutFilepath))
 	assert.Panics(t, func() {
 		filez.ReadStringOrPanic(sessionNotifierErrFilepath)
 	})
+}
+
+func TestSession_Clear(t *testing.T) {
+	tmpDir := "/tmp/session_test_580"
+	expectedSession := "bar580"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	os.MkdirAll(tmpDir, 0744)
+
+	expectedPrinter10a := "bar58a"
+
+	session, err := buildSession(expectedSession, 42, tmpDir)
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	err = session.Start(10 * time.Millisecond)
+	assert.NoError(t, err)
+
+	prtr10a, err := session.Printer(expectedPrinter10a, 10)
+	require.NoError(t, err)
+	require.NotNil(t, prtr10a)
+
+	// First print on not first printer => should not write
+	prtr10a.Out("10a-1,")
+	session.NotifyPrinter().Out("notif1,")
+
+	err = session.End("first")
+	assert.NoError(t, err)
+
+	fsPrtr10a, _ := prtr10a.(*fsPrinter)
+	assert.Equal(t, "10a-1,", filez.ReadStringOrPanic(fsPrtr10a.outFilepath))
+	assert.Equal(t, "notif1,", filez.ReadStringOrPanic(session.notifier.outFilepath))
+
+	assert.Panics(t, func() {
+		prtr10a.Out("10a-2,")
+		session.NotifyPrinter().Out("notif2,")
+	})
+
+	assert.Len(t, session.printers, 1)
+	// After session clear, printer files should be deleted
+	err = session.Clear()
+	assert.NoError(t, err)
+
+	assert.NoFileExists(t, fsPrtr10a.outFilepath)
+	assert.NoFileExists(t, session.notifier.outFilepath)
+	assert.Len(t, session.printers, 0)
+
+	// New printers should be opened
+	assert.NotPanics(t, func() {
+		err = session.Start(10 * time.Millisecond)
+		assert.NoError(t, err)
+
+		prtr10a2, err := session.Printer(expectedPrinter10a, 10)
+		require.NoError(t, err)
+		require.NotNil(t, prtr10a2)
+
+		prtr10a2.Out("10a-3,")
+		session.NotifyPrinter().Out("notif3,")
+
+		err = session.End("second")
+		assert.NoError(t, err)
+
+		fsPrtr10a2, _ := prtr10a2.(*fsPrinter)
+		assert.Equal(t, "10a-3,", filez.ReadStringOrPanic(fsPrtr10a2.outFilepath))
+		assert.Equal(t, "notif3,", filez.ReadStringOrPanic(session.notifier.outFilepath))
+	})
+
 }

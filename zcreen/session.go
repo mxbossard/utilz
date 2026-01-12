@@ -89,6 +89,7 @@ func (s *session) Printer(name string, priorityOrder int) (printz.Printer, error
 	}
 
 	if prtr, ok := s.printers[name]; ok {
+		// fmt.Printf("found printer %s in cache\n", name)
 		return prtr, nil
 	}
 
@@ -97,6 +98,7 @@ func (s *session) Printer(name string, priorityOrder int) (printz.Printer, error
 	p := buildSessionPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder, name, priorityOrder)
 	s.printers[name] = p
 	s.printersByPriority[priorityOrder] = append(s.printersByPriority[priorityOrder], p)
+	// fmt.Printf("built new printer %s\n", name)
 
 	return p, nil
 }
@@ -176,6 +178,13 @@ func (s *session) close(message string) (err error) {
 	// close all opened printers
 	for _, prtr := range s.printers {
 		err = prtr.Close(message)
+		if err != nil {
+			return err
+		}
+	}
+
+	if s.notifier != nil {
+		err = s.notifier.Close(message)
 		if err != nil {
 			return err
 		}
@@ -266,12 +275,17 @@ func (s *session) clear() (err error) {
 	// }
 
 	// Attempt to close & remove notifier temp files
-	if s.notifier != nil { //&& !s.notifier.IsClosed() {
+	if s.notifier != nil && !s.notifier.IsClosed() {
 		err = s.notifier.Close(fmt.Sprintf("cleared session: %s", s.Name))
 		if err != nil {
 			return err
 		}
 	}
+
+	// err = os.RemoveAll(sessionSerializedPath(s.TmpPath))
+	// if err != nil {
+	// 	return err
+	// }
 
 	err = os.RemoveAll(s.TmpPath)
 	if err != nil {
@@ -281,8 +295,10 @@ func (s *session) clear() (err error) {
 	// s.cursorOut = 0
 	// s.cursorErr = 0
 
-	s.Name = ""
-	s.PriorityOrder = 0
+	//s.Name = ""
+	//s.PriorityOrder = 0
+	//s.TmpPath = ""
+	// s.ScreenDirPath = ""
 	s.Ended = false
 	s.Started = false
 	s.EndMessage = ""
@@ -292,13 +308,12 @@ func (s *session) clear() (err error) {
 	s.readOnly = false
 	s.Timeouted = nil
 	s.timeoutCallbacks = nil
-	s.TmpPath = ""
 	s.serializationFilepath = ""
-	s.ScreenDirPath = ""
 	s.currentPriority = nil
 	s.printersByPriority = make(map[int][]*fsPrinter)
 	s.printers = make(map[string]*fsPrinter)
 	s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder)
+	s.timeoutCallbacks = nil
 	s.cleared = true
 
 	printersDirPath := printersDirPath(s.TmpPath)
@@ -308,9 +323,13 @@ func (s *session) clear() (err error) {
 		return err
 	}
 
-	err = serializeSession(s)
+	// err = serializeSession(s)
 
 	return err
+}
+
+func (s *session) Clear() (err error) {
+	return s.clear()
 }
 
 // Consolidate session outputs with supplied printer content
