@@ -26,7 +26,7 @@ type screen struct {
 	screenLock *flock.Flock
 	fileLock   *flock.Flock
 	tmpPath    string
-	sessions   map[string]*session
+	sessions   *map[string]*session
 	notifier   *fsPrinter
 	closed     bool
 }
@@ -40,7 +40,7 @@ func (s *screen) Session(name string, priorityOrder int) (*session, error) {
 	if s.closed {
 		return nil, fmt.Errorf("cannot create a session in a closed zcreen")
 	}
-	if session, ok := s.sessions[name]; ok {
+	if session, ok := (*s.sessions)[name]; ok {
 		return session, nil
 	}
 
@@ -49,7 +49,7 @@ func (s *screen) Session(name string, priorityOrder int) (*session, error) {
 		return nil, err
 	}
 	//fmt.Printf("Built sink session: [%s]\n", name)
-	s.sessions[name] = session
+	(*s.sessions)[name] = session
 	return session, nil
 }
 
@@ -64,7 +64,7 @@ func (s *screen) FlushBlocking(sessionName string, timeout time.Duration) (err e
 	s.Lock()
 	defer s.Unlock()
 	startTime := time.Now()
-	if session, ok := s.sessions[sessionName]; ok {
+	if session, ok := (*s.sessions)[sessionName]; ok {
 		for !session.Ended {
 			if time.Since(startTime) > timeout {
 				err := errorz.Timeoutf(timeout, "FlushBlocking() for session: [%s]", sessionName)
@@ -90,9 +90,9 @@ func (s *screen) FlushAllBlocking(timeout time.Duration) (err error) {
 	notEndedCount := -1
 	for notEndedCount != 0 {
 		notEndedCount = 0
-		for _, ses := range s.sessions {
+		for _, ses := range *s.sessions {
 			if time.Since(startTime) > timeout {
-				allSessions := collectionz.Values(s.sessions)
+				allSessions := collectionz.Values(*s.sessions)
 				notEndedNames := collectionz.Map(&allSessions, func(s *session) string { return s.Name })
 				err := errorz.Timeoutf(timeout, "FlushAllBlocking() some sessions: [%s]", notEndedNames)
 				return err
@@ -120,7 +120,7 @@ func (s *screen) Close() (err error) {
 		agg.Add(err)
 	}
 
-	for _, s := range s.sessions {
+	for _, s := range *s.sessions {
 		// Closing screen SHOULD not end sessions but close it : In case of zcreen failure, a restart must take back the session not ended.
 		agg.Add(s.close("screen closed"))
 	}
@@ -155,7 +155,7 @@ func (s *screen) Resync() error {
 
 	sessionsToRemove := []string{}
 FirstLoop:
-	for _, session := range s.sessions {
+	for _, session := range *s.sessions {
 		for _, scanned := range scannedSessions {
 			if session.Name == scanned.Name {
 				//fmt.Printf("\n<<>> RESYNC: refreshing %s => %s\n", scanned, session)
@@ -176,25 +176,25 @@ FirstLoop:
 		//fmt.Printf("\n<<>> RESYNC: removing session: %s\n", sessionName)
 		// clearSessionsMap(&s.sessions, sessionName)
 
-		delete(s.sessions, sessionName)
+		delete(*s.sessions, sessionName)
 		logger.Debug("Resync: removed session", "session", sessionName)
 		// fmt.Printf("Resync: removed session: %s\n", sessionName)
 	}
 	return nil
 }
 
+/* Clear the session from the screen. A new session can then be reopened with the same name. */
 func (s *screen) ClearSession(name string) error {
 	s.Lock()
 	defer s.Unlock()
-	//fmt.Printf("Clearing sink session: [%s] (count before: %d)...\n", name, len(s.sessions))
-	// err := clearSessionsMap(&s.sessions, name)
-	if session, ok := s.sessions[name]; ok {
-		err := session.clear()
-		if err != nil {
-			return err
-		}
+	logger.Debug("Clearing session ...", "name", name, "sessions count left", len(*s.sessions), "sessions", *s.sessions)
+
+	err := clearSessionsMap(s.sessions, name)
+	if err != nil {
+		return err
 	}
-	//fmt.Printf("Cleared sink session: [%s] (count after: %d)...\n", name, len(s.sessions))
+
+	logger.Info("Cleared session", "session name", name, "sessions count left", len(*s.sessions))
 	return nil
 }
 
@@ -322,11 +322,12 @@ func NewAsyncScreen(tmpPath string, force bool) *screen {
 	// }
 
 	lockFilepath := filepath.Join(tmpPath, lockFilename)
+	sessions := make(map[string]*session)
 	return &screen{
 		tmpPath:    tmpPath,
 		screenLock: screenLock,
 		fileLock:   flock.New(lockFilepath), // FIXME: rename syncLock
-		sessions:   make(map[string]*session),
+		sessions:   &sessions,
 		notifier:   buildNotifierPrinter(tmpPath, "", 0),
 	}
 }
@@ -337,7 +338,7 @@ func Clear(zcreenPath string) error {
 }
 
 // Does SHOULD be cleared by a tailer ?
-func ClearSession(zcreenPath, name string) error {
-	err := clearSessionFiles(zcreenPath, name)
+func UnsafeClearSession(zcreenPath, name string) error {
+	err := clearSessionFsLayer(zcreenPath, name)
 	return err
 }

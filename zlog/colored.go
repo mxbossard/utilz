@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 
 	"github.com/mxbossard/utilz/anzi"
 	"github.com/mxbossard/utilz/formatz"
@@ -50,10 +51,13 @@ func (h *coloredHandler) Handle(ctx context.Context, r slog.Record) error {
 	lvl := r.Level
 	hiColor, color := levelAnsiColor(lvl)
 	state.appendString(" " + hiColor + levelShortLabel(lvl) + string(anzi.Reset) + " ")
-	if h.uh.qualifier != "" || defaultPart != "" {
+	if h.uh.qualifier != "" || defaultPart != "" || logPid {
 		part := ""
+		if logPid {
+			part = fmt.Sprintf("(%d)", os.Getpid())
+		}
 		if defaultPart != "" {
-			part = fmt.Sprintf("%s:", defaultPart)
+			part = fmt.Sprintf("%s%s:", defaultPart, part)
 		}
 		qualifier := formatz.PadLeft(h.uh.qualifier, QualifierPadding)
 		qualifier = formatz.TruncateLeftPrefix(qualifier, QualifierPadding, "...")

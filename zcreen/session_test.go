@@ -783,6 +783,9 @@ func TestSession_Clear(t *testing.T) {
 	err = session.Clear()
 	assert.NoError(t, err)
 
+	err = session.init()
+	assert.NoError(t, err)
+
 	assert.NoFileExists(t, fsPrtr10a.outFilepath)
 	assert.NoFileExists(t, session.notifier.outFilepath)
 	assert.Len(t, session.printers, 0)

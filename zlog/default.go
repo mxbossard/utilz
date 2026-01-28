@@ -33,6 +33,7 @@ var (
 	defaultOutput                    *inoutz.WriterProxy
 	defaultHandlerProxy              *handlerProxy
 	defaultPart                      string
+	logPid                           = false
 	displayPerfStartTimerAsTrace     = true
 	loggingFilepath                  = ""
 	fileOutputLoggingReportedAlready = false
@@ -298,6 +299,10 @@ func UncoloredConfig(attrs ...slog.Attr) {
 
 func SetPart(part string) {
 	defaultPart = part
+}
+
+func EnablePidLogging() {
+	logPid = true
 }
 
 func SetQualifierPadding(n int) {

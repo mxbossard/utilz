@@ -33,6 +33,21 @@ var (
 	printerFilepathMatcher      = regexp.MustCompile(`[/\\]` + printersDir + `[/\\](\d+)__([^/\\]+)[/\\]([^./\\]+)\.(\d+)\.(\d+)$`)
 )
 
+func clearSessionFsLayer(zcreenPath, sessionName string) error {
+	sessionDirPath := forgeSessionsDirPath(zcreenPath)
+	name := fmt.Sprintf("*__%s", sessionName)
+	pattern := filepath.Join(sessionDirPath, name)
+	pathes, err := filepath.Glob(pattern)
+	if err != nil {
+		return err
+	}
+	logger.Debug("clearing session fs layer dir ...", "session", sessionName, "pattern", pattern, "pathes", pathes)
+	if len(pathes) == 0 {
+		return nil
+	}
+	return os.RemoveAll(pathes[0])
+}
+
 func forgeSessionsDirPath(zcreenPath string) string {
 	return filepath.Join(zcreenPath, sessionsDir)
 }

@@ -26,6 +26,7 @@ type sessionSerializer struct {
 	PriorityOrder  int
 	Started, Ended bool
 	EndMessage     string
+	StartTime      *time.Duration
 	Timeouted      *time.Duration
 	Deadline       *time.Time
 	Start, End     *time.Time
@@ -43,6 +44,7 @@ type session struct {
 	flushed, tailed  bool
 	cleared          bool
 	readOnly         bool
+	StartTime        *time.Time
 	Timeouted        *time.Duration
 	timeoutCallbacks []func(Session)
 
@@ -153,6 +155,8 @@ func (s *session) Start(timeout time.Duration, timeoutCallbacks ...func(Session)
 	s.flushed = false
 	s.tailed = false
 	s.cleared = false
+	now := time.Now()
+	s.StartTime = &now
 	s.Timeouted = nil
 	go func() {
 		time.Sleep(timeout + extraTimeout)
@@ -238,6 +242,23 @@ func (s *session) End(message string) (err error) {
 	return
 }
 
+func (s *session) init() (err error) {
+	s.printersByPriority = make(map[int][]*fsPrinter)
+	s.printers = make(map[string]*fsPrinter)
+	s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder)
+
+	printersDirPath := printersDirPath(s.TmpPath)
+	err = os.MkdirAll(printersDirPath, filez.DefaultDirPerms)
+	if err != nil {
+		err = fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err)
+		return err
+	}
+
+	err = serializeSession(s)
+
+	return err
+}
+
 func (s *session) clear() (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -273,6 +294,8 @@ func (s *session) clear() (err error) {
 	// 		return err
 	// 	}
 	// }
+
+	logger.Debug("clearing session ...", "name", s.Name, "dir", s.TmpPath)
 
 	// Attempt to close & remove notifier temp files
 	if s.notifier != nil && !s.notifier.IsClosed() {
@@ -310,18 +333,8 @@ func (s *session) clear() (err error) {
 	s.timeoutCallbacks = nil
 	s.serializationFilepath = ""
 	s.currentPriority = nil
-	s.printersByPriority = make(map[int][]*fsPrinter)
-	s.printers = make(map[string]*fsPrinter)
-	s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder)
 	s.timeoutCallbacks = nil
 	s.cleared = true
-
-	printersDirPath := printersDirPath(s.TmpPath)
-	err = os.MkdirAll(printersDirPath, filez.DefaultDirPerms)
-	if err != nil {
-		err = fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err)
-		return err
-	}
 
 	// err = serializeSession(s)
 
@@ -599,32 +612,22 @@ func buildSession(name string, priorityOrder int, screenDirPath string) (s *sess
 		s.printers = make(map[string]*fsPrinter)
 	} else {
 		s = &session{
-			mutex:              &sync.Mutex{},
-			Name:               name,
-			PriorityOrder:      priorityOrder,
-			TmpPath:            sessionDirPath,
-			readOnly:           false,
-			printersByPriority: make(map[int][]*fsPrinter),
-			printers:           make(map[string]*fsPrinter),
-			ScreenDirPath:      screenDirPath,
+			mutex:         &sync.Mutex{},
+			Name:          name,
+			PriorityOrder: priorityOrder,
+			TmpPath:       sessionDirPath,
+			readOnly:      false,
+			// printersByPriority: make(map[int][]*fsPrinter),
+			// printers:           make(map[string]*fsPrinter),
+			ScreenDirPath: screenDirPath,
+		}
+		err = s.init()
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	// Init session pointers
-	printersDirPath := printersDirPath(sessionDirPath)
-	err = os.MkdirAll(printersDirPath, filez.DefaultDirPerms)
-	if err != nil {
-		err = fmt.Errorf("unable to create async screen session: [%s] dir: %w", printersDirPath, err)
-		return nil, err
-	}
-
-	// _, tmpOut, tmpErr := buildTmpOutputs(sessionDirPath, s.Name)
-	// s.tmpOutName = tmpOut.Name()
-	// s.tmpErrName = tmpErr.Name()
-	// s.tmpOut = tmpOut
-	// s.tmpErr = tmpErr
-	// s.notifier = buildPrinter(sessionDirPath, notifierPrinterName, 0)
-	s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder)
+	// s.notifier = buildNotifierPrinter(s.ScreenDirPath, s.Name, s.PriorityOrder)
 
 	return s, nil
 }
@@ -712,7 +715,7 @@ func deserializeSession(path string) (s *session, err error) {
 	return s, err
 }
 
-func clearSessionFiles(zcreenPath, sessionName string) error {
+func clearSessionFiles0(zcreenPath, sessionName string) error {
 	sessionsDir := forgeSessionsDirPath(zcreenPath)
 	sessionDirsWildcard := filepath.Join(sessionsDir, "*__"+sessionName)
 	matchingDirs, err := filepath.Glob(sessionDirsWildcard)

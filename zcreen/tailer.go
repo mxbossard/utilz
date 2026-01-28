@@ -529,14 +529,6 @@ func (s *screenTailer) TailBlocking(sessionName string, timeout time.Duration) e
 		}
 	}
 
-	if blocking == nil || blocking.Ended {
-		// FIXME: could be called in loop ^^ if tailAll() managed all cases
-		// err := s.tailNotifications()
-		// if err != nil {
-		// 	return err
-		// }
-	}
-
 	return nil
 }
 
@@ -757,7 +749,7 @@ func (s *screenTailer) clearSession0(name string) error {
 		s.electedSession = nil
 	}
 
-	err := clearSessionFiles(s.tmpPath, name)
+	err := clearSessionFiles0(s.tmpPath, name)
 	if err != nil {
 		return err
 	}

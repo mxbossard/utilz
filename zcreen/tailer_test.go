@@ -176,7 +176,7 @@ func TestTailer_ClearSession(t *testing.T) {
 	screenTailer = NewAsyncScreenTailer(outs, tmpDir)
 	// err = screenTailer.ClearSession(expectedSession)
 	// assert.NoError(t, err)
-	err = ClearSession(tmpDir, expectedSession)
+	err = UnsafeClearSession(tmpDir, expectedSession)
 	assert.NoError(t, err)
 
 	err = screenTailer.tailAll()
