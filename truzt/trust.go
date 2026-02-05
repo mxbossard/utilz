@@ -1,6 +1,7 @@
 package truzt
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -8,7 +9,10 @@ import (
 	"io"
 	"os"
 
+	"golang.org/x/crypto/blake2b"
 	"golang.org/x/mod/sumdb/dirhash"
+
+	"github.com/mxbossard/utilz/filez"
 )
 
 func signString(s string) (sign string, err error) {
@@ -40,6 +44,53 @@ func SignStrings(ss ...string) (sign string, err error) {
 	}
 	sign, err = signString(concat)
 	return
+}
+
+func SerializeFileInfo(f filez.File) ([]byte, error) {
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	b := bytes.NewBuffer(nil)
+	_, err = fmt.Fprintf(b, "%d-%d-%d-%s", info.ModTime(), info.Mode(), info.Size(), info.Name())
+	return b.Bytes(), err
+}
+
+// Sign a file metadata
+func SignFileInfo(f filez.File) (sign []byte, err error) {
+	// FIXME: not optimized to scan multiple files
+	hash, err := blake2b.New256(nil)
+	if err != nil {
+		return nil, err
+	}
+	b, err := SerializeFileInfo(f)
+	hash.Write(b)
+	sign = hash.Sum(nil)
+	return
+}
+
+// Sign a file including metadata
+func SignFile(path string) (sign []byte, err error) {
+	// FIXME: not optimized to scan multiple files
+	sign1, err := SignFilesContent(path)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	sign2, err := SignFileInfo(f)
+	if err != nil {
+		return nil, err
+	}
+	hash, err := blake2b.New256(nil)
+	if err != nil {
+		return nil, err
+	}
+	hash.Write(sign2)
+	hash.Write([]byte(sign1))
+	return hash.Sum(nil), nil
 }
 
 func SignFilesContent(pathes ...string) (sign string, err error) {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mxbossard/utilz/errorz"
@@ -18,6 +19,33 @@ const (
 	DefaultFilePerms = fs.FileMode(0600)
 )
 
+type File interface {
+	Chdir() error
+	Chmod(mode os.FileMode) error
+	Chown(uid int, gid int) error
+	Close() error
+	Fd() uintptr
+	Name() string
+	Read(b []byte) (n int, err error)
+	ReadAt(b []byte, off int64) (n int, err error)
+	ReadDir(n int) ([]os.DirEntry, error)
+	ReadFrom(r io.Reader) (n int64, err error)
+	Readdir(n int) ([]os.FileInfo, error)
+	Readdirnames(n int) (names []string, err error)
+	Seek(offset int64, whence int) (ret int64, err error)
+	SetDeadline(t time.Time) error
+	SetReadDeadline(t time.Time) error
+	SetWriteDeadline(t time.Time) error
+	Stat() (os.FileInfo, error)
+	Sync() error
+	SyscallConn() (syscall.RawConn, error)
+	Truncate(size int64) error
+	Write(b []byte) (n int, err error)
+	WriteAt(b []byte, off int64) (n int, err error)
+	WriteString(s string) (n int, err error)
+	WriteTo(w io.Writer) (n int64, err error)
+}
+
 func manageError(err error) bool {
 	if err != nil {
 		os.Stderr.WriteString(err.Error())
@@ -25,7 +53,6 @@ func manageError(err error) bool {
 	}
 	return true
 }
-
 
 func RemoveTemp(pattern string) error {
 	if !strings.HasSuffix(pattern, "*") {
@@ -45,7 +72,7 @@ func RemoveTemp(pattern string) error {
 }
 
 func RemoveTempOrPanic(pattern string) {
-	err :=  RemoveTemp(pattern)
+	err := RemoveTemp(pattern)
 	if err != nil {
 		panic(err)
 	}
@@ -69,10 +96,10 @@ func RemoveAllTemp(pattern string) error {
 }
 
 func RemoveAllTempOrPanic(pattern string) {
-	err :=  RemoveAllTemp(pattern)
-        if err != nil {
-                panic(err)
-        }
+	err := RemoveAllTemp(pattern)
+	if err != nil {
+		panic(err)
+	}
 }
 
 /** Return a temp file path. Do not touch the file. */
@@ -334,6 +361,26 @@ func ReadOrPanic(filepath string) (content []byte) {
 	return
 }
 
+func ReadAt(filepath string, offset int64) (content []byte, err error) {
+	f, err := OpenReadOnly(filepath)
+	if err != nil {
+		return nil, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	return ReadFileAt(f, offset, int(info.Size()))
+}
+
+func ReadAtOrPanic(filepath string, offset int64) (content []byte) {
+	content, err := ReadAt(filepath, offset)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 func ReadString(filepath string) (content string, err error) {
 	var bytes []byte
 	bytes, err = Read(filepath)
@@ -346,6 +393,31 @@ func ReadString(filepath string) (content string, err error) {
 
 func ReadStringOrPanic(filepath string) string {
 	content, err := ReadString(filepath)
+	if err != nil {
+		panic(err)
+	}
+	return content
+}
+
+func ReadAtString(filepath string, offset int64) (content string, err error) {
+	f, err := OpenReadOnly(filepath)
+	if err != nil {
+		return "", err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	bytes, err := ReadFileAt(f, offset, int(info.Size()))
+	if err != nil {
+		return
+	}
+	content = string(bytes)
+	return
+}
+
+func ReadAtStringOrPanic(filepath string, offset int64) string {
+	content, err := ReadAtString(filepath, offset)
 	if err != nil {
 		panic(err)
 	}
@@ -365,33 +437,65 @@ func WriteStringOrPanic(filepath, content string, perm os.FileMode) {
 	}
 }
 
-func ReadFile(f *os.File, maxLen int) ([]byte, error) {
+func ReadFile(f File, maxLen int) ([]byte, error) {
 	b := make([]byte, maxLen)
 	n, err := f.ReadAt(b, 0)
+	if err == io.EOF {
+		// swallow the error
+		err = nil
+	}
 	return b[:n], err
 }
 
-func ReadFileOrPanic(f *os.File, maxLen int) []byte {
+func ReadFileOrPanic(f File, maxLen int) []byte {
+	b, err := ReadFile(f, maxLen)
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+	return b
+}
+
+func ReadFileAt(f File, offset int64, maxLen int) ([]byte, error) {
 	b := make([]byte, maxLen)
-	n, err := f.ReadAt(b, 0)
+	n, err := f.ReadAt(b, offset)
+	if err == io.EOF {
+		// swallow the error
+		err = nil
+	}
+	return b[:n], err
+}
+
+func ReadFileAtOrPanic(f File, offset int64, maxLen int) []byte {
+	b, err := ReadFileAt(f, offset, maxLen)
 	if err != nil {
 		panic(err)
 	}
-	return b[:n]
+	return b
 }
 
-func ReadFileString(f *os.File, maxLen int) (string, error) {
+func ReadFileString(f File, maxLen int) (string, error) {
 	b, err := ReadFile(f, maxLen)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return "", err
 	}
 	return string(b), err
 }
 
-func ReadFileStringOrPanic(f *os.File, maxLen int) string {
+func ReadFileStringOrPanic(f File, maxLen int) string {
 	return string(ReadFileOrPanic(f, maxLen))
 }
 
+func ReadFileAtString(f File, offset int64, maxLen int) (string, error) {
+	b, err := ReadFileAt(f, offset, maxLen)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	return string(b), err
+}
+
+func ReadFileAtStringOrPanic(f File, offset int64, maxLen int) string {
+	return string(ReadFileAtOrPanic(f, offset, maxLen))
+}
 func Print(filepath string) (err error) {
 	content, err := Read(filepath)
 	if err != nil {
@@ -484,26 +588,34 @@ func IsDirectoryOrPanic(path string) bool {
 	return ok
 }
 
-func Copy(f *os.File, w io.Writer, buffer []byte) (p int64, err error) {
-	if f == nil {
+func SplitPath(path string) []string {
+	return strings.Split(filepath.Clean(path), string(filepath.Separator))
+}
+
+func Copy(src File, dest io.Writer, buffer []byte) (p int64, err error) {
+	if src == nil {
 		panic("cannot Copy nil file")
 	}
-	if w == nil {
+	if dest == nil {
 		panic("cannot Copy into nil writer")
 	}
 	if buffer == nil {
 		panic("cannot Copy into nil buffer")
 	}
+	_, err = src.Seek(0, 0)
+	if err != nil {
+		return
+	}
 	n := -1
 	for err != io.EOF && n != 0 {
-		n, err = f.Read(buffer)
+		n, err = src.Read(buffer)
 		if err == io.EOF || n == 0 {
 			continue
 		}
 		if err != nil {
 			return
 		}
-		n, err = w.Write(buffer[0:n])
+		n, err = dest.Write(buffer[0:n])
 		if err != nil {
 			return
 		}
@@ -512,7 +624,7 @@ func Copy(f *os.File, w io.Writer, buffer []byte) (p int64, err error) {
 	return p, nil
 }
 
-func CopyChunk(src *os.File, dest io.Writer, buf []byte, start, end int64) (int64, error) {
+func CopyChunk(src File, dest io.Writer, buf []byte, start, end int64) (int64, error) {
 	if src == nil {
 		panic("cannot Copy nil file")
 	}

@@ -6,8 +6,9 @@ require (
 	github.com/gofrs/flock v0.12.1
 	github.com/jcelliott/lumber v0.0.0-20160324203708-dd349441af25
 	github.com/stretchr/testify v1.9.0
+	golang.org/x/crypto v0.47.0
 	golang.org/x/mod v0.16.0
-	golang.org/x/sys v0.22.0
+	golang.org/x/sys v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.34.5
 )

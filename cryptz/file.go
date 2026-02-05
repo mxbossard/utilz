@@ -6,39 +6,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
+	"syscall"
 )
 
-type Namer interface {
-	// Hashed filepath is composed of a public & private path
-	// public path is not hashed then private path is hached
-	HashFilepath(publicPath, privatePath string) (string, error)
-}
-
-type Encrypter interface {
-	Encrypt(data []byte) ([]byte, error)
-	Decrypt(data []byte) ([]byte, error)
-}
-
-type BasicNamer struct {
-	Namer
-}
-
-func (n BasicNamer) HashFilepath(publicPath, privatePath string) (string, error) {
-	panic("not implemented yet")
-}
-
-type BasicEncrypter struct {
-	Encrypter
-	key []byte
-}
-
-func (e BasicEncrypter) Encrypt(data []byte) ([]byte, error) {
-	panic("not implemented yet")
-}
-
-func (e BasicEncrypter) Decrypt(data []byte) ([]byte, error) {
-	panic("not implemented yet")
-}
+const (
+	nonceSize = 12
+)
 
 // The most :
 // A complete abstraction to os.File.
@@ -47,10 +21,9 @@ func (e BasicEncrypter) Decrypt(data []byte) ([]byte, error) {
 // A Flush encrypt all the data one shot.
 // Appending to file
 type EncryptedFile struct {
-	encrypted *os.File
+	*sync.Mutex
+	*os.File
 
-	// key       []byte
-	namer     Namer
 	encrypter Encrypter
 
 	publicPath  string
@@ -60,29 +33,62 @@ type EncryptedFile struct {
 	offset      int64
 	readonly    bool
 	append      bool
-	flushed     bool
+	closed      bool
+	dirty       int64
 }
 
+// Close the file
 func (f *EncryptedFile) Close() error {
+	f.Lock()
+	defer f.Unlock()
+	if !f.readonly {
+		err := f.sync()
+		if err != nil {
+			return err
+		}
+	}
 	f.buffer = nil
-	return f.encrypted.Close()
+	f.closed = true
+	return f.File.Close()
 }
 
-func (f *EncryptedFile) Name() string {
+// func (f *EncryptedFile) Name() string {
+// 	return f.File.Name()
+// }
+
+func (f *EncryptedFile) ClearName() string {
 	return filepath.Join(f.publicPath, f.privatePath)
 }
 
 func (f *EncryptedFile) Read(b []byte) (n int, err error) {
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		err = fmt.Errorf("file is closed")
+		return
+	}
 	n = copy(b, f.buffer[f.offset:f.offset+f.length])
 	return
 }
 
 func (f *EncryptedFile) ReadAt(b []byte, off int64) (n int, err error) {
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		err = fmt.Errorf("file is closed")
+		return
+	}
 	n = copy(b, f.buffer[:f.length+off])
 	return
 }
 
 func (f *EncryptedFile) ReadFrom(r io.Reader) (n int64, err error) {
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		err = fmt.Errorf("file is closed")
+		return
+	}
 	if f.readonly {
 		err = fmt.Errorf("file is open readonly")
 		return
@@ -95,6 +101,12 @@ func (f *EncryptedFile) ReadFrom(r io.Reader) (n int64, err error) {
 }
 
 func (f *EncryptedFile) Seek(offset int64, whence int) (ret int64, err error) {
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		err = fmt.Errorf("file is closed")
+		return
+	}
 	var newOffset int64
 	switch whence {
 	case 0:
@@ -124,30 +136,38 @@ func (f *EncryptedFile) Seek(offset int64, whence int) (ret int64, err error) {
 	return
 }
 
-// func (f *EncryptedFile) SetDeadline(t time.Time) error
-// func (f *EncryptedFile) SetReadDeadline(t time.Time) error
-// func (f *EncryptedFile) SetWriteDeadline(t time.Time) error
-// func (f *EncryptedFile) Stat() (os.FileInfo, error)
+// func (f *EncryptedFile) SetDeadline(t time.Time) error {
+// 	return f.File.SetDeadline(t)
+// }
+
+// func (f *EncryptedFile) SetReadDeadline(t time.Time) error {
+// 	return f.File.SetReadDeadline(t)
+// }
+
+// func (f *EncryptedFile) SetWriteDeadline(t time.Time) error {
+// 	return f.File.SetWriteDeadline(t)
+// }
+
+// func (f *EncryptedFile) Stat() (os.FileInfo, error) {
+// 	return f.File.Stat()
+// }
 
 func (f *EncryptedFile) Sync() error {
-	e, err := f.encrypter.Encrypt(f.buffer)
-	if err != nil {
-		return err
-	}
-	err = f.encrypted.Truncate(0)
-	if err != nil {
-		return err
-	}
-	_, err = f.WriteAt(e, 0)
-	if err != nil {
-		return err
-	}
-	return nil
+	f.Lock()
+	defer f.Unlock()
+	return f.sync()
 }
 
-// func (f *EncryptedFile) SyscallConn() (syscall.RawConn, error)
+func (f *EncryptedFile) SyscallConn() (syscall.RawConn, error) {
+	return f.File.SyscallConn()
+}
 
 func (f *EncryptedFile) Truncate(size int64) error {
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		return fmt.Errorf("file is closed")
+	}
 	if f.readonly {
 		err := fmt.Errorf("file is open readonly")
 		return err
@@ -157,6 +177,12 @@ func (f *EncryptedFile) Truncate(size int64) error {
 }
 
 func (f *EncryptedFile) Write(b []byte) (n int, err error) {
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		err = fmt.Errorf("file is closed")
+		return
+	}
 	if f.readonly {
 		err = fmt.Errorf("file is open readonly")
 		return
@@ -167,10 +193,19 @@ func (f *EncryptedFile) Write(b []byte) (n int, err error) {
 	} else {
 		f.buffer = append(f.buffer[:f.offset], b...)
 	}
+	if len(b) > 0 {
+		f.dirty++
+	}
 	return len(b), nil
 }
 
 func (f *EncryptedFile) WriteAt(b []byte, off int64) (n int, err error) {
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		err = fmt.Errorf("file is closed")
+		return
+	}
 	if f.readonly {
 		err = fmt.Errorf("file is open readonly")
 		return
@@ -178,86 +213,98 @@ func (f *EncryptedFile) WriteAt(b []byte, off int64) (n int, err error) {
 	end := f.buffer[off:]
 	f.buffer = append(f.buffer[:off], b...)
 	f.buffer = append(f.buffer, end...)
+	if len(b) > 0 {
+		f.dirty++
+	}
 	return len(f.buffer), nil
 }
 
 func (f *EncryptedFile) WriteString(s string) (n int, err error) {
-	if f.readonly {
-		err = fmt.Errorf("file is open readonly")
-		return
+	n, err = f.Write([]byte(s))
+	if n > 0 {
+		f.dirty++
 	}
-	return f.Write([]byte(s))
+	return
 }
 
 func (f *EncryptedFile) WriteTo(w io.Writer) (n int64, err error) {
-	if f.readonly {
-		err = fmt.Errorf("file is open readonly")
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		err = fmt.Errorf("file is closed")
 		return
 	}
-	// FIXME: may need to manage an int64 file size ?
-	l, err := w.Write(f.buffer)
+	// FIXME: may need to manage an int64 file size with multiple successfis writes ?
+	// fmt.Printf("writing %d bytes (%d) ...\n", len(f.buffer), f.length)
+	l, err := w.Write(f.buffer[0:f.length])
 	return int64(l), err
 }
 
-func (f *EncryptedFile) Resync() (err error) {
-	// TODO read encrypted data and buffer it
-	buf := bytes.NewBuffer(nil)
-	n, err := f.encrypted.ReadFrom(buf)
+func (f *EncryptedFile) sync() error {
+	if f.closed {
+		return fmt.Errorf("file is closed")
+	}
+	if f.dirty == 0 {
+		// nothing to do if not dirty
+		return nil
+	}
+	nonce, err := ForgeNonce(12)
 	if err != nil {
 		return err
 	}
-	f.buffer = buf.Bytes()
-	f.length = n
+	ciphertext, err := f.encrypter.Encrypt(nonce, f.buffer)
+	if err != nil {
+		return err
+	}
+	err = f.File.Truncate(0)
+	if err != nil {
+		return err
+	}
+	_, err = f.File.WriteAt(nonce, 0)
+	if err != nil {
+		return err
+	}
+	_, err = f.File.WriteAt(ciphertext, int64(len(nonce)))
+	if err != nil {
+		return err
+	}
+	err = f.File.Sync()
+	f.dirty = 0
+	return err
+}
+
+// Same as Sync
+func (f *EncryptedFile) Flush() error {
+	return f.Sync()
+}
+
+// Wipe all file updates, re-buffering file content in memory.
+func (f *EncryptedFile) Resync() (err error) {
+	f.Lock()
+	defer f.Unlock()
+	if f.closed {
+		err = fmt.Errorf("file is closed")
+		return
+	}
+	// FIXME: may need to manage an int64 file size with multiple successfis read ?
+	buf := bytes.NewBuffer(make([]byte, 0, 1000))
+	n, err := f.File.WriteTo(buf)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("copied %d bytes\n", n)
+	if n > 0 {
+		data := buf.Bytes()
+		nonce := data[0:nonceSize]
+		ciphertext := data[nonceSize:]
+		plaintext, err := f.encrypter.Decrypt(nonce, ciphertext)
+		if err != nil {
+			return err
+		}
+		f.buffer = plaintext
+		f.length = int64(len(plaintext))
+	}
+	f.dirty = 0
+	// fmt.Printf("buffer: len=%d ; cap=%d bytes\n", len(f.buffer), cap(f.buffer))
 	return nil
-}
-
-// Open opens the named file for reading. If successful, methods on
-// the returned file can be used for reading; the associated file
-// descriptor has mode O_RDONLY.
-func Open(key []byte, publicPath, privatePath string) (*EncryptedFile, error) {
-	return OpenFile(key, publicPath, privatePath, os.O_RDONLY, 0)
-}
-
-// OpenFile is the generalized open call; most users will use Open
-// or Create instead. It opens the named file with specified flag
-// (O_RDONLY etc.). If the file does not exist, and the O_CREATE flag
-// is passed, it is created with mode perm (before umask). If successful,
-// methods on the returned File can be used for I/O.
-func OpenFile(key []byte, publicPath, privatePath string, flag int, perms os.FileMode) (*EncryptedFile, error) {
-	panic("not implemented yet")
-	namer := &BasicNamer{}
-	encrypter := &BasicEncrypter{key: key}
-	f := &EncryptedFile{
-		namer:       namer,
-		encrypter:   encrypter,
-		publicPath:  publicPath,
-		privatePath: privatePath,
-		readonly:    true,
-	}
-	name, err := namer.HashFilepath(publicPath, privatePath)
-	if err != nil {
-		return nil, err
-	}
-	f.encrypted, err = os.OpenFile(name, flag, perms)
-	if err != nil {
-		return nil, err
-	}
-	err = f.Resync()
-	return f, err
-}
-
-func Write(key []byte, data []byte, publicPath, privatePath string) error {
-	panic("not implemented yet")
-}
-
-func WriteString(key []byte, data, publicPath, privatePath string) error {
-	panic("not implemented yet")
-}
-
-func Read(key []byte, publicPath, privatePath string) ([]byte, error) {
-	panic("not implemented yet")
-}
-
-func ReadString(key []byte, publicPath, privatePath string) (string, error) {
-	panic("not implemented yet")
 }
