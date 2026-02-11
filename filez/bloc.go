@@ -33,6 +33,7 @@ type BlocUid struct {
 type Bloc struct {
 	uid     BlocUid
 	data    *[]byte
+	written int //  length written in bloc (can be decorated)
 	updated bool
 	cursor  int
 }
@@ -55,24 +56,41 @@ func (b *Bloc) Read(p []byte) (n int, err error) {
 
 type BlocCursor struct {
 	ordering    BlocOrdering
-	file        *BlocFile
+	file        *BlocsFile
+	started     bool
 	cursor      int
 	current     *Bloc
 	readPointer int
 }
 
+func (c *BlocCursor) init() {
+	if !c.started {
+		c.cursor = int(c.ordering) * (c.file.Len() - 1)
+	}
+}
+
 func (c BlocCursor) HasNext() bool {
-	return c.cursor < c.file.Len()
+	c.init()
+	return c.ordering == TopToBottom && c.cursor < c.file.Len() ||
+		c.ordering == BottomToTop && c.cursor >= 0
 }
 
 func (c *BlocCursor) Next() (*Bloc, error) {
-	if c.cursor >= c.file.Len() {
+	c.init()
+	c.started = true
+	if c.ordering == TopToBottom && c.cursor >= c.file.Len() {
 		// panic("reached end of cursor")
+		return nil, ErrNotExist
+	} else if c.ordering == BottomToTop && c.cursor < 0 {
 		return nil, ErrNotExist
 	}
 	var err error
 	c.current, err = c.file.Get(c.cursor)
-	c.cursor++
+	if c.ordering == TopToBottom {
+		c.cursor++
+	} else {
+		c.cursor--
+	}
 	return c.current, err
 }
 
@@ -115,31 +133,34 @@ func (c *BlocCursor) Read(p []byte) (n int, err error) {
 
 // Write by blocs.
 // Can only write on last bloc. Previous blocks are accessible Read Only.
-type BlocFile struct {
+type BlocsFile struct {
 	*sync.Mutex
-	file      *os.File
-	filepath  string
-	length    int32
-	capacity  int32
-	positions map[int32]int32
-	lengths   map[int32]int32
-	cache     []*Bloc
+	file          *os.File
+	filepath      string
+	length        int32
+	capacity      int32
+	thresholdSize int
+	positions     map[int32]int32
+	lengths       map[int32]int32
+	cache         []*Bloc
+	decorators    []BlocDecorator
 }
 
-func NewBlocFile(filepath string, cap int32) (*BlocFile, error) {
+func NewBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
 	f, err := os.OpenFile(filepath, os.O_RDWR+os.O_CREATE, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("error opening bloc file: %w", err)
 	}
-	bf := &BlocFile{
-		Mutex:     &sync.Mutex{},
-		file:      f,
-		filepath:  filepath,
-		capacity:  cap,
-		positions: make(map[int32]int32),
-		lengths:   make(map[int32]int32),
+	bf := &BlocsFile{
+		Mutex:         &sync.Mutex{},
+		file:          f,
+		filepath:      filepath,
+		capacity:      int32(cap),
+		thresholdSize: thresholdSize,
+		positions:     make(map[int32]int32),
+		lengths:       make(map[int32]int32),
 	}
-	err = bf.initIndex(cap)
+	err = bf.initIndex()
 	if err != nil {
 		return nil, fmt.Errorf("error initing bloc file index: %w", err)
 	}
@@ -152,15 +173,15 @@ func NewBlocFile(filepath string, cap int32) (*BlocFile, error) {
 	return bf, nil
 }
 
-func (f *BlocFile) initIndex(capacity int32) error {
+func (f *BlocsFile) initIndex() error {
 	// f.Lock()
 	// defer f.Unlock()
 
-	firstPos := (capacity + 2) * 4
+	firstPos := (f.capacity + 2) * 4
 	buf := make([]byte, firstPos)
 
 	// Write capacity
-	_, err := binary.Encode(buf[0:4], binary.BigEndian, capacity)
+	_, err := binary.Encode(buf[0:4], binary.BigEndian, f.capacity)
 	if err != nil {
 		return fmt.Errorf("error encoding bloc file capacity: %w", err)
 	}
@@ -175,7 +196,7 @@ func (f *BlocFile) initIndex(capacity int32) error {
 
 	// Init next empty positions
 	var k int32
-	for k = 2; k < capacity+2; k++ {
+	for k = 2; k < f.capacity+2; k++ {
 		offset := k * 4
 		_, err := binary.Encode(buf[offset:offset+4], binary.BigEndian, emptyPosition)
 		if err != nil {
@@ -189,12 +210,12 @@ func (f *BlocFile) initIndex(capacity int32) error {
 	}
 
 	f.length = 0
-	f.capacity = capacity
+	f.capacity = f.capacity
 	return nil
 }
 
 // Update last opened bloc length
-func (f *BlocFile) updateLastBlocLength(length int32) error {
+func (f *BlocsFile) updateLastBlocLength(length int32) error {
 	// f.Lock()
 	// defer f.Unlock()
 
@@ -223,7 +244,7 @@ func (f *BlocFile) updateLastBlocLength(length int32) error {
 	return nil
 }
 
-func (f *BlocFile) buildIndexCache() error {
+func (f *BlocsFile) buildIndexCache() error {
 	// FIXME: implement use case of larger capacity than buffer size ?
 	// The file begins with the bloc index.
 	// Format for n Bloc : [<CAPACITY><POS0><POS1><POS2>...<POSn-1><POSn><-1><-1><-1><-1>]
@@ -271,27 +292,27 @@ func (f *BlocFile) buildIndexCache() error {
 }
 
 // Return the number of written blocs
-func (f BlocFile) Len() int {
+func (f BlocsFile) Len() int {
 	f.Lock()
 	defer f.Unlock()
 	return int(f.length)
 }
 
 // Return the bloc capacity
-func (f BlocFile) Cap() int {
+func (f BlocsFile) Cap() int {
 	f.Lock()
 	defer f.Unlock()
 	return int(f.capacity)
 }
 
-func (f *BlocFile) Cursor(ordering BlocOrdering) *BlocCursor {
+func (f *BlocsFile) Cursor(ordering BlocOrdering) *BlocCursor {
 	return &BlocCursor{
 		ordering: ordering,
 		file:     f,
 	}
 }
 
-func (f BlocFile) Get(k int) (*Bloc, error) {
+func (f BlocsFile) Get(k int) (*Bloc, error) {
 	f.Lock()
 	defer f.Unlock()
 	k32 := int32(k)
@@ -301,37 +322,58 @@ func (f BlocFile) Get(k int) (*Bloc, error) {
 	}
 
 	pos := f.positions[k32]
-	len := f.lengths[k32]
-	buf := make([]byte, len)
+	length := f.lengths[k32]
+	buf := make([]byte, length)
 	n, err := f.file.ReadAt(buf, int64(pos))
 	if err != nil {
 		return nil, err
 	}
-	if int32(n) != len {
+	if int32(n) != length {
 		panic("bad count of bytes read")
 	}
+
+	for i := len(f.decorators) - 1; i >= 0; i-- {
+		decorator := f.decorators[i]
+		buf, err = decorator.Read(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// fmt.Printf("read bloc at pos: %d with len: %d\n", pos, len)
 	b := &Bloc{
 		uid: BlocUid{
 			filepath: f.filepath,
 			id:       k,
 		},
-		data: &buf,
+		data:    &buf,
+		written: n,
 	}
 
 	return b, nil
 }
 
-func (f *BlocFile) updateLastBloc(data []byte) (*Bloc, error) {
+func (f *BlocsFile) updateLastBloc(data []byte) (*Bloc, error) {
 	k := f.length - 1
 	pos := f.positions[k]
-	n, err := f.file.WriteAt(data, int64(pos))
+
+	decorated := data
+	var err error
+	for _, decorator := range f.decorators {
+		decorated, err = decorator.Write(decorated)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	n, err := f.file.WriteAt(decorated, int64(pos))
 	if err != nil {
 		return nil, err
 	}
-	if n < len(data) {
+	if n < len(decorated) {
 		panic("bad count of bytes writen")
 	}
+
 	// fmt.Printf("updated last bloc #%d at pos: %d with %d bytes\n", k, pos, n)
 	f.updateLastBlocLength(int32(n))
 	b := &Bloc{
@@ -339,28 +381,25 @@ func (f *BlocFile) updateLastBloc(data []byte) (*Bloc, error) {
 			filepath: f.filepath,
 			id:       int(k),
 		},
-		data: &data,
+		data:    &data,
+		written: n,
 	}
+
 	return b, nil
 }
 
-func (f *BlocFile) UpdateLastBloc(data []byte) (*Bloc, error) {
+func (f *BlocsFile) UpdateLastBloc(data []byte) (*Bloc, error) {
 	f.Lock()
 	defer f.Unlock()
 
 	if f.length == 0 {
-		return f.WriteNewBloc(data)
+		return f.writeNewBloc(data)
 	}
 
 	return f.updateLastBloc(data)
 }
 
-// Write into a new Bloc.
-// Return EOF if max capacity is reached.
-func (f *BlocFile) WriteNewBloc(data []byte) (*Bloc, error) {
-	f.Lock()
-	defer f.Unlock()
-
+func (f *BlocsFile) writeNewBloc(data []byte) (*Bloc, error) {
 	if f.length >= f.capacity {
 		return nil, io.EOF
 	}
@@ -369,6 +408,57 @@ func (f *BlocFile) WriteNewBloc(data []byte) (*Bloc, error) {
 	f.length++
 
 	return f.updateLastBloc(data)
+}
+
+// Write into a new Bloc.
+// Return EOF if max capacity is reached.
+func (f *BlocsFile) WriteNewBloc(data []byte) (*Bloc, error) {
+	f.Lock()
+	defer f.Unlock()
+
+	return f.writeNewBloc(data)
+}
+
+// Append only in BlocFile :
+// Write into last bloc until full then create a new bloc and go on.
+func (f *BlocsFile) Write(p []byte) (int, error) {
+	if f.length >= f.capacity {
+		return 0, io.EOF
+	}
+
+	var data []byte
+	b1, err := f.Get(int(f.length))
+	if err == ErrNotExist {
+		data = p
+	} else {
+		if err != nil {
+			return 0, err
+		}
+		data = append((*(b1).data), p...)
+	}
+
+	b2, err := f.UpdateLastBloc(data)
+	if err != nil {
+		return 0, err
+	}
+	if b2.written >= f.thresholdSize {
+		//  Create new bloc for next write
+		f.length++
+	}
+	return len(p), nil
+}
+
+/*
+TODO: feature to auto append into bloc file.
+Howto deal with encryption ?
+Append => Gzip => Encryption => BlocFile
+Appending in normal file : Write() append to the file
+Appending in bloc file : Read last bloc, decipher it, unzip it, append to it, rezip it recipher it, update bloc
+*/
+// Feature which allow gziping and ciphering blocs.
+type BlocDecorator interface {
+	Read(p []byte) ([]byte, error)
+	Write(p []byte) ([]byte, error)
 }
 
 type VirtualBlocFile struct {

@@ -10,23 +10,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBlocFile_NewBlocFile(t *testing.T) {
-	p := MkTempOrPanic("/tmp/TestBlocFile_NewBlocFile")
+func TestBlocsFile_NewBlocsFile(t *testing.T) {
+	p := MkTempOrPanic("/tmp/TestBlocsFile_NewBlocsFile")
 	defer os.RemoveAll(p)
 
-	bf, err := NewBlocFile(p, 8)
+	bf, err := NewBlocsFile(p, 8, 10)
 	require.NoError(t, err)
 	require.NotNil(t, bf)
 	assert.Equal(t, 8, bf.Cap())
 	assert.Equal(t, 0, bf.Len())
 }
 
-func TestBlocFile_WriteNewBloc(t *testing.T) {
+func TestBlocsFile_WriteNewBloc(t *testing.T) {
 	// t.Skip()
-	p := MkTempOrPanic("/tmp/TestBlocFile_WriteNewBloc")
+	p := MkTempOrPanic("/tmp/TestBlocsFile_WriteNewBloc")
 	defer os.RemoveAll(p)
 
-	bf, err := NewBlocFile(p, 4)
+	bf, err := NewBlocsFile(p, 4, 10)
 	require.NoError(t, err)
 	require.NotNil(t, bf)
 	assert.Equal(t, 4, bf.Cap())
@@ -108,12 +108,12 @@ func TestBlocFile_WriteNewBloc(t *testing.T) {
 	assert.Equal(t, 4, bf.Len())
 }
 
-func TestBlocFile_UpdateLastBloc(t *testing.T) {
+func TestBlocsFile_UpdateLastBloc(t *testing.T) {
 	// t.Skip()
-	p := MkTempOrPanic("/tmp/TestBlocFile_UpdateLastBloc")
+	p := MkTempOrPanic("/tmp/TestBlocsFile_UpdateLastBloc")
 	defer os.RemoveAll(p)
 
-	bf, err := NewBlocFile(p, 4)
+	bf, err := NewBlocsFile(p, 4, 10)
 	require.NoError(t, err)
 	require.NotNil(t, bf)
 
@@ -182,11 +182,11 @@ func TestBlocFile_UpdateLastBloc(t *testing.T) {
 	assert.Equal(t, 3, bf.Len())
 }
 
-func TestBlocFile_BlocRead(t *testing.T) {
-	p := MkTempOrPanic("/tmp/TestBlocFile_BlocRead")
+func TestBlocsFile_BlocRead(t *testing.T) {
+	p := MkTempOrPanic("/tmp/TestBlocsFile_BlocRead")
 	defer os.RemoveAll(p)
 
-	bf, err := NewBlocFile(p, 4)
+	bf, err := NewBlocsFile(p, 4, 10)
 	require.NoError(t, err)
 	require.NotNil(t, bf)
 
@@ -207,12 +207,12 @@ func TestBlocFile_BlocRead(t *testing.T) {
 	assert.Equal(t, expectedBloc0, string(buf[0:n]))
 }
 
-func TestBlocFile_Cursor(t *testing.T) {
+func TestBlocsFile_Cursor(t *testing.T) {
 	// t.Skip()
-	p := MkTempOrPanic("/tmp/TestBlocFile_Cursor")
+	p := MkTempOrPanic("/tmp/TestBlocsFile_Cursor")
 	defer os.RemoveAll(p)
 
-	bf, err := NewBlocFile(p, 4)
+	bf, err := NewBlocsFile(p, 4, 10)
 	require.NoError(t, err)
 	require.NotNil(t, bf)
 
@@ -342,5 +342,103 @@ func TestBlocFile_Cursor(t *testing.T) {
 	assert.Nil(t, c3b4)
 
 	// Test cursor BlocOrdering
+	c4 := bf.Cursor(BottomToTop)
+	require.NotNil(t, c4)
+	assert.True(t, c4.HasNext())
+	c4b0, err := c4.Next()
+	assert.NoError(t, err)
+	require.NotNil(t, c4b0)
+	assert.Equal(t, expectedBloc3, string(*c4b0.data))
 
+	assert.True(t, c4.HasNext())
+	c4b1, err := c4.Next()
+	assert.NoError(t, err)
+	require.NotNil(t, c4b1)
+	assert.Equal(t, expectedBloc2, string(*c4b1.data))
+
+	assert.True(t, c4.HasNext())
+	c4b2, err := c4.Next()
+	assert.NoError(t, err)
+	require.NotNil(t, c4b2)
+	assert.Equal(t, expectedBloc1, string(*c4b2.data))
+
+	assert.True(t, c4.HasNext())
+	c4b3, err := c4.Next()
+	assert.NoError(t, err)
+	require.NotNil(t, c4b3)
+	assert.Equal(t, expectedBloc0, string(*c4b3.data))
+
+	assert.False(t, c4.HasNext())
+	c4b4, err := c4.Next()
+	assert.Equal(t, ErrNotExist, err)
+	assert.Nil(t, c4b4)
+}
+
+func TestBlocsFile_Write(t *testing.T) {
+	// t.Skip()
+	p := MkTempOrPanic("/tmp/TestBlocsFile_Write")
+	defer os.RemoveAll(p)
+
+	expectedBloc0 := "loremIpsum0"
+	expectedBloc1 := "loremIpsum1"
+	expectedBloc2 := "loremIpsum2"
+
+	// Write all in same bloc
+	bf1, err := NewBlocsFile(p, 4, 100)
+	require.NoError(t, err)
+	require.NotNil(t, bf1)
+
+	assert.Equal(t, 0, bf1.Len())
+
+	n, err := bf1.Write([]byte(expectedBloc0))
+	assert.NoError(t, err)
+	assert.Equal(t, len([]byte(expectedBloc0)), n)
+
+	assert.Equal(t, 1, bf1.Len())
+
+	n, err = bf1.Write([]byte(expectedBloc1))
+	assert.NoError(t, err)
+	assert.Equal(t, len([]byte(expectedBloc1)), n)
+
+	assert.Equal(t, 1, bf1.Len())
+
+	n, err = bf1.Write([]byte(expectedBloc2))
+	assert.NoError(t, err)
+	assert.Equal(t, len([]byte(expectedBloc2)), n)
+
+	require.Equal(t, 1, bf1.Len())
+
+	bl0, err := bf1.Get(0)
+	assert.NoError(t, err)
+	require.NotNil(t, bl0)
+	assert.Equal(t, expectedBloc0+expectedBloc1+expectedBloc2, string(*bl0.data))
+
+	// Write all in different blocs
+	bf2, err := NewBlocsFile(p, 4, len([]byte(expectedBloc0))+1)
+	require.NoError(t, err)
+	require.NotNil(t, bf1)
+
+	n, err = bf2.Write([]byte(expectedBloc0))
+	assert.NoError(t, err)
+	assert.Equal(t, len([]byte(expectedBloc0)), n)
+
+	n, err = bf2.Write([]byte(expectedBloc1))
+	assert.NoError(t, err)
+	assert.Equal(t, len([]byte(expectedBloc1)), n)
+
+	n, err = bf2.Write([]byte(expectedBloc2))
+	assert.NoError(t, err)
+	assert.Equal(t, len([]byte(expectedBloc2)), n)
+
+	require.Equal(t, 2, bf1.Len())
+
+	bl1, err := bf1.Get(0)
+	assert.NoError(t, err)
+	require.NotNil(t, bl1)
+	assert.Equal(t, expectedBloc0+expectedBloc1, string(*bl1.data))
+
+	bl2, err := bf1.Get(1)
+	assert.NoError(t, err)
+	require.NotNil(t, bl2)
+	assert.Equal(t, expectedBloc2, string(*bl2.data))
 }
