@@ -374,6 +374,94 @@ func TestBlocsFile_Cursor(t *testing.T) {
 	assert.Nil(t, c4b4)
 }
 
+func TestBlocsFile_All(t *testing.T) {
+	// t.Skip()
+	p := MkTempOrPanic("/tmp/TestBlocsFile_All")
+	defer os.RemoveAll(p)
+
+	bf, err := NewBlocsFile(p, 4, 10)
+	require.NoError(t, err)
+	require.NotNil(t, bf)
+
+	expectedBloc0 := "loremIpsum0"
+	expectedBloc1 := "loremIpsum1"
+	expectedBloc2 := "loremIpsum2"
+	expectedBloc3 := "loremIpsum3"
+
+	errChan1 := make(chan error)
+	for b := range bf.All(TopToBottom, errChan1) {
+		_ = b
+		assert.Fail(t, "Iterator should be empty")
+	}
+	assert.Empty(t, errChan1)
+
+	// Test Bloc Writing
+	b0, err := bf.WriteNewBloc([]byte(expectedBloc0))
+	assert.NoError(t, err)
+	assert.NotNil(t, b0)
+	assert.Equal(t, p, b0.uid.filepath)
+	assert.Equal(t, 0, b0.uid.id)
+	assert.Equal(t, expectedBloc0, string(*b0.data))
+
+	b1, err := bf.WriteNewBloc([]byte(expectedBloc1))
+	assert.NoError(t, err)
+	assert.NotNil(t, b1)
+	assert.Equal(t, p, b1.uid.filepath)
+	assert.Equal(t, 1, b1.uid.id)
+	assert.Equal(t, expectedBloc1, string(*b1.data))
+
+	b2, err := bf.WriteNewBloc([]byte(expectedBloc2))
+	assert.NoError(t, err)
+	assert.NotNil(t, b2)
+	assert.Equal(t, p, b2.uid.filepath)
+	assert.Equal(t, 2, b2.uid.id)
+	assert.Equal(t, expectedBloc2, string(*b2.data))
+
+	b3, err := bf.WriteNewBloc([]byte(expectedBloc3))
+	assert.NoError(t, err)
+	assert.NotNil(t, b3)
+	assert.Equal(t, p, b3.uid.filepath)
+	assert.Equal(t, 3, b3.uid.id)
+	assert.Equal(t, expectedBloc3, string(*b3.data))
+
+	// Test Iterating
+	k := 0
+	errChan2 := make(chan error)
+	for b := range bf.All(TopToBottom, errChan2) {
+		switch k {
+		case 0:
+			assert.Equal(t, expectedBloc0, string(*b.data))
+		case 1:
+			assert.Equal(t, expectedBloc1, string(*b.data))
+		case 2:
+			assert.Equal(t, expectedBloc2, string(*b.data))
+		case 3:
+			assert.Equal(t, expectedBloc3, string(*b.data))
+		}
+		k++
+	}
+	assert.Empty(t, errChan2)
+
+	// Test Iterating Reverse Order
+	k = 0
+	errChan3 := make(chan error)
+	for b := range bf.All(BottomToTop, errChan3) {
+		switch k {
+		case 0:
+			assert.Equal(t, expectedBloc3, string(*b.data))
+		case 1:
+			assert.Equal(t, expectedBloc2, string(*b.data))
+		case 2:
+			assert.Equal(t, expectedBloc1, string(*b.data))
+		case 3:
+			assert.Equal(t, expectedBloc0, string(*b.data))
+		}
+		k++
+	}
+	assert.Empty(t, errChan3)
+
+}
+
 func TestBlocsFile_Write(t *testing.T) {
 	// t.Skip()
 	p := MkTempOrPanic("/tmp/TestBlocsFile_Write")
@@ -430,14 +518,14 @@ func TestBlocsFile_Write(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc2)), n)
 
-	require.Equal(t, 2, bf1.Len())
+	require.Equal(t, 2, bf2.Len())
 
-	bl1, err := bf1.Get(0)
+	bl1, err := bf2.Get(0)
 	assert.NoError(t, err)
 	require.NotNil(t, bl1)
 	assert.Equal(t, expectedBloc0+expectedBloc1, string(*bl1.data))
 
-	bl2, err := bf1.Get(1)
+	bl2, err := bf2.Get(1)
 	assert.NoError(t, err)
 	require.NotNil(t, bl2)
 	assert.Equal(t, expectedBloc2, string(*bl2.data))

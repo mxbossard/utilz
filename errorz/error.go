@@ -10,6 +10,7 @@ import (
 )
 
 type Aggregated struct {
+	// error
 	msg    string
 	errors []error
 }
@@ -61,6 +62,7 @@ func (a *Aggregated) Concat(agg Aggregated) {
 	a.AddAll(agg.errors...)
 }
 
+// Aggregate all errors in one error
 func (a Aggregated) Error() string {
 	builder := strings.Builder{}
 	for i, e := range a.errors {
@@ -141,6 +143,10 @@ func ConsumedAggregated(errorsChan chan error) Aggregated {
 		}
 	}
 	return errors
+}
+
+func ChanCollect(errorsChan chan error) Aggregated {
+	return ConsumedAggregated(errorsChan)
 }
 
 func NewAgg(errors ...error) Aggregated {

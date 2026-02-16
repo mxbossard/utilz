@@ -144,10 +144,10 @@ func StringLineProcesser(callback StringIOProcesserCallback) IOProcesser {
 			return 0, err
 		}
 		n := len(out)
-		log.Printf("StringLineProcesser: str callback out: [%s]", out)
+		// log.Printf("StringLineProcesser: str callback out: [%s]", out)
 		GrowOrCopy(buffer, n)
 		copy((*buffer)[0:n], []byte(out))
-		log.Printf("StringLineProcesser: bytes callback out: [%v]", *buffer)
+		// log.Printf("StringLineProcesser: bytes callback out: [%v]", *buffer)
 		return n, nil
 	}
 	return &LineIOProcesser{Callback: wrapper}

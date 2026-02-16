@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"sync"
+
+	"github.com/mxbossard/utilz/errorz"
 )
 
 const (
@@ -173,6 +176,10 @@ func NewBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
 	return bf, nil
 }
 
+func (f *BlocsFile) Name() string {
+	return f.file.Name()
+}
+
 func (f *BlocsFile) initIndex() error {
 	// f.Lock()
 	// defer f.Unlock()
@@ -210,7 +217,6 @@ func (f *BlocsFile) initIndex() error {
 	}
 
 	f.length = 0
-	f.capacity = f.capacity
 	return nil
 }
 
@@ -305,6 +311,24 @@ func (f BlocsFile) Cap() int {
 	return int(f.capacity)
 }
 
+// New golang iterator "iter.Seq"
+func (f *BlocsFile) All(ordering BlocOrdering, errChan chan error) iter.Seq[*Bloc] {
+	c := f.Cursor(ordering)
+	return func(yield func(b *Bloc) bool) {
+		for ok := c.HasNext(); ok; {
+			b, err := c.Next()
+			if err == ErrNotExist {
+				return
+			} else if err != nil {
+				errChan <- err
+			}
+			if !yield(b) {
+				return
+			}
+		}
+	}
+}
+
 func (f *BlocsFile) Cursor(ordering BlocOrdering) *BlocCursor {
 	return &BlocCursor{
 		ordering: ordering,
@@ -351,6 +375,21 @@ func (f BlocsFile) Get(k int) (*Bloc, error) {
 	}
 
 	return b, nil
+}
+
+func (f BlocsFile) GetLastBloc() (*Bloc, error) {
+	return f.Get(int(f.length) - 1)
+}
+
+func (f BlocsFile) GetLastNonEmptyBloc() (*Bloc, error) {
+	errChan := make(chan error)
+	for b := range f.All(BottomToTop, errChan) {
+		if b.Len() > 0 {
+			err := errorz.ChanCollect(errChan)
+			return b, err
+		}
+	}
+	return f.Get(0)
 }
 
 func (f *BlocsFile) updateLastBloc(data []byte) (*Bloc, error) {
@@ -427,20 +466,21 @@ func (f *BlocsFile) Write(p []byte) (int, error) {
 	}
 
 	var data []byte
-	b1, err := f.Get(int(f.length))
+	b1, err := f.Get(int(f.length - 1))
 	if err == ErrNotExist {
 		data = p
 	} else {
 		if err != nil {
 			return 0, err
 		}
-		data = append((*(b1).data), p...)
+		data = append(*(b1.data), p...)
 	}
 
 	b2, err := f.UpdateLastBloc(data)
 	if err != nil {
 		return 0, err
 	}
+	// fmt.Printf("comparing thresholdSize: written %d/%d\n", b2.written, f.thresholdSize)
 	if b2.written >= f.thresholdSize {
 		//  Create new bloc for next write
 		f.length++
