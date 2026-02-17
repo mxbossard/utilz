@@ -52,7 +52,7 @@ func SerializeFileInfo(f filez.File) ([]byte, error) {
 		return nil, err
 	}
 	b := bytes.NewBuffer(nil)
-	_, err = fmt.Fprintf(b, "%d-%d-%d-%s", info.ModTime(), info.Mode(), info.Size(), info.Name())
+	_, err = fmt.Fprintf(b, "%d-%d-%d-%s", info.ModTime().Unix(), info.Mode(), info.Size(), info.Name())
 	return b.Bytes(), err
 }
 
