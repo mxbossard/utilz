@@ -44,7 +44,7 @@ func TestBlocsFile_WriteNewBloc(t *testing.T) {
 	assert.NotNil(t, b0)
 	assert.Equal(t, p, b0.uid.filepath)
 	assert.Equal(t, 0, b0.uid.id)
-	assert.Equal(t, expectedBloc0, string(*b0.data))
+	assert.Equal(t, expectedBloc0, string(b0.data))
 	assert.Equal(t, 4, bf.Cap())
 	assert.Equal(t, 1, bf.Len())
 
@@ -53,7 +53,7 @@ func TestBlocsFile_WriteNewBloc(t *testing.T) {
 	assert.NotNil(t, b1)
 	assert.Equal(t, p, b1.uid.filepath)
 	assert.Equal(t, 1, b1.uid.id)
-	assert.Equal(t, expectedBloc1, string(*b1.data))
+	assert.Equal(t, expectedBloc1, string(b1.data))
 	assert.Equal(t, 4, bf.Cap())
 	assert.Equal(t, 2, bf.Len())
 
@@ -62,14 +62,14 @@ func TestBlocsFile_WriteNewBloc(t *testing.T) {
 	assert.NotNil(t, b2)
 	assert.Equal(t, p, b2.uid.filepath)
 	assert.Equal(t, 2, b2.uid.id)
-	assert.Equal(t, expectedBloc2, string(*b2.data))
+	assert.Equal(t, expectedBloc2, string(b2.data))
 
 	b3, err := bf.WriteNewBloc([]byte(expectedBloc3))
 	assert.NoError(t, err)
 	assert.NotNil(t, b3)
 	assert.Equal(t, p, b3.uid.filepath)
 	assert.Equal(t, 3, b3.uid.id)
-	assert.Equal(t, expectedBloc3, string(*b3.data))
+	assert.Equal(t, expectedBloc3, string(b3.data))
 
 	// Test Bloc Retrieval
 	read0, err := bf.Get(0)
@@ -77,28 +77,28 @@ func TestBlocsFile_WriteNewBloc(t *testing.T) {
 	assert.NotNil(t, read0)
 	assert.Equal(t, p, read0.uid.filepath)
 	assert.Equal(t, 0, read0.uid.id)
-	assert.Equal(t, expectedBloc0, string(*read0.data))
+	assert.Equal(t, expectedBloc0, string(read0.data))
 
 	read1, err := bf.Get(1)
 	assert.NoError(t, err)
 	assert.NotNil(t, read1)
 	assert.Equal(t, p, read1.uid.filepath)
 	assert.Equal(t, 1, read1.uid.id)
-	assert.Equal(t, expectedBloc1, string(*read1.data))
+	assert.Equal(t, expectedBloc1, string(read1.data))
 
 	read2, err := bf.Get(2)
 	assert.NoError(t, err)
 	assert.NotNil(t, read2)
 	assert.Equal(t, p, read2.uid.filepath)
 	assert.Equal(t, 2, read2.uid.id)
-	assert.Equal(t, expectedBloc2, string(*read2.data))
+	assert.Equal(t, expectedBloc2, string(read2.data))
 
 	read3, err := bf.Get(3)
 	assert.NoError(t, err)
 	assert.NotNil(t, read3)
 	assert.Equal(t, p, read3.uid.filepath)
 	assert.Equal(t, 3, read3.uid.id)
-	assert.Equal(t, expectedBloc3, string(*read3.data))
+	assert.Equal(t, expectedBloc3, string(read3.data))
 
 	// Test capacity overflow
 	b4, err := bf.WriteNewBloc([]byte(expectedBloc4))
@@ -128,21 +128,21 @@ func TestBlocsFile_UpdateLastBloc(t *testing.T) {
 	assert.NotNil(t, b0)
 	assert.Equal(t, p, b0.uid.filepath)
 	assert.Equal(t, 0, b0.uid.id)
-	assert.Equal(t, expectedBloc0, string(*b0.data))
+	assert.Equal(t, expectedBloc0, string(b0.data))
 
 	b1, err := bf.WriteNewBloc([]byte(expectedBloc1))
 	assert.NoError(t, err)
 	assert.NotNil(t, b1)
 	assert.Equal(t, p, b1.uid.filepath)
 	assert.Equal(t, 1, b1.uid.id)
-	assert.Equal(t, expectedBloc1, string(*b1.data))
+	assert.Equal(t, expectedBloc1, string(b1.data))
 
 	b2, err := bf.WriteNewBloc([]byte(expectedBloc2))
 	assert.NoError(t, err)
 	assert.NotNil(t, b2)
 	assert.Equal(t, p, b2.uid.filepath)
 	assert.Equal(t, 2, b2.uid.id)
-	assert.Equal(t, expectedBloc2, string(*b2.data))
+	assert.Equal(t, expectedBloc2, string(b2.data))
 
 	// Test update last bloc
 	b2b, err := bf.UpdateLastBloc([]byte(expectedBloc2b))
@@ -150,7 +150,7 @@ func TestBlocsFile_UpdateLastBloc(t *testing.T) {
 	assert.NotNil(t, b2b)
 	assert.Equal(t, p, b2b.uid.filepath)
 	assert.Equal(t, 2, b2b.uid.id)
-	assert.Equal(t, expectedBloc2b, string(*b2b.data))
+	assert.Equal(t, expectedBloc2b, string(b2b.data))
 
 	// Test Bloc Retrieval
 	read0, err := bf.Get(0)
@@ -158,21 +158,21 @@ func TestBlocsFile_UpdateLastBloc(t *testing.T) {
 	assert.NotNil(t, read0)
 	assert.Equal(t, p, read0.uid.filepath)
 	assert.Equal(t, 0, read0.uid.id)
-	assert.Equal(t, expectedBloc0, string(*read0.data))
+	assert.Equal(t, expectedBloc0, string(read0.data))
 
 	read1, err := bf.Get(1)
 	assert.NoError(t, err)
 	assert.NotNil(t, read1)
 	assert.Equal(t, p, read1.uid.filepath)
 	assert.Equal(t, 1, read1.uid.id)
-	assert.Equal(t, expectedBloc1, string(*read1.data))
+	assert.Equal(t, expectedBloc1, string(read1.data))
 
 	read2, err := bf.Get(2)
 	assert.NoError(t, err)
 	assert.NotNil(t, read2)
 	assert.Equal(t, p, read2.uid.filepath)
 	assert.Equal(t, 2, read2.uid.id)
-	assert.Equal(t, expectedBloc2b, string(*read2.data))
+	assert.Equal(t, expectedBloc2b, string(read2.data))
 
 	// Test reading not existing bloc
 	read3, err := bf.Get(3)
@@ -198,7 +198,7 @@ func TestBlocsFile_BlocRead(t *testing.T) {
 	assert.NotNil(t, b0)
 	assert.Equal(t, p, b0.uid.filepath)
 	assert.Equal(t, 0, b0.uid.id)
-	assert.Equal(t, expectedBloc0, string(*b0.data))
+	assert.Equal(t, expectedBloc0, string(b0.data))
 
 	buf := make([]byte, 100)
 	n, err := b0.Read(buf)
@@ -231,28 +231,28 @@ func TestBlocsFile_Cursor(t *testing.T) {
 	assert.NotNil(t, b0)
 	assert.Equal(t, p, b0.uid.filepath)
 	assert.Equal(t, 0, b0.uid.id)
-	assert.Equal(t, expectedBloc0, string(*b0.data))
+	assert.Equal(t, expectedBloc0, string(b0.data))
 
 	b1, err := bf.WriteNewBloc([]byte(expectedBloc1))
 	assert.NoError(t, err)
 	assert.NotNil(t, b1)
 	assert.Equal(t, p, b1.uid.filepath)
 	assert.Equal(t, 1, b1.uid.id)
-	assert.Equal(t, expectedBloc1, string(*b1.data))
+	assert.Equal(t, expectedBloc1, string(b1.data))
 
 	b2, err := bf.WriteNewBloc([]byte(expectedBloc2))
 	assert.NoError(t, err)
 	assert.NotNil(t, b2)
 	assert.Equal(t, p, b2.uid.filepath)
 	assert.Equal(t, 2, b2.uid.id)
-	assert.Equal(t, expectedBloc2, string(*b2.data))
+	assert.Equal(t, expectedBloc2, string(b2.data))
 
 	b3, err := bf.WriteNewBloc([]byte(expectedBloc3))
 	assert.NoError(t, err)
 	assert.NotNil(t, b3)
 	assert.Equal(t, p, b3.uid.filepath)
 	assert.Equal(t, 3, b3.uid.id)
-	assert.Equal(t, expectedBloc3, string(*b3.data))
+	assert.Equal(t, expectedBloc3, string(b3.data))
 
 	// Test cursor as Reader
 	c1 := bf.Cursor(TopToBottom)
@@ -271,25 +271,25 @@ func TestBlocsFile_Cursor(t *testing.T) {
 	c2b0, err := c2.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c2b0)
-	assert.Equal(t, expectedBloc0, string(*c2b0.data))
+	assert.Equal(t, expectedBloc0, string(c2b0.data))
 
 	assert.True(t, c2.HasNext())
 	c2b1, err := c2.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c2b1)
-	assert.Equal(t, expectedBloc1, string(*c2b1.data))
+	assert.Equal(t, expectedBloc1, string(c2b1.data))
 
 	assert.True(t, c2.HasNext())
 	c2b2, err := c2.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c2b2)
-	assert.Equal(t, expectedBloc2, string(*c2b2.data))
+	assert.Equal(t, expectedBloc2, string(c2b2.data))
 
 	assert.True(t, c2.HasNext())
 	c2b3, err := c2.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c2b3)
-	assert.Equal(t, expectedBloc3, string(*c2b3.data))
+	assert.Equal(t, expectedBloc3, string(c2b3.data))
 
 	assert.False(t, c2.HasNext())
 	c2b4, err := c2.Next()
@@ -303,38 +303,38 @@ func TestBlocsFile_Cursor(t *testing.T) {
 	c2b0, err = c2.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c2b0)
-	assert.Equal(t, expectedBloc0, string(*c2b0.data))
+	assert.Equal(t, expectedBloc0, string(c2b0.data))
 
 	assert.True(t, c2.HasNext())
 	c2b1, err = c2.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c2b1)
-	assert.Equal(t, expectedBloc1, string(*c2b1.data))
+	assert.Equal(t, expectedBloc1, string(c2b1.data))
 
 	// Test old cursor as Bloc Iterator
 	assert.True(t, c3.HasNext())
 	c3b0, err := c3.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c3b0)
-	assert.Equal(t, expectedBloc0, string(*c3b0.data))
+	assert.Equal(t, expectedBloc0, string(c3b0.data))
 
 	assert.True(t, c3.HasNext())
 	c3b1, err := c3.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c3b1)
-	assert.Equal(t, expectedBloc1, string(*c3b1.data))
+	assert.Equal(t, expectedBloc1, string(c3b1.data))
 
 	assert.True(t, c3.HasNext())
 	c3b2, err := c3.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c3b2)
-	assert.Equal(t, expectedBloc2, string(*c3b2.data))
+	assert.Equal(t, expectedBloc2, string(c3b2.data))
 
 	assert.True(t, c3.HasNext())
 	c3b3, err := c3.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c3b3)
-	assert.Equal(t, expectedBloc3, string(*c3b3.data))
+	assert.Equal(t, expectedBloc3, string(c3b3.data))
 
 	assert.False(t, c3.HasNext())
 	c3b4, err := c3.Next()
@@ -348,25 +348,25 @@ func TestBlocsFile_Cursor(t *testing.T) {
 	c4b0, err := c4.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c4b0)
-	assert.Equal(t, expectedBloc3, string(*c4b0.data))
+	assert.Equal(t, expectedBloc3, string(c4b0.data))
 
 	assert.True(t, c4.HasNext())
 	c4b1, err := c4.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c4b1)
-	assert.Equal(t, expectedBloc2, string(*c4b1.data))
+	assert.Equal(t, expectedBloc2, string(c4b1.data))
 
 	assert.True(t, c4.HasNext())
 	c4b2, err := c4.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c4b2)
-	assert.Equal(t, expectedBloc1, string(*c4b2.data))
+	assert.Equal(t, expectedBloc1, string(c4b2.data))
 
 	assert.True(t, c4.HasNext())
 	c4b3, err := c4.Next()
 	assert.NoError(t, err)
 	require.NotNil(t, c4b3)
-	assert.Equal(t, expectedBloc0, string(*c4b3.data))
+	assert.Equal(t, expectedBloc0, string(c4b3.data))
 
 	assert.False(t, c4.HasNext())
 	c4b4, err := c4.Next()
@@ -401,28 +401,28 @@ func TestBlocsFile_All(t *testing.T) {
 	assert.NotNil(t, b0)
 	assert.Equal(t, p, b0.uid.filepath)
 	assert.Equal(t, 0, b0.uid.id)
-	assert.Equal(t, expectedBloc0, string(*b0.data))
+	assert.Equal(t, expectedBloc0, string(b0.data))
 
 	b1, err := bf.WriteNewBloc([]byte(expectedBloc1))
 	assert.NoError(t, err)
 	assert.NotNil(t, b1)
 	assert.Equal(t, p, b1.uid.filepath)
 	assert.Equal(t, 1, b1.uid.id)
-	assert.Equal(t, expectedBloc1, string(*b1.data))
+	assert.Equal(t, expectedBloc1, string(b1.data))
 
 	b2, err := bf.WriteNewBloc([]byte(expectedBloc2))
 	assert.NoError(t, err)
 	assert.NotNil(t, b2)
 	assert.Equal(t, p, b2.uid.filepath)
 	assert.Equal(t, 2, b2.uid.id)
-	assert.Equal(t, expectedBloc2, string(*b2.data))
+	assert.Equal(t, expectedBloc2, string(b2.data))
 
 	b3, err := bf.WriteNewBloc([]byte(expectedBloc3))
 	assert.NoError(t, err)
 	assert.NotNil(t, b3)
 	assert.Equal(t, p, b3.uid.filepath)
 	assert.Equal(t, 3, b3.uid.id)
-	assert.Equal(t, expectedBloc3, string(*b3.data))
+	assert.Equal(t, expectedBloc3, string(b3.data))
 
 	// Test Iterating
 	k := 0
@@ -430,13 +430,13 @@ func TestBlocsFile_All(t *testing.T) {
 	for b := range bf.All(TopToBottom, errChan2) {
 		switch k {
 		case 0:
-			assert.Equal(t, expectedBloc0, string(*b.data))
+			assert.Equal(t, expectedBloc0, string(b.data))
 		case 1:
-			assert.Equal(t, expectedBloc1, string(*b.data))
+			assert.Equal(t, expectedBloc1, string(b.data))
 		case 2:
-			assert.Equal(t, expectedBloc2, string(*b.data))
+			assert.Equal(t, expectedBloc2, string(b.data))
 		case 3:
-			assert.Equal(t, expectedBloc3, string(*b.data))
+			assert.Equal(t, expectedBloc3, string(b.data))
 		}
 		k++
 	}
@@ -448,13 +448,13 @@ func TestBlocsFile_All(t *testing.T) {
 	for b := range bf.All(BottomToTop, errChan3) {
 		switch k {
 		case 0:
-			assert.Equal(t, expectedBloc3, string(*b.data))
+			assert.Equal(t, expectedBloc3, string(b.data))
 		case 1:
-			assert.Equal(t, expectedBloc2, string(*b.data))
+			assert.Equal(t, expectedBloc2, string(b.data))
 		case 2:
-			assert.Equal(t, expectedBloc1, string(*b.data))
+			assert.Equal(t, expectedBloc1, string(b.data))
 		case 3:
-			assert.Equal(t, expectedBloc0, string(*b.data))
+			assert.Equal(t, expectedBloc0, string(b.data))
 		}
 		k++
 	}
@@ -499,7 +499,7 @@ func TestBlocsFile_Write(t *testing.T) {
 	bl0, err := bf1.Get(0)
 	assert.NoError(t, err)
 	require.NotNil(t, bl0)
-	assert.Equal(t, expectedBloc0+expectedBloc1+expectedBloc2, string(*bl0.data))
+	assert.Equal(t, expectedBloc0+expectedBloc1+expectedBloc2, string(bl0.data))
 
 	// Write all in different blocs
 	bf2, err := NewBlocsFile(p, 4, len([]byte(expectedBloc0))+1)
@@ -523,10 +523,10 @@ func TestBlocsFile_Write(t *testing.T) {
 	bl1, err := bf2.Get(0)
 	assert.NoError(t, err)
 	require.NotNil(t, bl1)
-	assert.Equal(t, expectedBloc0+expectedBloc1, string(*bl1.data))
+	assert.Equal(t, expectedBloc0+expectedBloc1, string(bl1.data))
 
 	bl2, err := bf2.Get(1)
 	assert.NoError(t, err)
 	require.NotNil(t, bl2)
-	assert.Equal(t, expectedBloc2, string(*bl2.data))
+	assert.Equal(t, expectedBloc2, string(bl2.data))
 }

@@ -35,7 +35,7 @@ type BlocUid struct {
 
 type Bloc struct {
 	uid     BlocUid
-	data    *[]byte
+	data    []byte
 	written int //  length written in bloc (can be decorated)
 	updated bool
 	cursor  int
@@ -45,16 +45,20 @@ func (b Bloc) Len() (n int) {
 	if b.data == nil {
 		return 0
 	}
-	return len(*b.data)
+	return len(b.data)
 }
 
 func (b *Bloc) Read(p []byte) (n int, err error) {
-	n = copy(p, (*b.data)[b.cursor:])
+	n = copy(p, (b.data)[b.cursor:])
 	b.cursor += n
 	if n < len(p) {
 		err = io.EOF
 	}
 	return
+}
+
+func (b Bloc) Bytes() []byte {
+	return b.data
 }
 
 type BlocCursor struct {
@@ -370,7 +374,7 @@ func (f BlocsFile) Get(k int) (*Bloc, error) {
 			filepath: f.filepath,
 			id:       k,
 		},
-		data:    &buf,
+		data:    buf,
 		written: n,
 	}
 
@@ -420,7 +424,7 @@ func (f *BlocsFile) updateLastBloc(data []byte) (*Bloc, error) {
 			filepath: f.filepath,
 			id:       int(k),
 		},
-		data:    &data,
+		data:    data,
 		written: n,
 	}
 
@@ -473,7 +477,7 @@ func (f *BlocsFile) Write(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		data = append(*(b1.data), p...)
+		data = append(b1.data, p...)
 	}
 
 	b2, err := f.UpdateLastBloc(data)
