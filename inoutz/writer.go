@@ -271,3 +271,18 @@ type WriterProxy struct {
 func (w *WriterProxy) Set(new io.Writer) {
 	w.Writer = new
 }
+
+type ByteSliceWriter struct {
+	B      []byte
+	cursor int
+}
+
+func (w *ByteSliceWriter) Write(b []byte) (int, error) {
+	n := copy(w.B[w.cursor:], b)
+	w.cursor += n
+	return n, nil
+}
+
+func NewByteSliceWriter(b []byte) *ByteSliceWriter {
+	return &ByteSliceWriter{B: b}
+}
