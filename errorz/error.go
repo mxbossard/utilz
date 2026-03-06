@@ -26,8 +26,24 @@ func (a Aggregated) Return() error {
 	return a
 }
 
+// Return true if at least one error was aggregated
 func (a Aggregated) GotError() bool {
 	return len(a.errors) > 0
+}
+
+// Return true if at least one error was aggregated
+func (a Aggregated) Got() bool {
+	return a.GotError()
+}
+
+// Return true if no error was aggregated
+func (a Aggregated) NoError() bool {
+	return !a.GotError()
+}
+
+// Return true if no error was aggregated
+func (a Aggregated) IsEmpty() bool {
+	return !a.GotError()
 }
 
 func (a *Aggregated) Add(e error) {
@@ -147,6 +163,15 @@ func ConsumedAggregated(errorsChan chan error) Aggregated {
 
 func ChanCollect(errorsChan chan error) Aggregated {
 	return ConsumedAggregated(errorsChan)
+}
+
+// Non blocking chan consumption
+func ConsumeFirstErrorIfAny(errChan chan error) (err error) {
+	select {
+	case err = <-errChan:
+	default:
+	}
+	return
 }
 
 func NewAgg(errors ...error) Aggregated {

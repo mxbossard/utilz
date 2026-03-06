@@ -29,12 +29,12 @@ var (
 )
 
 type BlocUid struct {
-	filepath string
-	id       int
+	Filepath string
+	Id       int
 }
 
 type Bloc struct {
-	uid     BlocUid
+	Uid     BlocUid
 	data    []byte
 	written int //  length written in bloc (can be decorated)
 	updated bool
@@ -153,38 +153,11 @@ type BlocsFile struct {
 	decorators    []BlocDecorator
 }
 
-func NewBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
-	f, err := os.OpenFile(filepath, os.O_RDWR+os.O_CREATE, 0600)
-	if err != nil {
-		return nil, fmt.Errorf("error opening bloc file: %w", err)
-	}
-	bf := &BlocsFile{
-		Mutex:         &sync.Mutex{},
-		file:          f,
-		filepath:      filepath,
-		capacity:      int32(cap),
-		thresholdSize: thresholdSize,
-		positions:     make(map[int32]int32),
-		lengths:       make(map[int32]int32),
-	}
-	err = bf.initIndex()
-	if err != nil {
-		return nil, fmt.Errorf("error initing bloc file index: %w", err)
-	}
-
-	err = bf.buildIndexCache()
-	if err != nil {
-		return nil, fmt.Errorf("error building bloc file index cache: %w", err)
-	}
-
-	return bf, nil
-}
-
 func (f *BlocsFile) Name() string {
 	return f.file.Name()
 }
 
-func (f *BlocsFile) initIndex() error {
+func (f *BlocsFile) initHeader() error {
 	// f.Lock()
 	// defer f.Unlock()
 
@@ -308,6 +281,12 @@ func (f BlocsFile) Len() int {
 	return int(f.length)
 }
 
+func (f BlocsFile) LastBlocWrittenId() int {
+	f.Lock()
+	defer f.Unlock()
+	return int(f.length) - 1
+}
+
 // Return the bloc capacity
 func (f BlocsFile) Cap() int {
 	f.Lock()
@@ -370,9 +349,9 @@ func (f BlocsFile) Get(k int) (*Bloc, error) {
 
 	// fmt.Printf("read bloc at pos: %d with len: %d\n", pos, len)
 	b := &Bloc{
-		uid: BlocUid{
-			filepath: f.filepath,
-			id:       k,
+		Uid: BlocUid{
+			Filepath: f.filepath,
+			Id:       k,
 		},
 		data:    buf,
 		written: n,
@@ -420,9 +399,9 @@ func (f *BlocsFile) updateLastBloc(data []byte) (*Bloc, error) {
 	// fmt.Printf("updated last bloc #%d at pos: %d with %d bytes\n", k, pos, n)
 	f.updateLastBlocLength(int32(n))
 	b := &Bloc{
-		uid: BlocUid{
-			filepath: f.filepath,
-			id:       int(k),
+		Uid: BlocUid{
+			Filepath: f.filepath,
+			Id:       int(k),
 		},
 		data:    data,
 		written: n,
@@ -490,6 +469,52 @@ func (f *BlocsFile) Write(p []byte) (int, error) {
 		f.length++
 	}
 	return len(p), nil
+}
+
+func NewBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
+	f, err := os.OpenFile(filepath, os.O_RDWR+os.O_CREATE, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("error opening bloc file: %w", err)
+	}
+	bf := &BlocsFile{
+		Mutex:         &sync.Mutex{},
+		file:          f,
+		filepath:      filepath,
+		capacity:      int32(cap),
+		thresholdSize: thresholdSize,
+		positions:     make(map[int32]int32),
+		lengths:       make(map[int32]int32),
+	}
+	err = bf.initHeader()
+	if err != nil {
+		return nil, fmt.Errorf("error initing bloc file index: %w", err)
+	}
+
+	err = bf.buildIndexCache()
+	if err != nil {
+		return nil, fmt.Errorf("error building bloc file index cache: %w", err)
+	}
+
+	return bf, nil
+}
+
+func OpenBlocsFile(filepath string) (*BlocsFile, error) {
+	f, err := os.OpenFile(filepath, os.O_RDWR, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("error opening bloc file: %w", err)
+	}
+
+	bf := &BlocsFile{
+		Mutex:     &sync.Mutex{},
+		file:      f,
+		filepath:  filepath,
+		positions: make(map[int32]int32),
+		lengths:   make(map[int32]int32),
+	}
+
+	err = bf.buildIndexCache()
+
+	return bf, err
 }
 
 /*
