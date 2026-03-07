@@ -17,11 +17,11 @@ const (
 	emptyPosition = int32(-1)
 )
 
-type BlocOrdering int
+type BlocOrdering string
 
 const (
-	TopToBottom BlocOrdering = iota
-	BottomToTop
+	TopToBottom BlocOrdering = "TopToBottom"
+	BottomToTop BlocOrdering = "BottomToTop"
 )
 
 var (
@@ -72,7 +72,11 @@ type BlocCursor struct {
 
 func (c *BlocCursor) init() {
 	if !c.started {
-		c.cursor = int(c.ordering) * (c.file.Len() - 1)
+		order := 0
+		if c.ordering == BottomToTop {
+			order = 1
+		}
+		c.cursor = order * (c.file.Len() - 1)
 	}
 }
 
