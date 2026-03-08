@@ -372,7 +372,7 @@ func (f BlocsFile) GetLastNonEmptyBloc() (*Bloc, error) {
 	errChan := make(chan error)
 	for b := range f.All(BottomToTop, errChan) {
 		if b.Len() > 0 {
-			err := errorz.ChanCollect(errChan)
+			err := errorz.ChanCollect(errChan).Return()
 			return b, err
 		}
 	}
@@ -475,7 +475,7 @@ func (f *BlocsFile) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func NewBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
+func createBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
 	f, err := os.OpenFile(filepath, os.O_RDWR+os.O_CREATE, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("error opening bloc file: %w", err)
@@ -502,7 +502,7 @@ func NewBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
 	return bf, nil
 }
 
-func OpenBlocsFile(filepath string) (*BlocsFile, error) {
+func openBlocsFile(filepath string) (*BlocsFile, error) {
 	f, err := os.OpenFile(filepath, os.O_RDWR, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("error opening bloc file: %w", err)
@@ -519,6 +519,24 @@ func OpenBlocsFile(filepath string) (*BlocsFile, error) {
 	err = bf.buildIndexCache()
 
 	return bf, err
+}
+
+// Create new blocs file or open if it already exists.
+func NewBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
+	_, err := os.Stat(filepath)
+	if errors.Is(err, os.ErrNotExist) {
+		// Must create the file
+		return createBlocsFile(filepath, cap, thresholdSize)
+	} else if err != nil {
+		return nil, err
+	}
+
+	// FIXME: must add checks on headers ?
+	return openBlocsFile(filepath)
+}
+
+func OpenBlocsFile(filepath string) (*BlocsFile, error) {
+	return openBlocsFile(filepath)
 }
 
 /*

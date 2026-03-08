@@ -502,7 +502,10 @@ func TestBlocsFile_Write(t *testing.T) {
 	assert.Equal(t, expectedBloc0+expectedBloc1+expectedBloc2, string(bl0.data))
 
 	// Write all in different blocs
-	bf2, err := NewBlocsFile(p, 4, len([]byte(expectedBloc0))+1)
+	p2 := MkTempOrPanic("/tmp/TestBlocsFile_Write2")
+	defer os.RemoveAll(p2)
+
+	bf2, err := NewBlocsFile(p2, 4, len([]byte(expectedBloc0))+1)
 	require.NoError(t, err)
 	require.NotNil(t, bf1)
 
@@ -562,7 +565,7 @@ func TestBlocsFile_Reopening(t *testing.T) {
 	require.NotNil(t, bl1)
 	assert.Equal(t, expectedBloc0+expectedBloc1, string(bl1.data))
 
-	bf2, err := OpenBlocsFile(p)
+	bf2, err := NewBlocsFile(p, -1, -1)
 	require.NoError(t, err)
 	require.NotNil(t, bf1)
 
