@@ -8,8 +8,6 @@ import (
 	"iter"
 	"os"
 	"sync"
-
-	"github.com/mxbossard/utilz/errorz"
 )
 
 const (
@@ -299,17 +297,15 @@ func (f BlocsFile) Cap() int {
 }
 
 // New golang iterator "iter.Seq"
-func (f *BlocsFile) All(ordering BlocOrdering, errChan chan error) iter.Seq[*Bloc] {
+func (f *BlocsFile) All(ordering BlocOrdering) iter.Seq2[error, *Bloc] {
 	c := f.Cursor(ordering)
-	return func(yield func(b *Bloc) bool) {
+	return func(yield func(error, *Bloc) bool) {
 		for ok := c.HasNext(); ok; {
 			b, err := c.Next()
 			if err == ErrNotExist {
 				return
-			} else if err != nil {
-				errChan <- err
 			}
-			if !yield(b) {
+			if !yield(err, b) {
 				return
 			}
 		}
@@ -337,7 +333,7 @@ func (f BlocsFile) Get(k int) (*Bloc, error) {
 	buf := make([]byte, length)
 	n, err := f.file.ReadAt(buf, int64(pos))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error retrieving bloc %d of file [%s]: %w", k, f.filepath, err)
 	}
 	if int32(n) != length {
 		panic("bad count of bytes read")
@@ -347,7 +343,7 @@ func (f BlocsFile) Get(k int) (*Bloc, error) {
 		decorator := f.decorators[i]
 		buf, err = decorator.Read(buf)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error decorating #%d bloc %d of file [%s]: %w", i, k, f.filepath, err)
 		}
 	}
 
@@ -369,10 +365,8 @@ func (f BlocsFile) GetLastBloc() (*Bloc, error) {
 }
 
 func (f BlocsFile) GetLastNonEmptyBloc() (*Bloc, error) {
-	errChan := make(chan error)
-	for b := range f.All(BottomToTop, errChan) {
+	for err, b := range f.All(BottomToTop) {
 		if b.Len() > 0 {
-			err := errorz.ChanCollect(errChan).Return()
 			return b, err
 		}
 	}
@@ -505,7 +499,7 @@ func createBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error
 func openBlocsFile(filepath string) (*BlocsFile, error) {
 	f, err := os.OpenFile(filepath, os.O_RDWR, 0600)
 	if err != nil {
-		return nil, fmt.Errorf("error opening bloc file: %w", err)
+		return nil, fmt.Errorf("error opening bloc file [%s]: %w", filepath, err)
 	}
 
 	bf := &BlocsFile{
@@ -517,8 +511,11 @@ func openBlocsFile(filepath string) (*BlocsFile, error) {
 	}
 
 	err = bf.buildIndexCache()
+	if err != nil {
+		return nil, fmt.Errorf("error building bloc file [%s] index cache: %w", filepath, err)
+	}
 
-	return bf, err
+	return bf, nil
 }
 
 // Create new blocs file or open if it already exists.

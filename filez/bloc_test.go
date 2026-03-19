@@ -388,12 +388,10 @@ func TestBlocsFile_All(t *testing.T) {
 	expectedBloc2 := "loremIpsum2"
 	expectedBloc3 := "loremIpsum3"
 
-	errChan1 := make(chan error)
-	for b := range bf.All(TopToBottom, errChan1) {
+	for _, b := range bf.All(TopToBottom) {
 		_ = b
 		assert.Fail(t, "Iterator should be empty")
 	}
-	assert.Empty(t, errChan1)
 
 	// Test Bloc Writing
 	b0, err := bf.WriteNewBloc([]byte(expectedBloc0))
@@ -426,8 +424,8 @@ func TestBlocsFile_All(t *testing.T) {
 
 	// Test Iterating
 	k := 0
-	errChan2 := make(chan error)
-	for b := range bf.All(TopToBottom, errChan2) {
+	for err, b := range bf.All(TopToBottom) {
+		assert.NoError(t, err)
 		switch k {
 		case 0:
 			assert.Equal(t, expectedBloc0, string(b.data))
@@ -440,12 +438,11 @@ func TestBlocsFile_All(t *testing.T) {
 		}
 		k++
 	}
-	assert.Empty(t, errChan2)
 
 	// Test Iterating Reverse Order
 	k = 0
-	errChan3 := make(chan error)
-	for b := range bf.All(BottomToTop, errChan3) {
+	for err, b := range bf.All(BottomToTop) {
+		assert.NoError(t, err)
 		switch k {
 		case 0:
 			assert.Equal(t, expectedBloc3, string(b.data))
@@ -458,7 +455,6 @@ func TestBlocsFile_All(t *testing.T) {
 		}
 		k++
 	}
-	assert.Empty(t, errChan3)
 
 }
 
