@@ -277,6 +277,10 @@ type ByteSliceWriter struct {
 	cursor int
 }
 
+func (w ByteSliceWriter) Len() int {
+	return w.cursor
+}
+
 func (w *ByteSliceWriter) Write(b []byte) (int, error) {
 	n := copy(w.B[w.cursor:], b)
 	w.cursor += n
