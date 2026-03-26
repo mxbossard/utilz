@@ -59,6 +59,27 @@ func (b Bloc) Bytes() []byte {
 	return b.data
 }
 
+type BlocPart struct {
+	Uid BlocUid
+	Pos int
+	Len int
+}
+
+type VirtualBloc struct {
+	parts []BlocPart
+}
+
+func (b VirtualBloc) Parts() []BlocPart {
+	return b.parts
+}
+
+func (b VirtualBloc) Len() (n int) {
+	for _, bp := range b.parts {
+		n += bp.Len
+	}
+	return
+}
+
 type BlocCursor struct {
 	ordering    BlocOrdering
 	file        *BlocsFile
@@ -441,32 +462,49 @@ func (f *BlocsFile) WriteNewBloc(data []byte) (*Bloc, error) {
 
 // Append only in BlocFile :
 // Write into last bloc until full then create a new bloc and go on.
-func (f *BlocsFile) Write(p []byte) (int, error) {
-	if f.length >= f.capacity {
-		return 0, io.EOF
+func (f *BlocsFile) Writer() *BlocWriter {
+	bw := &BlocWriter{
+		writtenBlocParts: make([]BlocPart, 0),
 	}
+	bw.implem = func(p []byte) (int, error) {
+		if f.length >= f.capacity {
+			return 0, io.EOF
+		}
 
-	var data []byte
-	b1, err := f.Get(int(f.length - 1))
-	if err == ErrNotExist {
-		data = p
-	} else {
+		// Read last bloc content
+		var data []byte
+		b1, err := f.Get(int(f.length - 1))
+
+		if err == ErrNotExist {
+			data = p
+		} else {
+			if err != nil {
+				return 0, err
+			}
+			data = append(b1.data, p...)
+		}
+
+		// Append data to last bloc content
+		b2, err := f.UpdateLastBloc(data)
 		if err != nil {
 			return 0, err
 		}
-		data = append(b1.data, p...)
-	}
 
-	b2, err := f.UpdateLastBloc(data)
-	if err != nil {
-		return 0, err
+		wbp := BlocPart{
+			Uid: b2.Uid,
+			Pos: b1.Len(),
+			Len: b2.Len() - b1.Len(),
+		}
+		bw.writtenBlocParts = append(bw.writtenBlocParts, wbp)
+
+		// fmt.Printf("comparing thresholdSize: written %d/%d\n", b2.written, f.thresholdSize)
+		if b2.written >= f.thresholdSize {
+			//  Create new bloc for next write
+			f.length++
+		}
+		return len(p), nil
 	}
-	// fmt.Printf("comparing thresholdSize: written %d/%d\n", b2.written, f.thresholdSize)
-	if b2.written >= f.thresholdSize {
-		//  Create new bloc for next write
-		f.length++
-	}
-	return len(p), nil
+	return bw
 }
 
 func createBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
@@ -534,6 +572,23 @@ func NewBlocsFile(filepath string, cap, thresholdSize int) (*BlocsFile, error) {
 
 func OpenBlocsFile(filepath string) (*BlocsFile, error) {
 	return openBlocsFile(filepath)
+}
+
+type BlocWriter struct {
+	io.Writer
+
+	implem           func(b []byte) (int, error)
+	writtenBlocParts []BlocPart
+}
+
+func (w *BlocWriter) Write(b []byte) (int, error) {
+	return w.implem(b)
+}
+
+func (w BlocWriter) WritenBloc() *VirtualBloc {
+	return &VirtualBloc{
+		parts: w.writtenBlocParts,
+	}
 }
 
 /*

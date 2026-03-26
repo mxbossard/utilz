@@ -474,19 +474,19 @@ func TestBlocsFile_Write(t *testing.T) {
 
 	assert.Equal(t, 0, bf1.Len())
 
-	n, err := bf1.Write([]byte(expectedBloc0))
+	n, err := bf1.Writer().Write([]byte(expectedBloc0))
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc0)), n)
 
 	assert.Equal(t, 1, bf1.Len())
 
-	n, err = bf1.Write([]byte(expectedBloc1))
+	n, err = bf1.Writer().Write([]byte(expectedBloc1))
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc1)), n)
 
 	assert.Equal(t, 1, bf1.Len())
 
-	n, err = bf1.Write([]byte(expectedBloc2))
+	n, err = bf1.Writer().Write([]byte(expectedBloc2))
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc2)), n)
 
@@ -505,15 +505,15 @@ func TestBlocsFile_Write(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, bf1)
 
-	n, err = bf2.Write([]byte(expectedBloc0))
+	n, err = bf2.Writer().Write([]byte(expectedBloc0))
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc0)), n)
 
-	n, err = bf2.Write([]byte(expectedBloc1))
+	n, err = bf2.Writer().Write([]byte(expectedBloc1))
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc1)), n)
 
-	n, err = bf2.Write([]byte(expectedBloc2))
+	n, err = bf2.Writer().Write([]byte(expectedBloc2))
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc2)), n)
 
@@ -535,7 +535,8 @@ func TestBlocsFile_Reopening(t *testing.T) {
 	defer os.RemoveAll(p)
 
 	expectedBloc0 := "loremIpsum0"
-	expectedBloc1 := "loremIpsum1"
+	expectedBloc1 := "loremIpsum1aa"
+	expectedBloc2 := "loremIpsum2bcd"
 
 	// Write all in same bloc
 	bf1, err := NewBlocsFile(p, 4, 100)
@@ -544,17 +545,33 @@ func TestBlocsFile_Reopening(t *testing.T) {
 
 	assert.Equal(t, 0, bf1.Len())
 
-	n, err := bf1.Write([]byte(expectedBloc0))
+	// First write in bw1 writer
+	bw1 := bf1.Writer()
+	n, err := bw1.Write([]byte(expectedBloc0))
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc0)), n)
 
+	require.Len(t, bw1.WritenBloc().Parts(), 1)
+	assert.Equal(t, p, bw1.WritenBloc().Parts()[0].Uid.Filepath)
+	assert.Equal(t, 0, bw1.WritenBloc().Parts()[0].Uid.Id)
+	assert.Equal(t, 0, bw1.WritenBloc().Parts()[0].Pos)
+	assert.Equal(t, len([]byte(expectedBloc0)), bw1.WritenBloc().Parts()[0].Len)
+
 	assert.Equal(t, 1, bf1.Len())
 
-	n, err = bf1.Write([]byte(expectedBloc1))
+	// First write in bw2 writer
+	bw2 := bf1.Writer()
+	n, err = bw2.Write([]byte(expectedBloc1))
 	assert.NoError(t, err)
 	assert.Equal(t, len([]byte(expectedBloc1)), n)
 
 	assert.Equal(t, 1, bf1.Len())
+
+	require.Len(t, bw2.WritenBloc().Parts(), 1)
+	assert.Equal(t, p, bw2.WritenBloc().Parts()[0].Uid.Filepath)
+	assert.Equal(t, 0, bw2.WritenBloc().Parts()[0].Uid.Id)
+	assert.Equal(t, len([]byte(expectedBloc0)), bw2.WritenBloc().Parts()[0].Pos)
+	assert.Equal(t, len([]byte(expectedBloc1)), bw2.WritenBloc().Parts()[0].Len)
 
 	bl1, err := bf1.Get(0)
 	assert.NoError(t, err)
@@ -571,4 +588,19 @@ func TestBlocsFile_Reopening(t *testing.T) {
 	assert.NoError(t, err)
 	require.NotNil(t, bl2)
 	assert.Equal(t, expectedBloc0+expectedBloc1, string(bl2.data))
+
+	// Second write in bw2 writer
+	n, err = bw2.Write([]byte(expectedBloc2))
+	assert.NoError(t, err)
+	assert.Equal(t, len([]byte(expectedBloc2)), n)
+
+	require.Len(t, bw2.WritenBloc().Parts(), 2)
+	assert.Equal(t, p, bw2.WritenBloc().Parts()[0].Uid.Filepath)
+	assert.Equal(t, 0, bw2.WritenBloc().Parts()[0].Uid.Id)
+	assert.Equal(t, len([]byte(expectedBloc0)), bw2.WritenBloc().Parts()[0].Pos)
+	assert.Equal(t, len([]byte(expectedBloc1)), bw2.WritenBloc().Parts()[0].Len)
+	assert.Equal(t, p, bw2.WritenBloc().Parts()[1].Uid.Filepath)
+	assert.Equal(t, 0, bw2.WritenBloc().Parts()[1].Uid.Id)
+	assert.Equal(t, len([]byte(expectedBloc0))+len([]byte(expectedBloc1)), bw2.WritenBloc().Parts()[1].Pos)
+	assert.Equal(t, len([]byte(expectedBloc2)), bw2.WritenBloc().Parts()[1].Len)
 }
