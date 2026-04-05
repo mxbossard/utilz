@@ -24,3 +24,11 @@ func Max(times ...time.Time) time.Time {
 	})
 	return times[0]
 }
+
+func ParseOrPanic(layout, value string) time.Time {
+	t, err := time.Parse(layout, value)
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
