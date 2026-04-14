@@ -28,6 +28,21 @@ func BuildStringSeq(strings ...string) iter.Seq[string] {
 	}
 }
 
+func Flatten[K any](it iter.Seq[K]) (r []K) {
+	for k := range it {
+		r = append(r, k)
+	}
+	return
+}
+
+func Flatten2[K, V any](it iter.Seq2[K, V]) (r1 []K, r2 []V) {
+	for k, v := range it {
+		r1 = append(r1, k)
+		r2 = append(r2, v)
+	}
+	return
+}
+
 func Link[K, V any](itk iter.Seq[K], itv iter.Seq[V]) iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
 		nextK, stop := iter.Pull(itk)
