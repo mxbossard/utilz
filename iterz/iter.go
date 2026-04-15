@@ -43,6 +43,30 @@ func Flatten2[K, V any](it iter.Seq2[K, V]) (r1 []K, r2 []V) {
 	return
 }
 
+func Filter[K any](filter func(k K) bool, it iter.Seq[K]) iter.Seq[K] {
+	return func(yield func(K) bool) {
+		for i := range it {
+			if filter(i) {
+				if !yield(i) {
+					break
+				}
+			}
+		}
+	}
+}
+
+func Filter2[K, V any](filter func(k K, v V) bool, it iter.Seq2[K, V]) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for k, v := range it {
+			if filter(k, v) {
+				if !yield(k, v) {
+					break
+				}
+			}
+		}
+	}
+}
+
 func Link[K, V any](itk iter.Seq[K], itv iter.Seq[V]) iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
 		nextK, stop := iter.Pull(itk)
