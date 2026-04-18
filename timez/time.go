@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const YYYYMMDD = "2006-01-02"
+
 func Min(times ...time.Time) time.Time {
 	if len(times) == 0 {
 		panic("datetime: no time supplied")
@@ -31,4 +33,8 @@ func ParseOrPanic(layout, value string) time.Time {
 		panic(err)
 	}
 	return t
+}
+
+func ParseYyyyMmDd(value string) time.Time {
+	return ParseOrPanic(YYYYMMDD, value)
 }
