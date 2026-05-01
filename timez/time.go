@@ -35,6 +35,7 @@ func ParseOrPanic(layout, value string) time.Time {
 	return t
 }
 
+// Parse a date with format "2026-12-21"
 func ParseYyyyMmDd(value string) time.Time {
 	return ParseOrPanic(YYYYMMDD, value)
 }
