@@ -70,58 +70,95 @@ forma **parentis somnus** fama amem meo satiaque, vidit.
 fatorum voces. Insilit ille titulum similis capit, ossa in Iuli adamanta dei
 sermo!
 `
+	schnapsum = "Lorem Elsass ipsum dui pellentesque mänele Kabinetpapier tchao bissame Carola und vielmols, wie dignissim rhoncus tristique purus Yo dû. sed mollis baeckeoffe libero, ac Gal. varius Huguette ftomi! suspendisse ornare réchime DNA, kougelhopf Chulien flammekueche hopla turpis, messti de Bischheim wurscht Miss Dahlias Pellentesque Salut bisamme commodo Strasbourg schpeck elit s'guelt dolor sit senectus blottkopf, leo Coopé de Truchtersheim ch'ai rossbolla ornare Oberschaeffolsheim condimentum tellus chambon aliquam so  schnaps leo eget munster gal amet id, yeuh. gravida in, semper morbi turpis salu hoplageiss quam. Hans Chulia Roberstau Mauris bissame hopla ac Salu bissame barapli nüdle libero, bredele tellus kuglopf eleifend Wurschtsalad knepfle placerat leverwurscht météor habitant nullam ante elementum vulputate rucksack non sit amet, Heineken kartoffelsalad Verdammi Spätzle geïz et picon bière lotto-owe Morbi geht's risus, merci vielmols schneck auctor, gewurztraminer Oberschaeffolsheim sed sit mamsell hopla non Pfourtz ! hopla knack Richard Schirmeck jetz gehts los sagittis amet libero. Racing. id adipiscing Christkindelsmärik lacus consectetur Gal ! ullamcorper porta hop quam,"
+
+	saganIpsum = "Ship of the imagination the sky calls to us great turbulent clouds star stuff harvesting star light tingling of the spine extraordinary claims require extraordinary evidence. Invent the universe courage of our questions with pretty stories for which there's little good evidence of brilliant syntheses Jean-François Champollion white dwarf? Concept of the number one something incredible is waiting to be known descended from astronomers intelligent beings not a sunrise but a galaxyrise permanence of the stars and billions upon billions upon billions upon billions upon billions upon billions upon billions."
 )
 
-func LoremIpsum() string {
-	return loremIpsum
+func slice(s string) []string {
+	return strings.Split(s, " ")
 }
 
-func SplitedLoremIpsumWords() []string {
-	return strings.Split(loremIpsum, " ")
-}
-
-func LoremIpsumWords(n int) string {
-	words := strings.Split(loremIpsum, " ")
+func words(s string, n int) string {
+	words := slice(s)
 	sb := []string{}
-	for i := range n { //0; i < n; i++ {
+	for i := range n {
 		sb = append(sb, words[i%len(words)])
 	}
 	return strings.Join(sb, " ")
 }
 
-func LoremIpsumLength(l int) string {
+func length(s string, l int) string {
 	sb := strings.Builder{}
-	s := len(loremIpsum)
-	for i := 0; i < l; i += s {
-		c := min(l-i, s)
-		sb.WriteString(loremIpsum[i : i+c])
+	p := len(s)
+	for i := 0; i < l; i += l {
+		c := min(l-i, p)
+		sb.WriteString(s[i : i+c])
 	}
 	return sb.String()
+}
+
+func LoremIpsum() string {
+	return loremIpsum
+}
+
+func LoremIpsumSplitedWords() []string {
+	return slice(loremIpsum)
+}
+
+func LoremIpsumWords(n int) string {
+	return words(loremIpsum, n)
+}
+
+func LoremIpsumLength(l int) string {
+	return length(loremIpsum, l)
 }
 
 func MdLoremIpsum() string {
 	return mdLoremIpsum
 }
 
-func MdSplitedLoremIpsumWords() []string {
-	return strings.Split(mdLoremIpsum, " ")
+func MdLoremIpsumSplitedWords() []string {
+	return slice(mdLoremIpsum)
 }
 
 func MdLoremIpsumWords(n int) string {
-	words := strings.Split(mdLoremIpsum, " ")
-	sb := []string{}
-	for i := range n { //0; i < n; i++ {
-		sb = append(sb, words[i%len(words)])
-	}
-	return strings.Join(sb, " ")
+	return words(mdLoremIpsum, n)
 }
 
 func MdLoremIpsumLength(l int) string {
-	sb := strings.Builder{}
-	s := len(mdLoremIpsum)
-	for i := 0; i < l; i += s {
-		c := min(l-i, s)
-		sb.WriteString(mdLoremIpsum[i : i+c])
-	}
-	return sb.String()
+	return length(mdLoremIpsum, l)
 }
+
+func Schnapsum() string {
+	return schnapsum
+}
+
+func SchnapsumSplitedWords() []string {
+	return slice(schnapsum)
+}
+
+func SchnapsumWords(n int) string {
+	return words(schnapsum, n)
+}
+
+func SchnapsumLength(l int) string {
+	return length(schnapsum, l)
+}
+
+func SaganIpsum() string {
+	return saganIpsum
+}
+
+func SaganIpsumSplitedWords() []string {
+	return slice(saganIpsum)
+}
+
+func SaganIpsumWords(n int) string {
+	return words(saganIpsum, n)
+}
+
+func SaganIpsumLength(l int) string {
+	return length(saganIpsum, l)
+}
+

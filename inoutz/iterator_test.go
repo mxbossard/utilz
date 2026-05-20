@@ -16,7 +16,7 @@ func TestSplitIterator_All_BigBuffer(t *testing.T) {
 	k := 0
 	errChan := make(chan error)
 	for pos, data := range sr.All(errChan) {
-		assert.Equal(t, ztring.SplitedLoremIpsumWords()[pos], string(data))
+		assert.Equal(t, ztring.LoremIpsumSplitedWords()[pos], string(data))
 		k++
 	}
 	assert.Len(t, errChan, 0)
@@ -30,7 +30,7 @@ func TestSplitIterator_All_SmallBuffer(t *testing.T) {
 	k := 0
 	errChan := make(chan error)
 	for pos, data := range sr.All(errChan) {
-		assert.Equal(t, ztring.SplitedLoremIpsumWords()[pos], string(data))
+		assert.Equal(t, ztring.LoremIpsumSplitedWords()[pos], string(data))
 		k++
 	}
 	assert.Len(t, errChan, 0)
@@ -44,7 +44,7 @@ func TestSplitIterator_All_TinyBuffer(t *testing.T) {
 	k := 0
 	errChan := make(chan error)
 	for pos, data := range sr.All(errChan) {
-		assert.Equal(t, ztring.SplitedLoremIpsumWords()[pos], string(data))
+		assert.Equal(t, ztring.LoremIpsumSplitedWords()[pos], string(data))
 		k++
 	}
 	assert.Len(t, errChan, 0)
